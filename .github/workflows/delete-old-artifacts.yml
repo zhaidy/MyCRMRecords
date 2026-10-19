@@ -1,0 +1,70 @@
+name: Delete old artifacts
+# Deletes old build packages: every package on the release website-builds except the newest builds, which
+# Deployment/Poll.ps1 may still be deploying, and every Actions artifact except the newest mycrmrecords-release ones
+# (builds uploaded those before they used the release; a private repository has only 0.5 GB of Actions storage). The
+# release build (publish.yml) calls it as its last job, and it can be started by hand from the Actions tab.
+# (geekyeggo/delete-artifact only deletes artifacts of the run it runs in, so it cannot clear older runs; this calls
+# the REST API instead.)
+on:
+  workflow_call:
+    inputs:
+      keep:
+        description: Number of newest build packages to keep
+        type: string
+        default: '2'
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: Number of newest build packages to keep
+        default: '2'
+permissions:
+  actions: write
+  contents: write
+jobs:
+  delete:
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && fromJSON('["self-hosted","Windows"]') || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    concurrency:
+      group: mycrmrecords-delete-artifacts
+    # The server deploys only a build whose run succeeded (Deployment/Package.psm1 Select-RgRelease), so a failed
+    # clean-up never holds back a good release; the next build tries again.
+    continue-on-error: true
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          KEEP: ${{ inputs.keep || '2' }}
+        with:
+          script: |
+            const keep = Math.max(1, parseInt(process.env.KEEP, 10) || 2);
+            const { owner, repo } = context.repo;
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, { owner, repo, per_page: 100 });
+            const kept = new Set(artifacts
+              .filter(a => a.name === 'mycrmrecords-release' && !a.expired)
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, keep)
+              .map(a => a.id));
+            let freed = 0;
+            for (const a of artifacts) {
+              if (kept.has(a.id) || a.expired) continue;
+              await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: a.id });
+              freed += a.size_in_bytes;
+              core.info(`Deleted ${a.name} #${a.id} (${(a.size_in_bytes / 1048576).toFixed(1)} MB, ${a.created_at})`);
+            }
+            // The packages on the release website-builds (publish.yml): mycrmrecords-release-<build number>.zip.
+            let release = null, packages = 0;
+            try { release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag: 'website-builds' })).data; }
+            catch (e) { if (e.status !== 404) throw e; }
+            if (release) {
+              const assets = await github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id: release.id, per_page: 100 });
+              const builds = assets
+                .map(a => ({ asset: a, build: Number((/^mycrmrecords-release-(\d+)\.zip$/.exec(a.name) || [])[1]) }))
+                .filter(b => b.build > 0)
+                .sort((a, b) => b.build - a.build);
+              packages = Math.min(keep, builds.length);
+              for (const { asset } of builds.slice(keep)) {
+                await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: asset.id });
+                freed += asset.size;
+                core.info(`Deleted ${asset.name} from the release website-builds (${(asset.size / 1048576).toFixed(1)} MB)`);
+              }
+            }
+            core.notice(`Kept ${kept.size} artifact(s) and ${packages} release package(s); deleted ${(freed / 1048576).toFixed(1)} MB.`);

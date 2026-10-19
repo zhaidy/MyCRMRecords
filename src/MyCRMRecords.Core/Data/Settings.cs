@@ -1,0 +1,238 @@
+using System.Collections;
+using System.Reflection;
+using Newtonsoft.Json.Linq;
+
+namespace MyCRMRecords.Data;
+
+/// <summary>A setting kept encrypted in the settings file (Windows DPAPI for the server) and never sent to the browser.</summary>
+[AttributeUsage(AttributeTargets.Property)]
+public sealed class SecretAttribute : Attribute;
+
+public static class Environments
+{
+    public const string Production = "Production";
+    public const string Test = "Test";
+    public static readonly string[] All = [Production, Test];
+}
+
+/// <summary>
+/// Everything an administrator sets on the admin page, apart from where MyCRMRecords keeps its own data
+/// (<see cref="DatabaseSettings"/>): App_Data/crm-records-settings.json, which deployments never replace. Everything that sends
+/// or changes something outside MyCRMRecords starts off (the sync with MyCRM, the emails).
+/// </summary>
+public sealed class CrmSettings
+{
+    public ConnectionSettings Connections { get; set; } = new();
+    /// <summary>The two-way sync with MyCRM (off until an administrator turns it on).</summary>
+    public SyncSettings Sync { get; set; } = new();
+    public EmailSettings Email { get; set; } = new();
+    public JobSettings Jobs { get; set; } = new();
+    public string? ChangedBy { get; set; }
+    public DateTimeOffset? ChangedAt { get; set; }
+}
+
+/// <summary>The other databases MyCRMRecords reads and (the sync, when switched on) writes.</summary>
+public sealed class ConnectionSettings
+{
+    /// <summary>The OutSystems platform database: MyCRM's tables (import and sync), its users and roles.</summary>
+    public ExternalDatabase OutSystems { get; set; } = new();
+
+    /// <summary>AdvanceConnector: the public holidays (read only).</summary>
+    public ExternalDatabase AdvanceConnector { get; set; } = new();
+
+    public string CrmModule { get; set; } = "MyCRM";
+
+    public AdvanceTables AdvanceTables { get; set; } = new();
+}
+
+/// <summary>
+/// The names of the tables MyCRMRecords reads in AdvanceConnector (MyCRM's AdvanceConnector extension entities). A table in
+/// another database on the same server is written with the database first (Advance.dbo.public_holiday); a table whose
+/// own name has a dot, in brackets.
+/// </summary>
+public sealed class AdvanceTables
+{
+    /// <summary>MyCRM's entity public_holiday (date, name): the days left out of the working days.</summary>
+    public string PublicHolidays { get; set; } = "dbo.public_holiday";
+}
+
+public sealed class ExternalDatabase
+{
+    public bool Configured { get; set; }
+    public SqlServerSettings SqlServer { get; set; } = new();
+}
+
+/// <summary>The SMTP server the emails go through. Off: emails are only written to the email log.</summary>
+public sealed class EmailSettings
+{
+    public bool Enabled { get; set; }
+    public string Server { get; set; } = "172.19.109.20";
+    public int Port { get; set; } = 25;
+    public string UserName { get; set; } = "";
+    [Secret] public string Password { get; set; } = "";
+    public string From { get; set; } = "rspapps@ricoh.sg";
+    public string FromName { get; set; } = "MyCRMRecords";
+    /// <summary>The site's address, for the links in the emails.</summary>
+    public string SiteUrl { get; set; } = "https://apps.ricoh.sg/MyCRMRecords/";
+    /// <summary>Every email goes to this address only (for trying it out); blank to send to the real people.</summary>
+    public string RedirectTo { get; set; } = "";
+
+    /// <summary>Told of each new internal challenge (MyCRM's Notify: rsphrgroup@ricoh.sg, Mayu_Miyama@rapp.ricoh.com).</summary>
+    public string InternalChallengesNotify { get; set; } = "rsphrgroup@ricoh.sg, Mayu_Miyama@rapp.ricoh.com";
+    /// <summary>Told of each new customer complaint or area of improvement (MyCRM's Notify2).</summary>
+    public string ComplaintsNotify { get; set; } = "rspbe@ricoh.sg, rayeyeo@ricoh.sg, joannechen@ricoh.sg";
+    /// <summary>Told of each other new feedback: potential customer complaints (MyCRM's Notify3).</summary>
+    public string OthersNotify { get; set; } = "rayeyeo@ricoh.sg, joannechen@ricoh.sg";
+    /// <summary>BE: told when a feedback is resolved, to confirm the satisfaction (MyCRM: rspbe@ricoh.sg).</summary>
+    public string BeTo { get; set; } = "rspbe@ricoh.sg";
+
+    public string LinkTo(string page) => SiteUrl.Trim().TrimEnd('/') + "/" + page;
+}
+
+/// <summary>The scheduled tasks: all off until an administrator turns them on. MyCRM had none (its timers ran once, when published).</summary>
+public sealed class JobSettings
+{
+    public bool Enabled { get; set; }
+    public List<JobSchedule> Schedules { get; set; } = [];
+
+    public JobSchedule For(string job) => Schedules.FirstOrDefault(s => s.Job == job) ?? Jobs.Default(job);
+}
+
+public sealed class JobSchedule
+{
+    public string Job { get; set; } = "";
+    public bool Enabled { get; set; }
+    /// <summary>Every <see cref="EveryMinutes"/> minutes, or daily at <see cref="DailyAt"/> (HH:mm, Singapore time).</summary>
+    public int EveryMinutes { get; set; }
+    public string DailyAt { get; set; } = "";
+    /// <summary>The days a daily task runs, as numbers (0 Sunday to 6 Saturday) separated by commas; blank: every day.</summary>
+    public string Days { get; set; } = "";
+}
+
+/// <summary>MyCRMRecords's scheduled tasks: none yet (the sync with MyCRM keeps its own timing).</summary>
+public static class Jobs
+{
+    public static readonly string[] All = [];
+
+    public static JobSchedule Default(string job) => throw new ArgumentException("No job " + job);
+
+    public static string Title(string job) => job;
+}
+
+/// <summary>
+/// Keeps an object in a JSON file with its <see cref="SecretAttribute"/> text encrypted (DPAPI on the server); a
+/// secret that cannot be decrypted (the file came from another server) reads as empty.
+/// </summary>
+public sealed class SettingsFile<T>(string path, ISecretProtector protector) where T : class, new()
+{
+    private readonly string _path = System.IO.Path.GetFullPath(path);
+    private static readonly object Gate = new();
+
+    public string Path => _path;
+
+    public T Load()
+    {
+        lock (Gate)
+        {
+            if (!File.Exists(_path)) return new T();
+            var settings = Json.Deserialize<T>(File.ReadAllText(_path)) ?? new T();
+            Transform(settings, protect: false);
+            return settings;
+        }
+    }
+
+    public void Save(T settings)
+    {
+        lock (Gate)
+        {
+            var copy = Json.Clone(settings);
+            Transform(copy, protect: true);
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path)!);
+            var temp = _path + ".tmp";
+            File.WriteAllText(temp, Json.Serialize(copy, indented: true));
+            if (File.Exists(_path)) File.Replace(temp, _path, null);
+            else File.Move(temp, _path);
+        }
+    }
+
+    /// <summary>Loads, changes and saves the settings as one step.</summary>
+    public T Change(Action<T> change)
+    {
+        lock (Gate)
+        {
+            var settings = Load();
+            change(settings);
+            Save(settings);
+            return settings;
+        }
+    }
+
+    private void Transform(object target, bool protect)
+    {
+        foreach (var property in target.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.CanWrite))
+        {
+            var value = property.GetValue(target);
+            if (value is null) continue;
+            if (property.PropertyType == typeof(string))
+            {
+                if (property.GetCustomAttribute<SecretAttribute>() is null) continue;
+                var text = (string)value;
+                property.SetValue(target, text.Length == 0 ? "" : protect ? protector.Protect(text) : Unprotect(text));
+            }
+            else if (value is IList list && property.PropertyType.IsGenericType)
+            {
+                foreach (var item in list) if (item is not null && !item.GetType().IsValueType && item is not string) Transform(item, protect);
+            }
+            else if (property.PropertyType.IsClass && property.PropertyType.Namespace?.StartsWith("MyCRMRecords", StringComparison.Ordinal) == true)
+            {
+                Transform(value, protect);
+            }
+        }
+    }
+
+    private string Unprotect(string text)
+    {
+        try
+        {
+            return protector.Unprotect(text);
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+}
+
+/// <summary>A settings object as the admin page sees it: every secret replaced by whether it is set.</summary>
+public static class SettingsView
+{
+    public static JToken Of(object settings)
+    {
+        var json = JToken.FromObject(settings, Newtonsoft.Json.JsonSerializer.Create(Json.Settings));
+        Hide(settings, json);
+        return json;
+    }
+
+    private static void Hide(object target, JToken json)
+    {
+        if (json is not JObject obj) return;
+        foreach (var property in target.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var name = char.ToLowerInvariant(property.Name[0]) + property.Name.Substring(1);
+            var value = property.GetValue(target);
+            if (property.GetCustomAttribute<SecretAttribute>() is not null)
+            {
+                obj.Remove(name);
+                obj[name + "Set"] = value is string s && s.Length > 0;
+            }
+            else if (value is IList list && obj[name] is JArray array)
+            {
+                for (var i = 0; i < list.Count && i < array.Count; i++) if (list[i] is { } item && item is not string) Hide(item, array[i]);
+            }
+            else if (value is not null && property.PropertyType.IsClass && property.PropertyType != typeof(string) && obj[name] is JObject child)
+            {
+                Hide(value, child);
+            }
+        }
+    }
+}
