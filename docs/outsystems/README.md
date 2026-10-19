@@ -5,10 +5,18 @@ MyCRMRecords takes over the **Users**, **Territory** and **Company** part of the
 contacts, phones and emails come with it. **The rest of MyCRM stays in OutSystems and keeps being used**: activities,
 leads, prospects, projects, OAA forms, MIF, training events, sales goals, the dashboard and the reports.
 
-This document is what MyCRMRecords keeps of MyCRM's behaviour. It is written from MyCRM's data model (OSSYS_ENTITY and
-OSSYS_ENTITY_ATTR, read on 2026-10-19). **MyCRM's screens, actions, roles, timers and emails could not be read yet**:
-Service Studio did not answer any request about MyCRM (every one timed out after 60 seconds, while the other modules
-answered at once). The sections marked *(to read)* are completed once it answers.
+This document is what MyCRMRecords keeps of MyCRM's behaviour. Service Studio could not answer any request about MyCRM
+(the module is too big: every request timed out after 60 seconds), so MyCRM was read from its exported model
+(`MyCRM_v1037.oml`, decoded with the MyApps project's `oml-reader.py` on 2026-10-19) and its data model (OSSYS). The
+behaviour of each area is described in detail in:
+
+- [users.md](users.md): users (CUser), MyCRM's roles, teams, the Admin page, and `GetSub` (who sees whose data).
+- [territory.md](territory.md): territories (which salesperson looks after which company), `UserCanAccessCompany`.
+- [company.md](company.md): companies, addresses, contacts, phones and emails, the `Pre…` columns, the import timers.
+
+This page is the overview: what moves, where it meets the rest of MyCRM, and the rules MyCRMRecords changes on purpose.
+Sections 3 to 11 below were written from the data model before the model could be read; where they differ from the three
+documents, the documents are right.
 
 ## Contents
 
@@ -167,7 +175,28 @@ MyCRMRecords deletes nothing either way, and marks what it removes in MyCRM (`IS
 
 ## 12. Rules MyCRMRecords changes on purpose
 
-None yet.
+1. **Territories are created and assigned by Sales Admin, not built from Advance.** MyCRM built its territories from
+   Advance (`Users 2`, `Territories`, `Company 2`) with `SetTerritory_Update` and related actions; that is deprecated
+   (decided 2026-10-19). In MyCRMRecords, Sales Admin creates **named territories** (a name and a number), puts
+   companies in them and gives each one a salesperson; giving a territory to someone else moves all its companies,
+   and each company's move is recorded in `TerritoryMovement`. MyCRM's tables keep working as before: each territory is
+   one active `Territory` row (`Territory` = the number, `OwnerID` = the salesperson, `IsTemporary` = 0) with one
+   `CompanyTerritory` row per company, so MyCRM's `UserCanAccessCompany`, its lists and MyFile read them unchanged. The
+   name is kept in MyCRMRecords only (MyCRM's table has no column for it). MyCRM's Advance territory actions and timers
+   are to be switched off in OutSystems before MyCRMRecords' territories are used.
+2. **Only the permanent territories move.** The temporary territories MyCRM's Projects and CSST parts create (31,898
+   active, with about a million company links on 2026-10-19) stay MyCRM's: MyCRMRecords reads them only to decide who may
+   see a company, and never copies or changes them. The 4 million inactive territory rows left by the Advance rebuild
+   are neither imported nor touched.
+3. **A person's CUser records are updated, not deleted and made again.** MyCRM's user page deletes all of a person's
+   CUser rows at every save and creates new ones (losing `CId`, created/updated data and `ProfileId`); MyCRMRecords
+   changes the rows in place, adds rows for new teams and marks the others inactive.
+
+## 13. Production counts that shaped the design (2026-10-19)
+
+Active territories 32,099, of which temporary 31,898; salespeople with a permanent territory 199; active
+`CompanyTerritory` rows 1,019,601, of which in active permanent territories 22,716; companies with a salesperson 22,712,
+of which 3 with more than one.
 
 ## Appendix: the data model
 
