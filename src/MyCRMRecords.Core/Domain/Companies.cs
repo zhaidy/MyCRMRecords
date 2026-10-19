@@ -667,34 +667,34 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
         if (errors.Count > 0) return OperationResult.Invalid(errors);
 
         var now = clock();
-        Contact saved = null!;
+        var contact = editing?.Contact ?? new Contact { IsActive = true, CreatedAt = now, CreatedBy = actor.Login };
+        if (editing is not null)
+        {
+            contact.PreFirstName = contact.FirstName;
+            contact.PreLastName = contact.LastName;
+            contact.PreIsActive = contact.IsActive;
+            contact.PreDepartment = contact.Department;
+            contact.PreMiddleName = contact.MiddleName;
+            contact.PreDesignation = contact.Designation;
+            contact.PreSalutation = contact.Salutation;
+            contact.UpdatedAt = now;
+            contact.UpdatedBy = actor.Login;
+        }
+        contact.Salutation = salutation;
+        contact.FirstName = first;
+        contact.MiddleName = middle;
+        contact.LastName = last;
+        contact.Department = department;
+        contact.Designation = designation;
+        contact.IsLinkedIn = input.IsLinkedIn;
+        // "Is Eq. List" only for a contact with an email (MyCRM enabled it only then).
+        contact.IsEqList = input.IsEqList && emails.Count > 0;
+        // A new contact takes MyCRM's number (the sync adds it there first), outside the batch, as MyCEV adds its feedbacks.
+        if (editing is null) store.Insert(contact);
+        var saved = contact;
         store.Batch(s =>
         {
-            var contact = editing?.Contact ?? new Contact { IsActive = true, CreatedAt = now, CreatedBy = actor.Login };
-            if (editing is not null)
-            {
-                contact.PreFirstName = contact.FirstName;
-                contact.PreLastName = contact.LastName;
-                contact.PreIsActive = contact.IsActive;
-                contact.PreDepartment = contact.Department;
-                contact.PreMiddleName = contact.MiddleName;
-                contact.PreDesignation = contact.Designation;
-                contact.PreSalutation = contact.Salutation;
-                contact.UpdatedAt = now;
-                contact.UpdatedBy = actor.Login;
-            }
-            contact.Salutation = salutation;
-            contact.FirstName = first;
-            contact.MiddleName = middle;
-            contact.LastName = last;
-            contact.Department = department;
-            contact.Designation = designation;
-            contact.IsLinkedIn = input.IsLinkedIn;
-            // "Is Eq. List" only for a contact with an email (MyCRM enabled it only then).
-            contact.IsEqList = input.IsEqList && emails.Count > 0;
-            if (editing is null) s.Insert(contact);
-            else s.Update(contact);
-            saved = contact;
+            if (editing is not null) s.Update(contact);
 
             if (input.IsDefault)
                 foreach (var other in s.Find<CompanyContactLink>(Query.Where("CompanyId", company.Id).And("IsDefault", true)).Where(l => l.ContactId != contact.Id))
