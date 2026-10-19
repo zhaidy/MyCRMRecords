@@ -14,9 +14,8 @@ behaviour of each area is described in detail in:
 - [territory.md](territory.md): territories (which salesperson looks after which company), `UserCanAccessCompany`.
 - [company.md](company.md): companies, addresses, contacts, phones and emails, the `Pre…` columns, the import timers.
 
-This page is the overview: what moves, where it meets the rest of MyCRM, and the rules MyCRMRecords changes on purpose.
-Sections 3 to 11 below were written from the data model before the model could be read; where they differ from the three
-documents, the documents are right.
+This page is the overview: what moves, where it meets the rest of MyCRM, the rules MyCRMRecords changes on purpose
+and what to switch off in MyCRM.
 
 ## Contents
 
@@ -27,11 +26,13 @@ documents, the documents are right.
 - [5. Company](#5-company)
 - [6. Addresses, contacts, phones and emails](#6-addresses-contacts-phones-and-emails)
 - [7. The "Pre…" columns](#7-the-pre-columns)
-- [8. Screens, roles, timers and emails (to read)](#8-screens-roles-timers-and-emails-to-read)
+- [8. Screens, roles and timers](#8-screens-roles-and-timers)
 - [9. Other applications that read these tables](#9-other-applications-that-read-these-tables)
-- [10. What MyCRM deletes (to read)](#10-what-mycrm-deletes-to-read)
+- [10. What MyCRM deletes](#10-what-mycrm-deletes)
 - [11. Questions still open](#11-questions-still-open)
 - [12. Rules MyCRMRecords changes on purpose](#12-rules-mycrmrecords-changes-on-purpose)
+- [13. Production counts that shaped the design (2026-10-19)](#13-production-counts-that-shaped-the-design-2026-10-19)
+- [14. Switching over: what to switch off in MyCRM](#14-switching-over-what-to-switch-off-in-mycrm)
 - [Appendix: the data model](#appendix-the-data-model)
 
 ## 1. What moves and what stays
@@ -75,103 +76,76 @@ projects keep pointing at it.
 
 ## 3. Users
 
-- `CUser`: a person's MyCRM profile, one per OutSystems user (`UserId`): their MyCRM `Role` and `Team`,
-  `Designation`, `PhoneNumber`, `SalesmanCode`, `TerritoryCode`, `IsActive`, `CId` (an Id in another CRM, see 11),
-  `ProfileId` (a reference to an entity of another module, see 11), created and updated by and on.
-- `Role` (static): MyCRM's own role list with a `Level`. This is not an OutSystems role: who may sign in to MyCRM and
-  what they see is decided by the OutSystems roles *(to read)*; `Role` is what the sales screens use (MyFiles called
-  MyCRM's `Role(user)` and `UserCanAccessCompany(RoleId, UserList, CompanyId)` with it).
-- `Team`: a name and short name, active or not.
-- `VacantUsers`: an OutSystems user and a `PreviousOwner` (a number), active or not: probably the accounts of someone
-  who left, kept for whoever takes them over *(to read)*.
+A person's MyCRM profile is `CUser`, **one row per (person, team)**, with MyCRM's `Role` (45 static records), the
+team, designation, phone number, salesman and territory codes, `CId` (the old CRM's user Id) and `ProfileId` (MyOrders'
+sales target profile). Teams are named after their manager. MyCRM's `Role(user)` is the role of the person's **first**
+row (active or not); `IsSalesAdmin` is any row with Admin or SalesAdmin; `GetSub` builds, at sign-in, the list of
+people whose data the person sees, from the role and the teams of all their rows. MyCRM's user page **deletes** all a
+person's rows at every save and creates new ones. `VacantUsers` is never used: a "vacant user" is an inactive
+OutSystems user renamed "TBH_…". Details: [users.md](users.md).
 
 ## 4. Territory
 
-- `Territory`: a territory number (`Territory`, a number) with an owner (`OwnerID`, an OutSystems user) and the flags
-  `IsActive`, `IsTemporary` and `IsOwner`. A territory number can have several rows (several people, one of them the
-  owner, some temporary) *(to read)*.
-- `CompanyTerritory`: a company in a territory (by the territory row's Id), active or not, created by.
-- `TerritoryRelationship`: a territory related to another, of a `TerritoryRelationshipType` (static), active or not.
-- `TerritoryMovement`: the history of a company moving from one user to another (from, to, by, on).
-- `TerritoryCode` (table `OSUSR_824_TempTerritoryCode`): a company's territory code and its parent territory, as
-  text. The table name says *Temp*: possibly filled by an upload *(to read)*.
-- **The sizes say these are worked out, not typed**: 4.5 million `Territory` rows and 3.5 million `CompanyTerritory`
-  rows for 61,000 companies and 2,600 users (about 58 per company), and 1.4 million `TempTerritoryCode` rows. They look
-  like an access list MyCRM builds from a hierarchy of territory codes (who may see which company), probably by a timer
-  or a batch, rather than records people keep one by one *(to read)*. They cannot be synced like the other tables
-  (reading every row every few minutes); how MyCRMRecords handles them is decided once MyCRM's logic is read.
+A `Territory` row is "this user holds territory number N"; a `CompanyTerritory` row puts a company in it. Permanent
+rows were rebuilt from Advance by a daily timer that only ever adds rows (hence millions of inactive rows); temporary
+rows give project members (Projects, CSST, the telemarketer) access to the project's companies. The salesperson ("owner")
+of a company is worked out: the user of its first active link to an active permanent territory. `UserCanAccessCompany`
+lets some roles open every company, and everyone else the active companies of the active territories (permanent **or
+temporary**) of the people in their `GetSub` list. Each change of salesperson is in `TerritoryMovement`.
+`TerritoryCode` (`TempTerritoryCode`), `TerritoryRelationship` and `CompOwner` are read by nothing. Details:
+[territory.md](territory.md).
 
 ## 5. Company
 
-- `Company` (52 attributes): name, BRN, website, incorporation certificate number, employees, paid-up capital, group
-  (`CompanyGroup`, static) and group name (`CompanyGroupName`), account type, ownership, industry, customer type and
-  Advance customer type (static lists), `CustomerNo`, `CreditTerms`, remarks and sales remarks (up to 50,000
-  characters), phone and fax, the flags `IsActive`, `IsCaretake`, `IsChannelPartner` (and for VSS and CS),
-  `IsCreatedByMSD`, MIF potential, revenue, `CRMCompanyId` (an Id in another CRM, see 11), created and updated by and
-  on (dates only). Most attributes have a `Pre…` copy (section 7).
-- `CompOwner`: the company's owners (OutSystems users). **It is empty in production**: MyFile's provisional
-  territory rule ("the person owns the company in `CompOwner`") therefore lets no MyCRM Sales, Manager or Head open a
-  file of a MyCRM company. The real rule is in the territory tables.
-- `CompanyCaretake`: a caretake account's remarks, created and updated by and on.
-- `CompanyRelationship`: a company related to another, of a `CompanyRelationshipType` (static), active or not.
-- `CompanyGroupName`: the group names a company can belong to.
-- `TempCompanies`: a company name and BRN (long texts) with a company and who updated it: by its name a working table,
-  possibly for an upload or a bulk match *(to read)*.
+`Company` (52 attributes) is edited on one admin form (CompanyDetail, Sales Admins: name, BRN, website, flags, customer
+type, Advance customer type, group name, account type, ownership, remarks), plus the number of employees and the sales
+remarks on the company page (anyone who opens it). Industry, phone, fax, paid-up capital, MIF potential and revenue are
+shown or stored but edited nowhere. `CustomerNo` comes from Advance (timer `UpdateCustomerNo`). The old-CRM Id
+columns (`CRMCompanyId`, …) were filled by import timers from the old CRM. Relationships are parent → subsidiary
+(type Parent). Details: [company.md](company.md).
 
 ## 6. Addresses, contacts, phones and emails
 
-- `Address`: type (`AddressType`, static), unit number, block, street, building, postal code, country, city, state,
-  `IsDefault`, `IsActive`, `CRMAddressId`, created and updated by and at, and `Pre…` copies.
-- `CompanyAddressLink`: an address of a company (`CRMAddressLink`: an Id in another CRM).
-- `Contacts`: first, middle and last name, salutation, designation, department, `IsLinkedIn`, `IsEqList`, `IsActive`,
-  `CId`, `CRMContactLinkId`, created and updated by and at, and `Pre…` copies.
-- `CompanyContactLink`: a contact of a company, `IsDefault`, `CId`.
-- `AddressContactLink`: a contact at an address.
-- `Phone`: a number of a company or a contact, of a `PhoneType` (static), `IsActive`, `CRMPhoneId`, `CRMPhoneLinkId`,
-  created and updated, and `Pre…` copies.
-- `Email`: an address of a company or a contact, `ConsentToMarketingInfo`, `IsActive`, `CID`, `CRMEmailLinkId`,
-  created and updated, and `Pre…` copies.
+A company's addresses (`CompanyAddressLink` → `Address`, one default), contacts (`CompanyContactLink` → `Contacts`, one
+primary contact), and each contact's phones and emails (always of a contact; MyCRM fills the company too).
+`AddressContactLink` is never read or written (empty). Details: [company.md](company.md), sections 3.13 to 3.20.
 
 ## 7. The "Pre…" columns
 
-`Company`, `Address`, `Contacts`, `Phone` and `Email` keep a `Pre…` copy of most of their attributes
-(`PreCompanyName`, `PreBRN`, … `PreIsActive`). What they hold is not known yet *(to read)*: the values before the last
-change (shown to someone who approves it, or written to another CRM, which the `CRM…Id` columns suggest), or the
-values last sent somewhere. MyCRMRecords keeps them and writes them back unchanged until MyCRM's logic is read, then
-fills them exactly as MyCRM does.
+They hold **the values a record had just before its last edit on a MyCRM screen** (a one-step history): written by the
+company form (all 19, existing companies only), the address and contact editors, and the deletes (`PreIsActive = 1`).
+No logic reads them; lists that stay in MyCRM **sort** by `PreCompanyName`. MyCRMRecords fills them exactly as MyCRM.
+Details: [company.md](company.md), section 2.
 
-## 8. Screens, roles, timers and emails (to read)
+## 8. Screens, roles and timers
 
-Not read yet: MyCRM's screens for users, territories and companies (and the screen that opens one record, with its
-input parameter, for the redirects), its OutSystems roles and who sees what, the server actions behind them
-(`UserCanAccessCompany`, `Role`, anything that writes these tables), timers, emails and the integrations
-(Advance, the other CRM).
+Every screen, block, server action and timer of the part is described in the three documents: users.md sections 3 to
+12, territory.md sections 4 to 6, company.md sections 3 to 5. What MyCRMRecords does with each is in the README's
+*What it does* table, and the timers to switch off are in section 14.
 
 ## 9. Other applications that read these tables
 
-- **MyFile** reads `Company`, `CUser`, `Role` and `CompOwner` (company names, BRN look-up, a person's MyCRM role, the
-  provisional territory rule).
+- **MyFile** reads `Company`, `CUser`, `Role`, `Territory` and `CompanyTerritory` (company names, BRN look-up, a
+  person's MyCRM role, MyCRM's access rule since MyFile's pull request 4).
 - **MyCustomers** matches BRNs between Advance and MyCRM's companies.
-- **MyVendors** once considered MyCRM's `IsITS` (not used).
+- **MyCRMMSD** (the "MSD Sales Rep" on the company page) and the rest of MyCRM.
 
 They keep reading MyCRM's tables, which the sync keeps up to date.
 
-## 10. What MyCRM deletes (to read)
+## 10. What MyCRM deletes
 
-Most references to `Company` are *Protect* (a company with activities, contacts and so on cannot be deleted); the
-static entities' are *Ignore*. Whether MyCRM's screens delete rows or only set `IsActive` is to be read.
-MyCRMRecords deletes nothing either way, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has it).
+`CUser` (every save of a person), `CompanyRelationship` (the red crosses), `CompanyAddressLink` (with an address),
+`CompanyGroupName`, `CompanyTerritory` (only the developer button "Set Territory"), `TempCompanies` (a scratch list),
+and every `Team` (the legacy timer, which always fails). Everything else is only marked inactive. MyCRMRecords deletes
+nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has it): see rule 3 and rules 11 to 13 below.
 
 ## 11. Questions still open
 
-1. What the `Pre…` columns are for (section 7).
-2. What `CId`, `CRMCompanyId`, `CRMAddressId`, `CRMContactLinkId`, `CRMPhoneId`, `CRMEmailLinkId` refer to (another
-   CRM, perhaps D365), and whether MyCRM still writes them.
-3. `CUser.ProfileId` refers to an entity of another module: which.
-4. What `TempCompanies`, `TempTerritoryCode` and `VacantUsers` are used for.
-5. MyCRM's `UserCanAccessCompany` rule (MyFile uses a provisional "owners only" rule until it is read, and `CompOwner` is
-   empty).
-6. How `Territory`, `CompanyTerritory` and `TempTerritoryCode` are filled (millions of rows: section 4).
+1. The real schedules of MyCRM's timers in Service Center (the model has almost none): which still run (section 14).
+2. Whether the old CRM still exists (its Id columns are kept and synced as they are).
+3. MyOrders' `Profiles` attributes behind the Profile drop-down (MyCRMRecords keeps a person's `ProfileId` as it is
+   and does not offer the choice yet).
+4. The Role Ids in production (MyCRMRecords matches roles by label, so it does not need them).
 
 ## 12. Rules MyCRMRecords changes on purpose
 
@@ -208,6 +182,44 @@ MyCRMRecords deletes nothing either way, and marks what it removes in MyCRM (`IS
 7. **The `Pre…` columns are filled exactly as MyCRM fills them** (the values just before the last edit, on the saves
    that write them in MyCRM), because lists that stay in MyCRM sort by `PreCompanyName`.
 
+8. **No vacant ("TBH") users are made.** MyCRM created and renamed inactive OutSystems users to park a leaver's
+   territories; MyCRMRecords never writes OutSystems' user table. A territory with no salesperson is simply vacant
+   (`OwnerID` empty in MyCRM), and existing TBH users still show as salespeople where MyCRM has them.
+9. **One rule moves a company.** Putting a company in a territory takes it out of every other territory (as MyCRM's
+   bulk transfer screen did; its "take from the current owner" block took it from the first owner only, and its
+   reassign block from this user only). A movement is recorded only when the salesperson changes. Giving a territory
+   to another salesperson moves all its companies, each recorded. A company put back in a territory gets a new link
+   (an old link is never made active again).
+10. **One editor for a person's CRM profile, editing in place** (rule 3), listing every CRM user without typing (MyCRM
+    showed nothing before two letters, and at most 200). The raw "CRM Users" editor of MyCRM's Admin page is not
+    carried over. MyCRM's team rules per role are kept: Sales, PP Specialist and CLETrainer one team; the managers'
+    roles the team named after them (with *Create team*); CSST one team or none; other roles any number. A person
+    saved with no team is no longer a CRM user, as in MyCRM, but the page now says so before saving (MyCRM's warning
+    could never show). The MyOrders profile is kept as it is but not offered (question 3).
+11. **A CRM user record taken away keeps no team, and no role once the person has no team left.** MyCRM reads every
+    record's role and team whatever its `IsActive` (`Role()`, `IsSalesAdmin`, `GetSub`), so an inactive record keeping
+    its team or role would change what MyCRM shows; emptied, MyCRM reads exactly what it read when the records were
+    deleted. The team is kept here (`FormerTeamId`).
+12. **Relationships are marked, not deleted, and cannot loop.** A removed relationship is `IsActive = 0` in MyCRM
+    (MyCRM deleted it; its screens read only active ones). A company can no longer be related to itself, nor be put
+    below a company that is below it (MyCRM allowed both).
+13. **A deleted address keeps its link in MyCRM**: the address is inactive, as MyCRM does, but the `CompanyAddressLink`
+    row MyCRM deleted is left there (MyCRMRecords never deletes in MyCRM; MyCRM's screens read only active addresses).
+    A removed group name is inactive here and left in MyCRM (no column to mark it); removing one still used by a
+    company is refused with a message (MyCRM showed the database error).
+14. **The bulk list of companies** (MyCRM's TerritoryUpdate): pasted or from Excel; an empty BRN no longer matches
+    every company with an empty BRN; companies already in the territory are shown instead of skipped silently; the
+    list is kept on the page (MyCRM's `TempCompanies` scratch table is not used).
+15. **MD keeps the territories like a Sales Admin** (MyCRM let MD only use the bulk transfer screen), and **only
+    administrators sign in as someone else**.
+16. **Not carried over**: the postal-code look-up from Google on the address form (it needs a Google API key: ask if it
+    is wanted); the company list's contract-date filters (they read `ExpireMachine`, which stays in MyCRM); the
+    caretakers from projects and the MSD sales rep on the company page (Projects and MyCRMMSD stay in MyCRM); the
+    recent-items log; MyCRM's raw Territories list and TerritoryDetail flags (replaced by the named territories); the
+    Admin page's developer tools and Month Coverage (MIF, stays in MyCRM); "Customer code" falls back no more to a live
+    look-up in Advance by name (it shows `CustomerNo`, which the scheduled task fills); `AddressContactLink` (never
+    used) is not synced; the push to the old CRM (switched off in MyCRM).
+
 ## 13. Production counts that shaped the design (2026-10-19)
 
 The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):
@@ -217,6 +229,41 @@ Preview's time is measured on production first, and reading only changed rows is
 Active territories 32,099, of which temporary 31,898; salespeople with a permanent territory 199; active
 `CompanyTerritory` rows 1,019,601, of which in active permanent territories 22,716; companies with a salesperson 22,712,
 of which 3 with more than one.
+
+## 14. Switching over: what to switch off in MyCRM
+
+MyCRM keeps running, so only what would fight MyCRMRecords is switched off (Service Center, eSpace MyCRM, *Timers*;
+the screens by redirect). Nothing is unpublished or deleted.
+
+**Timers to switch off** (deactivate in Service Center):
+
+| Timer | Why |
+|---|---|
+| `SCA_SalesManCompanyAssignmentDaily` (`SetTerritory_Update`) | rebuilds territories from Advance: it would undo the Sales Admins' moves (rule 1) |
+| `SCA_AssignGlobalCompany`, `AssignCompaniesToSales`, `TerritoryCode` | Advance territory one-offs and the unused territory codes |
+| `Company`, `CompanyDaily`, `ImportChannelPartnerCompanies`, `Contact`, `RUN_ImportContacts`, `ContactLink`, `RUN_ImportContactLink`, `Address`, `CompanyAddressLink`, `Phone`, `Email` | old-CRM imports (rule 4): they would overwrite companies, contacts and addresses changed in MyCRMRecords |
+| `UpdateCompanyCRMIdByBRN`, `UpdateCompanyCRMIdByName`, `UpdateOldCRMCompanyId` (Sundays 05:00), `UpdateAdvanceTypeCode`, `BulkUpdateCustomerType`, the `import 1st`–`7th` group-name imports | old-CRM and one-off company updates (rule 4) |
+| `UpdateCustomerNo` (02:45) | once MyCRMRecords' scheduled task *Customer numbers from Advance* is on (both write the same values) |
+| `Team` | the legacy timer that deletes every team (it always fails, but must never succeed) |
+
+**Timers that stay on**: `CSST_Temp`, `CSST_05_AssignAllCompany`, `CSST_06_AssignUpdate`, `TelemarketerOtherComp`,
+`SetInactiveAllProjectThatEnds` (they write MyCRM's temporary territories, which MyCRMRecords only reads), and every
+timer of the parts that stay.
+
+**Screens sent to MyCRMRecords** (`Set-OldAppRedirects.ps1`; each screen's input to the page's parameter):
+
+| MyCRM screen | MyCRMRecords |
+|---|---|
+| Companies | `./` |
+| CompanyDetails (`CompanyId`) | `company.aspx?id=` |
+| CompanyDetail (Admin flow, `CompanyId`) and the admin list Company | `company.aspx?id=` (the form is on the company page) / `./` |
+| Users, CUserDetails (`UserId`), Teams, TeamDetails | `people.aspx` |
+| UserTerritory (`UserId`), Territories, TerritoryDetail, TerritoryUpdate | `territories.aspx` |
+
+**Stays in MyCRM**: `CompanyList_PopUp` (the company picker of ten other flows), the CompanyDetails blocks of the parts
+that stay (activities, prospects, MIF, CSST, documents, projects) — they open from MyCRM's own screens — and the Admin
+page (its MIF and developer tools). Before the redirects, the territories should have their names (rule 1) and the
+sync should have run for a day without notes.
 
 ## Appendix: the data model
 

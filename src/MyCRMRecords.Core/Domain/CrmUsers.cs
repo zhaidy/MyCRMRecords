@@ -114,10 +114,13 @@ public sealed class CrmUsers(IRecordStore store, People people, Func<DateTime> c
 
         var now = clock();
         var by = Strings.Shorten(actor.ChangedBy, 600);
+        // The records wanted, one per team; a CSST with no team still has one record, with no team (as in MyCRM).
+        var wanted = teams.Select(t => (long?)t).ToList();
+        if (wanted.Count == 0 && role == CrmRoles.Csst) wanted.Add(null);
         store.Batch(s =>
         {
             var mine = s.Find<CrmUser>(Query.Where("Login", login)).OrderBy(u => u.Id).ToList();
-            var keep = mine.Where(u => u.IsActive && u.TeamId is { } t && teams.Contains(t)).GroupBy(u => u.TeamId).Select(g => g.First()).ToList();
+            var keep = mine.Where(u => u.IsActive && wanted.Contains(u.TeamId)).GroupBy(u => u.TeamId).Select(g => g.First()).ToList();
             var spare = mine.Where(u => !keep.Contains(u)).ToList();
             var profile = mine.FirstOrDefault(u => u.IsActive) ?? mine.FirstOrDefault();
             void Fill(CrmUser u)
@@ -135,7 +138,7 @@ public sealed class CrmUsers(IRecordStore store, People people, Func<DateTime> c
                 Fill(u);
                 s.Update(u);
             }
-            foreach (var team in teams.Where(t => !keep.Any(k => k.TeamId == t)))
+            foreach (var team in wanted.Where(t => !keep.Any(k => k.TeamId == t)))
             {
                 // A record taken away before is used again (its Id stays the person's first), else a new one.
                 var reused = spare.FirstOrDefault();
@@ -169,7 +172,7 @@ public sealed class CrmUsers(IRecordStore store, People people, Func<DateTime> c
                     u.RemovedOn = now;
                     u.RemovedBy = by;
                 }
-                var newRole = teams.Count == 0 ? "" : role;
+                var newRole = wanted.Count == 0 ? "" : role;
                 if (u.Role != newRole) { u.Role = newRole; changed = true; }
                 if (changed)
                 {
@@ -179,9 +182,9 @@ public sealed class CrmUsers(IRecordStore store, People people, Func<DateTime> c
                 }
             }
         });
-        return OperationResult.Success(teams.Count == 0
+        return OperationResult.Success(wanted.Count == 0
             ? $"{people.NameOf(login)} has no team, so is no longer a CRM user."
-            : $"{people.NameOf(login)} saved: {CrmRoles.List.Label(role)}, {string.Join(", ", teams.Select(t => active[t].Name))}.");
+            : $"{people.NameOf(login)} saved: {CrmRoles.List.Label(role)}, {(teams.Count == 0 ? "no team" : string.Join(", ", teams.Select(t => active[t].Name)))}.");
     }
 
     /// <summary>

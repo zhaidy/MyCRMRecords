@@ -24,9 +24,11 @@ user to paste SQL into SQL Server Management Studio.
 ## Never change the other applications unless switched on
 
 MyCRMRecords reads and writes MyCRM's tables in the OutSystems database (the import reads them, the sync below writes
-`Feedback`, `Task`, `FeedbackAttachment`, `FeedbackDivision`, `FeedbackCategory` and `FeedbackMedium`), and reads
-AdvanceConnector's public holidays. Every write outside MyCRMRecords is behind a switch that starts off
-(`SyncSettings.Enabled`, `EmailSettings.Enabled`) and is recorded (`dbo.CrSyncChange`, `dbo.CrEmail`). No write ever
+the fifteen entities of `CrmSync`: companies, addresses, contacts, phones, emails, CUser, Team, permanent territories
+and their company links, territory movements...), and reads AdvanceConnector's `Customer_Supp` (the scheduled task
+*Customer numbers from Advance*). Every write outside MyCRMRecords is behind a switch that starts off
+(`SyncSettings.Enabled`, `EmailSettings.Enabled`, `JobSettings.Enabled`) and is recorded (`dbo.CrSyncChange`,
+`dbo.CrEmail`). No write ever
 deletes in another application: update or mark instead. A new write follows the same rules: a switch that starts off,
 and a record of every value written with the value it replaced.
 
@@ -56,16 +58,18 @@ delete, and `Nothing_in_MyCRMRecords_deletes_a_record` fails on any other `Delet
 
 ## Sync with the old app: never delete there
 
-While MyCRM and MyCRMRecords are both used, `OldAppSync` keeps them in step both ways (`CrmSync` says what),
-behind *Sync with MyCRM* on the admin page, which starts off. MyCRM must never lose data:
+The rest of MyCRM stays in OutSystems and uses these tables, so `OldAppSync` keeps MyCRMRecords and MyCRM in step both
+ways for good (`CrmSync` says what), behind *Sync with MyCRM* on the admin page, which starts off. MyCRM must never
+lose data:
 
 - Nothing is ever deleted in MyCRM. `IOldTablesWriter` can add and change rows, not delete them; keep it that way.
-  What is removed here is **marked** there instead, and stays paired in `dbo.CrSyncLink` so it is not copied back: a
-  feedback, division, category or medium gets `ISACTIVE = 0`; a task or attachment is detached from its feedback
-  (`FEEDBACKID` emptied, `SESSIONID` `X:<feedback>:<session>`, `CrmSync.DetachedSession`), and an attachment's
-  `FILENAME` gets `(removed) ` before it.
-- MyCRM's static entities (`FeedbackStatus`, `FeedbackType`...) are matched by their label (`ChoiceList`), never by
-  Id: the Ids differ between environments, and the tests give them Ids no list starts with.
+  What is removed here is **marked** there instead (`ISACTIVE = 0`), and stays paired in `dbo.CrSyncLink` so it is not
+  copied back. A CRM user record taken away is inactive with no team (and no role when the person has no team left):
+  MyCRM reads every record's role and team whatever its `IsActive`.
+- Only MyCRM's active permanent territories and their active company links are read (`CrmTables`): the temporary
+  territories belong to MyCRM's Projects and CSST parts, which stay in OutSystems. Never sync them.
+- MyCRM's static entities (`Role`, `CompanyGroup`, `AddressType`...) are matched by their label (`ChoiceList`), never
+  by Id: the Ids differ between environments, and the tests give them Ids no list starts with.
 - Every value the sync writes there is recorded with the value it replaced (`dbo.CrSyncChange`), every sync in
   `dbo.CrSyncRun`; a sync that would change more than usual stops before changing anything.
 - New data MyCRMRecords keeps that MyCRM has a place for goes into the sync the same way: synced both ways, marked

@@ -86,12 +86,12 @@ public sealed class ExternalTableTests
         Assert.All(test, l => Assert.True(l.Ok, l.Line));
         // Connected, each MyCRM entity (the static ones too), and the users.
         Assert.Equal(OldTableColumns.Checked.Count + 2, test.Count);
-        // AdvanceConnector's holidays are found under MyCRM's names ([Date] for date).
+        // AdvanceConnector's Customer_Supp is found under MyCRM's names ([Business reg] for Business_reg, [Cust-no] for Cust_no).
         var adv = databases.Test(ExternalNames.AdvanceConnector);
         Assert.All(adv, l => Assert.True(l.Ok, l.Line));
         Assert.Equal(2, adv.Count);
         // A wrong table name shows.
-        settings.Connections.AdvanceTables.PublicHolidays = "dbo.NoSuchTable";
+        settings.Connections.AdvanceTables.CustomerSupp = "dbo.NoSuchTable";
         Assert.Contains(databases.Test(ExternalNames.AdvanceConnector), l => !l.Ok && l.Line.Contains("NoSuchTable"));
     }
 }

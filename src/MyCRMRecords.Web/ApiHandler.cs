@@ -113,27 +113,19 @@ public sealed class ApiHandler : IHttpHandler
         catch (Exception) { return false; }
     }
 
-    private static bool IsFeedbackAdmin(ApiUser user)
-    {
-        try { return user.ToActor(Services.App.People).IsFeedbackAdmin; }
-        catch (Exception) { return false; }
-    }
-
     private sealed class ImpersonateInput
     {
         public string? Login { get; set; }
     }
 
     /// <summary>
-    /// "Sign in as" on the User roles page and the Feedbacks page (administrators and Feedback Admins, as MyCRM's Admin
-    /// switched user; recorded): the person's cookie replaces theirs, carrying who to return to. A Feedback Admin who is
-    /// not an administrator cannot sign in as an administrator.
+    /// "Sign in as" on the User roles page and the Companies page (administrators only; recorded): the person's cookie
+    /// replaces theirs, carrying who to return to.
     /// </summary>
     private static ApiResponse Impersonate(HttpContext context, string body, ApiUser user)
     {
         if (user.Impersonator is not null) return ApiResponse.Forbidden("Return to your own account first.");
-        var admin = IsAdmin(user);
-        if (!admin && !IsFeedbackAdmin(user)) return ApiResponse.Forbidden("Only administrators and Feedback Admins can sign in as someone else.");
+        if (!IsAdmin(user)) return ApiResponse.Forbidden("Only administrators can sign in as someone else.");
         ImpersonateInput input;
         try { input = MyCRMRecords.Json.Deserialize<ImpersonateInput>(body) ?? new ImpersonateInput(); }
         catch (Newtonsoft.Json.JsonException) { return ApiResponse.BadRequest(); }
@@ -141,8 +133,6 @@ public sealed class ApiHandler : IHttpHandler
         var person = Services.App.People.User(login);
         if (person is null && Services.App.People.RolesOf(login).Count == 0) return ApiResponse.NotFound();
         if (string.Equals(login, user.Login, StringComparison.OrdinalIgnoreCase)) return ApiResponse.BadRequest("That is you.");
-        if (!admin && (Services.App.People.RolesOf(login).Contains(Roles.Admin) || Admins.IsListed(context, login)))
-            return ApiResponse.Forbidden("Only administrators sign in as an administrator.");
         var target = new ApiUser(person?.Login ?? login, person is { DisplayName.Length: > 0 } ? person.DisplayName : login, person?.Email ?? "",
             Impersonator: new ApiUser(user.Login, user.DisplayName, user.Email));
         SignIn.IssueCookie(context.Response, target, remember: false);
@@ -185,23 +175,36 @@ public sealed class ApiHandler : IHttpHandler
         }
     }
 
-    /// <summary>The action, in words, for the audit log: "feedbacks/12" → "Save feedback 12".</summary>
+    /// <summary>The action, in words, for the audit log: "companies/12/addresses/0" → "Add an address to company 12".</summary>
     public static string Describe(string path)
     {
         var parts = path.Trim('/').Split('/');
         long Number(int i) => parts.Length > i && long.TryParse(parts[i], out var n) ? n : 0;
+        string Save(string what, int i) => Number(i) == 0 ? $"Add {what}" : $"Save {what} {Number(i)}";
         switch (parts[0])
         {
-            case "feedbacks" when parts.Length == 2: return Number(1) == 0 ? "Create a feedback" : $"Save feedback {Number(1)}";
-            case "feedbacks" when parts.Length == 3 && parts[2] == "delete": return $"Delete feedback {Number(1)}";
-            case "feedbacks" when parts.Length == 3 && parts[2] == "close": return $"Close feedback {Number(1)}";
-            case "feedbacks" when parts.Length == 4 && parts[2] == "tasks": return Number(3) == 0 ? $"Add a task to feedback {Number(1)}" : $"Save task {Number(3)} of feedback {Number(1)}";
-            case "tasks" when parts.Length == 3 && parts[2] == "complete": return $"Complete task {Number(1)} (or not)";
-            case "tasks" when parts.Length == 3 && parts[2] == "remove": return $"Remove task {Number(1)}";
-            case "files" when parts.Length == 3 && parts[2] == "remove": return $"Remove file {Number(1)}";
+            case "companies" when parts.Length == 2: return Number(1) == 0 ? "Create a company" : $"Save company {Number(1)}";
+            case "companies" when parts.Length == 3 && parts[2] == "employees": return $"Save the number of employees of company {Number(1)}";
+            case "companies" when parts.Length == 3 && parts[2] == "remarks": return $"Save the sales remarks of company {Number(1)}";
+            case "companies" when parts.Length == 3 && parts[2] == "relationships": return $"Add a relationship to company {Number(1)}";
+            case "companies" when parts.Length == 5 && parts[2] == "relationships": return $"Remove relationship {Number(3)} of company {Number(1)}";
+            case "companies" when parts.Length == 4 && parts[2] == "addresses": return Number(3) == 0 ? $"Add an address to company {Number(1)}" : $"Save address {Number(3)} of company {Number(1)}";
+            case "companies" when parts.Length == 5 && parts[2] == "addresses" && parts[4] == "type": return $"Change the type of address {Number(3)} of company {Number(1)}";
+            case "companies" when parts.Length == 5 && parts[2] == "addresses": return $"Delete address {Number(3)} of company {Number(1)}";
+            case "companies" when parts.Length == 4 && parts[2] == "contacts": return Number(3) == 0 ? $"Add a contact to company {Number(1)}" : $"Save contact {Number(3)} of company {Number(1)}";
+            case "companies" when parts.Length == 5 && parts[2] == "contacts": return $"Delete contact {Number(3)} of company {Number(1)}";
+            case "groupnames" when parts.Length == 2: return Save("a group name", 1);
+            case "groupnames" when parts.Length == 3: return $"Remove group name {Number(1)}";
+            case "territories" when parts.Length == 2: return Number(1) == 0 ? "Create a territory" : $"Save territory {Number(1)}";
+            case "territories" when parts.Length == 3 && parts[2] == "remove": return $"Take territory {Number(1)} away";
+            case "territories" when parts.Length == 3 && parts[2] == "add": return $"Put companies in territory {Number(1)}";
+            case "territories" when parts.Length == 3 && parts[2] == "takeout": return $"Take companies out of territory {Number(1)}";
+            case "territories" when parts.Length == 3 && parts[2] == "match": return $"Find a list of companies for territory {Number(1)}";
+            case "crmusers" when parts.Length == 2: return "Save a CRM user";
+            case "crmusers" when parts.Length == 3 && parts[2] == "remove": return "Remove a CRM user and their territories";
+            case "crmusers" when parts.Length == 3 && parts[2] == "team": return "Create the team named after a manager";
+            case "teams" when parts.Length == 2: return Number(1) == 0 ? "Create a team" : $"Save team {Number(1)}";
             case "people": return "Add someone to choose from";
-            case "setup" when parts.Length == 3 && parts[1] == "kpi": return $"Save the KPI dates of feedback {Number(2)}";
-            case "setup" when parts.Length >= 3: return $"{(parts.Length == 4 && parts[3] == "remove" ? "Remove" : "Save")} {parts[1].TrimEnd('s')} {Number(2)}".Replace("categorie ", "category ");
         }
         return Capitalise(string.Join(" ", parts).Replace('-', ' '));
     }

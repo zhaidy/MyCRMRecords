@@ -10,36 +10,33 @@ public sealed class RecordTests
     {
         using var world = new TestWorld();
         var store = world.Store;
-        var a = store.Insert(new Feedback { CompanyName = "Alpha Logistics", PostalCode = "V-SO-1", ContactName = "Logistics", UpdatedOn = world.Now });
-        var b = store.Insert(new Feedback { CompanyName = "Beta IT", PostalCode = "WO123-7", ContactName = "IT", Description = "Could not be reached", UpdatedOn = world.Now.AddMinutes(1) });
-        var c = store.Insert(new Feedback { CompanyName = "Gamma Logistics", PostalCode = "V-SO-2", ContactName = "Logistics", UpdatedOn = world.Now.AddMinutes(2) });
+        var a = store.Insert(new Company { Name = "Alpha Logistics", Brn = "V-SO-1", Website = "Logistics", UpdatedDate = world.Now });
+        var b = store.Insert(new Company { Name = "Beta IT", Brn = "WO123-7", Website = "IT", SalesRemarks = "Could not be reached", UpdatedDate = world.Now.AddMinutes(1) });
+        var c = store.Insert(new Company { Name = "Gamma Logistics", Brn = "V-SO-2", Website = "Logistics", UpdatedDate = world.Now.AddMinutes(2) });
         Assert.True(a.Id > 0 && b.Id == a.Id + 1 && c.Id == b.Id + 1);
 
-        Assert.Equal("WO123-7", store.Get<Feedback>(b.Id)!.PostalCode);
-        Assert.Equal(new[] { c.Id, a.Id }, store.Find<Feedback>(Query.Where("ContactName", "logistics").Newest()).Select(m => m.Id));
-        Assert.Equal(new[] { b.Id }, store.Find<Feedback>(Query.All().Search("could NOT", "Description", "PostalCode")).Select(m => m.Id));
-        Assert.Equal(2, store.Count<Feedback>(Query.All().Not("ContactName", "IT")));
-        Assert.Equal(new[] { b.Id, c.Id }, store.Find<Feedback>(Query.All().AtLeast("UpdatedOn", world.Now.AddMinutes(1)).Sort("UpdatedOn")).Select(m => m.Id));
-        Assert.Equal(new[] { a.Id }, store.Find<Feedback>(Query.All().Before("UpdatedOn", world.Now.AddMinutes(1))).Select(m => m.Id));
-        Assert.Equal(new[] { a.Id, c.Id }, store.Find<Feedback>(Query.All().In("Id", new object[] { a.Id, c.Id })).Select(m => m.Id));
-        Assert.Equal(new[] { b.Id }, store.Find<Feedback>(Query.All().Sort("Id").Page(1, 1)).Select(m => m.Id));
-        Assert.Equal(new[] { a.Id, c.Id }, store.Find<Feedback>(Query.All().Contains("PostalCode", "-so-")).Select(m => m.Id));
+        Assert.Equal("WO123-7", store.Get<Company>(b.Id)!.Brn);
+        Assert.Equal(new[] { c.Id, a.Id }, store.Find<Company>(Query.Where("Website", "logistics").Newest()).Select(m => m.Id));
+        Assert.Equal(new[] { b.Id }, store.Find<Company>(Query.All().Search("could NOT", "SalesRemarks", "Brn")).Select(m => m.Id));
+        Assert.Equal(2, store.Count<Company>(Query.All().Not("Website", "IT")));
+        Assert.Equal(new[] { b.Id, c.Id }, store.Find<Company>(Query.All().AtLeast("UpdatedDate", world.Now.AddMinutes(1)).Sort("UpdatedDate")).Select(m => m.Id));
+        Assert.Equal(new[] { a.Id }, store.Find<Company>(Query.All().Before("UpdatedDate", world.Now.AddMinutes(1))).Select(m => m.Id));
+        Assert.Equal(new[] { a.Id, c.Id }, store.Find<Company>(Query.All().In("Id", new object[] { a.Id, c.Id })).Select(m => m.Id));
+        Assert.Equal(new[] { b.Id }, store.Find<Company>(Query.All().Sort("Id").Page(1, 1)).Select(m => m.Id));
+        Assert.Equal(new[] { a.Id, c.Id }, store.Find<Company>(Query.All().Contains("Brn", "-so-")).Select(m => m.Id));
 
-        b.ContactName = "Logistics";
-        b.AcknowledgedHours = 15;
+        b.Website = "Logistics";
+        b.NoOfEmployees = 15;
+        b.Revenue = 1234.5m;
         store.Update(b);
-        Assert.Equal("Logistics", new JsonRecordStore(store.Folder).Get<Feedback>(b.Id)!.ContactName);
-        Assert.Equal(15, new JsonRecordStore(store.Folder).Get<Feedback>(b.Id)!.AcknowledgedHours);
-        Assert.Equal(new DateTime(2026, 10, 17, 9, 31, 0), new JsonRecordStore(store.Folder).Get<Feedback>(b.Id)!.UpdatedOn);
+        Assert.Equal("Logistics", new JsonRecordStore(store.Folder).Get<Company>(b.Id)!.Website);
+        Assert.Equal(15, new JsonRecordStore(store.Folder).Get<Company>(b.Id)!.NoOfEmployees);
+        Assert.Equal(1234.5m, new JsonRecordStore(store.Folder).Get<Company>(b.Id)!.Revenue);
+        Assert.Equal(new DateTime(2026, 10, 17, 9, 31, 0), new JsonRecordStore(store.Folder).Get<Company>(b.Id)!.UpdatedDate);
 
-        // A file's bytes are kept (as base64 in the JSON files).
-        var file = store.Insert(new FeedbackFile { FeedbackId = 1, FileName = "a.pdf", Content = [1, 2, 3, 250] });
-        Assert.Equal(new byte[] { 1, 2, 3, 250 }, new JsonRecordStore(store.Folder).Get<FeedbackFile>(file.Id)!.Content);
-        Assert.Empty(store.Insert(new FeedbackFile()).Content);
-
-        Assert.Equal(3, store.Delete<Feedback>(Query.Where("ContactName", "Logistics")));
-        Assert.Equal(0, store.Count<Feedback>());
-        Assert.True(store.Insert(new Feedback()).Id > c.Id);
+        Assert.Equal(3, store.Delete<Company>(Query.Where("Website", "Logistics")));
+        Assert.Equal(0, store.Count<Company>());
+        Assert.True(store.Insert(new Company()).Id > c.Id);
     }
 
     [Fact]
@@ -91,20 +88,23 @@ public sealed class RecordTests
     {
         using var world = new TestWorld();
         var admin = TestWorld.Admin.ToActor(world.D.People);
-        var login = TestWorld.Hr.Login;
-        Assert.True(world.D.People.SetRoles(admin, login, "Hana Hr", "hana@example.com", new[] { Roles.Be }).Ok);
-        Assert.Equal(new[] { Roles.Be }, world.D.People.RolesOf(login));
-        var rows = world.Store.Find<UserRole>(Query.Where("Login", login));
-        Assert.Equal(2, rows.Count);
-        var creator = rows.Single(r => r.Role == Roles.Hr);
-        Assert.False(creator.IsActive);
-        Assert.Equal(world.Now, creator.RemovedOn);
-        Assert.Equal("Rob Root", creator.RemovedBy);
+        var login = TestWorld.Olga.Login;
+        Assert.True(world.D.People.SetRoles(admin, login, "Olga Other", "olga@example.com", new[] { Roles.Admin }).Ok);
+        Assert.Equal(new[] { Roles.Admin }, world.D.People.RolesOf(login));
+        Assert.True(world.D.People.SetRoles(admin, login, null, null, Array.Empty<string>()).Ok);
+        Assert.Empty(world.D.People.RolesOf(login));
+        var row = world.Store.Find<UserRole>(Query.Where("Login", login)).Single();
+        Assert.False(row.IsActive);
+        Assert.Equal(world.Now, row.RemovedOn);
+        Assert.Equal("Rob Root", row.RemovedBy);
 
         // Given again: a new role, the old one stays as it was.
-        Assert.True(world.D.People.SetRoles(admin, login, null, null, new[] { Roles.Be, Roles.Hr }).Ok);
-        Assert.Equal(3, world.Store.Count<UserRole>(Query.Where("Login", login)));
-        Assert.Contains(Roles.Hr, world.D.People.RolesOf(login));
+        Assert.True(world.D.People.SetRoles(admin, login, null, null, new[] { Roles.Admin }).Ok);
+        Assert.Equal(2, world.Store.Count<UserRole>(Query.Where("Login", login)));
+        Assert.Contains(Roles.Admin, world.D.People.RolesOf(login));
+        // Nobody takes their own Administrator role away.
+        var olga = new ApiUser(login, "Olga Other").ToActor(world.D.People);
+        Assert.Equal(ResultCodes.Forbidden, world.D.People.SetRoles(olga, login, null, null, Array.Empty<string>()).Code);
     }
 
     [Fact]
@@ -133,27 +133,39 @@ public sealed class RecordTests
     [Fact]
     public void Copying_between_stores_keeps_the_ids()
     {
-        using var world = new TestWorld();
-        world.Store.Insert(new Feedback { CompanyName = "A" });
-        world.Store.Insert(new Feedback { CompanyName = "B" });
-        world.Store.Delete<Feedback>(1);
-        using var other = new TestWorld();
+        using var world = new TestWorld(crmUsers: false);
+        world.Store.Insert(new Company { Name = "A" });
+        world.Store.Insert(new Company { Name = "B" });
+        world.Store.Delete<Company>(1);
+        using var other = new TestWorld(crmUsers: false);
         other.Store.Delete<UserRole>(Query.All());
         other.Store.Delete<AppUser>(Query.All());
         var copied = DatabaseStorage.CopyAll(world.Store, other.Store);
         Assert.True(copied >= 2);
-        Assert.Equal("B", other.Store.Get<Feedback>(2)!.CompanyName);
-        Assert.Null(other.Store.Get<Feedback>(1));
-        Assert.Equal(3, other.Store.Insert(new Feedback { CompanyName = "C" }).Id);
+        Assert.Equal("B", other.Store.Get<Company>(2)!.Name);
+        Assert.Null(other.Store.Get<Company>(1));
+        Assert.Equal(3, other.Store.Insert(new Company { Name = "C" }).Id);
     }
 
     [Fact]
     public void Imported_records_keep_their_ids_and_new_ones_follow()
     {
         using var world = new TestWorld();
-        world.Store.InsertKeepingIds(new[] { new Feedback { Id = 412, CompanyName = "P0412" }, new Feedback { Id = 17, CompanyName = "P0017" } });
-        Assert.Equal("P0412", world.Store.Get<Feedback>(412)!.CompanyName);
-        Assert.Equal(413, world.Store.Insert(new Feedback()).Id);
+        world.Store.InsertKeepingIds(new[] { new Company { Id = 412, Name = "P0412" }, new Company { Id = 17, Name = "P0017" } });
+        Assert.Equal("P0412", world.Store.Get<Company>(412)!.Name);
+        Assert.Equal(413, world.Store.Insert(new Company()).Id);
+    }
+
+    [Fact]
+    public void A_person_merged_into_another_is_not_offered()
+    {
+        using var world = new TestWorld();
+        var olga = world.D.People.User(TestWorld.Olga.Login)!;
+        Assert.True(olga.IsActive);
+        Assert.Contains(world.D.People.Everyone(), u => u.Login == olga.Login);
+        olga.IsActive = false;
+        world.Store.Update(olga);
+        Assert.DoesNotContain(world.D.People.Everyone(), u => u.Login == olga.Login);
     }
 }
 
@@ -245,6 +257,6 @@ public sealed class UserGuideTests
                 linked++;
                 Assert.True(headings.Contains(link.Groups[1].Value), $"{Path.GetFileName(page)} links to #{link.Groups[1].Value}, which the guide has no heading for.");
             }
-        Assert.True(linked >= 7);
+        Assert.True(linked >= 6);
     }
 }

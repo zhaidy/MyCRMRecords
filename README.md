@@ -1,12 +1,11 @@
-# MyCRMRecords: customer and employee feedbacks
+# MyCRMRecords: companies, territories and CRM users
 
-MyCRMRecords replaces the OutSystems module **MyCRM** (its emails already said "MyCRMRecords"): the feedbacks of customers and
-employees (customer complaints, potential customer complaints, internal challenges and areas of improvement), each
-acknowledged, investigated and resolved with corrective and preventive tasks, its satisfaction confirmed and closed,
-with the time each step took against the service targets (24 hours, 2 and 10 business days, without weekends and
-AdvanceConnector's public holidays); the statistics of a financial year and the Excel report; and the lists the
-feedbacks are chosen from. It is an ASP.NET (.NET Framework 4.8) application for IIS, built like MyAllocation,
-MyPurchaseOrders, MyWarehouse, MyServiceParts, MyDeliveries, MyVendors and MyCustomers.
+MyCRMRecords takes over the **Users, Territory and Company part** of the OutSystems module **MyCRM**: the companies with
+their addresses, contacts (with their phones and emails), relationships and group names; the named territories that
+give companies to salespeople; and the CRM users (each person's MyCRM role and teams) and teams. The rest of MyCRM
+(activities, prospects, projects, CSST, MIF, reports...) stays in OutSystems and keeps reading and writing the same
+tables: the two-way sync keeps them in step, permanently. It is an ASP.NET (.NET Framework 4.8) application for IIS,
+built like MyAllocation, MyWarehouse, MyServiceParts, MyDeliveries, MyVendors, MyCustomers and MyCEV.
 
 How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 [`docs/outsystems/`](docs/outsystems/README.md). The user guide (`docs/user-guide.md`) is shown in the application.
@@ -15,34 +14,37 @@ How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 
 | Work | MyCRM | MyCRMRecords |
 |---|---|---|
-| The feedbacks with a count per status, search, division filter | Feedbacks | `default.aspx` (`Feedbacks.List`) |
-| A feedback: the sections by category and type, rights by role and status | FeedbackDetail | `feedback.aspx` (`Feedbacks.Save`, `Rights`, `NextStatus`) |
-| Tasks (corrective, preventive), their completion | FeedbackDetail's task popups | `Feedbacks.SaveTask`, `CompleteTask`, `RemoveTask` |
-| Files (customer details, satisfaction) | FeedbackAttachment upload | `Feedbacks.Attach`, `RemoveFile`, `file.ashx/attachment` |
-| Timings: acknowledgement hours, start and close days | UpdateTiming, NoOfHolidaysBetweenTwoDates | `Feedbacks.UpdateTiming`, `BusinessDays`, `SqlHolidays` |
-| Emails: new feedback, new task, tasks completed, resolved for BE | the email templates | `Feedbacks.Notify`, `Send` |
-| HR - ESS (internal challenges' suggestions) | CheckHRRole, Pending HR | `Feedbacks.Save` (`EditHr`) |
-| Close case and delete (BE) | CheckBERole | `Feedbacks.CloseCase`, `Delete` |
-| Statistics and the report | Statistics, ExportReport | `statistics.aspx` (`Statistics.Year`, `ReportFile`), `file.ashx/report` |
-| Divisions, categories, mediums, KPI dates | Admin, BackOffice | `lists.aspx` (`Setup`) |
-| Sign in as someone else | the user switch | `users/impersonate` (Feedback Admins and administrators) |
+| The companies a person may open, searched by name, BRN, customer type, group name, postal code | Companies (CompanyList) | `default.aspx` (`Companies.List`, `Access`) |
+| A company: details, billing address, number of employees, sales remarks, territory movements | CompanyDetails | `company.aspx` |
+| The company form (Sales Admins), duplicate BRN check, the Pre… values | CompanyDetail | `Companies.Save` |
+| Addresses, the default address | Address block, AddressDetail_PopUp | `Companies.SaveAddress`, `SetAddressType`, `RemoveAddress` |
+| Contacts with their emails and phones, the primary contact | Contacts block, ContactDetail_Popup | `Companies.SaveContact`, `RemoveContact` |
+| Parent, sibling and subsidiary companies | CompanyRelationships | `Companies.AddRelationship`, `RemoveRelationship` |
+| Group names | CompanyGroupNameDetail | `Companies.SaveGroupName`, `RemoveGroupName` |
+| Numbers of employees from Excel | AdminPage, UploadNoOfEmployees | `file.ashx/employees` (`Companies.UploadEmployees`) |
+| Who may open a company | UserCanAccessCompany, GetSub | `Access` (MyCRM's temporary territories read live) |
+| Named territories: a number, a salesperson, companies; moves recorded | Territories, TerritoryDetail, TerritoryUpdate, UserTerritory | `territories.aspx` (`Territories`) |
+| CRM users (role, teams, codes) and teams | Users, CUserDetails, Teams, AdminPage | `people.aspx` (`CrmUsers`) |
+| Advance's customer number of each company | timer UpdateCustomerNo (02:45) | scheduled task *Customer numbers from Advance* (`CustomerNumbers`) |
+| Sign in as someone else | (none) | `users/impersonate` (administrators) |
 
-MyCRM has no timers, so MyCRMRecords has no scheduled tasks of its own. Everything that sends or changes something outside
-MyCRMRecords starts **switched off** (admin page): the sync with MyCRM and the emails. So MyCRMRecords can be installed, set up and
-checked while MyCRM still runs.
+MyCRM's territories were rebuilt from Advance every day; that is deprecated: Sales Admins now create the territories
+and put companies in them. MyCRM's imports from the old CRM are not carried over. Everything that sends or changes
+something outside MyCRMRecords starts **switched off** (admin page): the sync with MyCRM, the emails and the scheduled
+task. So MyCRMRecords can be installed, set up and checked while MyCRM still runs.
 
 ## Project layout
 
 ```
 src/MyCRMRecords.Core/         net48 + net8.0: everything but the web host
   Data/                     record storage (JSON or SQL Server), migrations, settings, other databases (External,
-                            ExternalTable, Holidays), scheduler, import (OutSystemsImport), the sync (OldAppSync,
-                            CrmSync with CrmTables)
+                            ExternalTable), scheduler, import (OutSystemsImport), the sync (OldAppSync, CrmSync with
+                            CrmTables), CustomerNumbers
   Integration/              email (Mailer)
   Documents/Xlsx.cs         Excel files
-  Domain/                   Models (the tables), Lists (MyCRM's static entities), Feedbacks, BusinessDays, Setup,
-                            Statistics, People, SeedData
-  Api/                      CrmApi (pages), FilesApi (attachments, report), AdminApi, UsersApi, CrmApp (factory)
+  Domain/                   Models (the tables), Lists (MyCRM's static entities), Companies, Territories, CrmUsers,
+                            Access, People, SeedData
+  Api/                      CrmApi (pages), FilesApi (Excel samples and uploads), AdminApi, UsersApi, CrmApp (factory)
 src/MyCRMRecords.Web/          net48 web root: pages, api.ashx, file.ashx, scripts, Web.config
 tests/MyCRMRecords.Tests/      xunit (net8.0); SQL Server tests when MYCRMRECORDS_TEST_SQLSERVER is set
 Deployment/                 build, poller and install scripts (as MyAllocation)
@@ -64,58 +66,70 @@ dotnet build src/MyCRMRecords.Web
 On a machine without Active Directory, add `<add key="MyCRMRecords:LoginMode" value="Development" />` to a local
 copy of `Web.config` and set `compilation debug="true"`: any username then signs in without a password check (as
 `name@example.com`), but only for requests from that same machine. Never set it on the server. With
-`MyCRMRecords:DemoTools` on, *Add sample data* on the admin page adds a division, the categories and mediums, and three
-feedbacks.
+`MyCRMRecords:DemoTools` on, *Add sample data* on the admin page adds two companies with an address and a contact, a
+group name, a team and a sample territory of yours.
 
 ## Sign-in and roles
 
 People sign in with their **Windows (domain) username and password** on `login.aspx`; the login is recorded as
-`RSP\jsmith` (MyCRM's users are `RSP\jsmith@ricoh.sg`: the import and the sync match them by that login). MyCRM's
-roles are kept and given on the User roles page: **Feedback Admin** (MyCRM's Admin: every feedback, the lists, the
-customer details files, the satisfaction level, *Sign in as*), **BE** (close case, delete) and **HR** (HR - ESS).
-Everyone signed in creates feedbacks and sees those they created, are in charge of, have a task in or are copied on.
-Administrators are the people with the Admin role and those listed in `MyCRMRecords:Admins` in the server's
-`Web.Local.config`; they also do what a Feedback Admin does. *Sign in as* opens MyCRMRecords as another person (recorded
-with both names; a Feedback Admin cannot sign in as an administrator).
+`RSP\jsmith` (MyCRM's users are `RSP\jsmith@ricoh.sg`: the import and the sync match them by that login).
+
+What people may do comes from their **MyCRM role**, as in MyCRM: the role of their first CRM user record (MyCRM's
+`Role()`), kept on the CRM users page.
+
+- **Sales Admins** (MyCRM role Admin or SalesAdmin on any of their records, MyCRM's `IsSalesAdmin`): the CRM users and
+  teams, the company form and group names, and the territories. **MD** also keeps the territories (MyCRM let MD move
+  companies in bulk).
+- **Opening a company** (MyCRM's `UserCanAccessCompany`): Telemarketer, Admin, SalesAdmin, MD, CSST, CSSTManager, MDS
+  and SOL Specialist Managers, Head, Credit Manager and Credit GM open every company; everyone else opens the active
+  companies of the active territories of the people in their list (MyCRM's `GetSub`: a Manager his team's
+  salespeople, a Sales person himself...), the permanent territories kept here and MyCRM's temporary ones (Projects,
+  CSST) read from MyCRM.
+- Addresses, contacts and relationships: every role but Marketing. Number of employees and sales remarks: anyone who
+  opens the company. Uploading numbers of employees: MyCRM's Admin role.
+
+MyCRMRecords's own role is **Administrator** (the admin pages, user roles, the audit log, and everything a Sales Admin
+does), given on the User roles page or listed in `MyCRMRecords:Admins` in the server's `Web.Local.config`. *Sign in as*
+opens MyCRMRecords as another person (administrators only; recorded with both names).
 
 ## Storage
 
 **MyCRMRecords's own data** is in the JSON files (`App_Data/data/<table>.json`) until an administrator switches to
 SQL Server on the admin page (*Database* tab): *Save and switch* runs the data migrations and copies the data in. The
-tables are `dbo.Cr…`, one row per record, as mapped from `Domain/Models.cs`; a feedback's file is a
-`varbinary(max)` column of `dbo.CrFeedbackFile`. What was sent or changed has tables of its own (`dbo.CrEmail`,
-`dbo.CrAudit`, `dbo.CrSyncChange`).
+tables are `dbo.Cr…`, one row per record, as mapped from `Domain/Models.cs`. What was sent or changed has tables of
+its own (`dbo.CrEmail`, `dbo.CrAudit`, `dbo.CrSyncChange`).
 
-**No record is ever deleted**: what people delete or take away is marked (a feedback, task, file, division or role
-`IsActive = false` with when and by whom; a category or medium `Removed`; a sync pair that ends is `Unpaired`) and the
-pages read only what is in use. The test `Nothing_in_MyCRMRecords_deletes_a_record` fails on a `Delete` anywhere outside the
-stores.
+**No record is ever deleted**: what people delete or take away is marked (a company, address, contact, phone, email,
+relationship, territory, company link, CRM user record or role `IsActive = false`, with when and by whom where MyCRM has
+no column for it; a sync pair that ends is `Unpaired`) and the pages read only what is in use. The test
+`Nothing_in_MyCRMRecords_deletes_a_record` fails on a `Delete` anywhere outside the stores.
 
-**The settings** (connections, email, sync) are in `App_Data/crm-records-settings.json`, every password encrypted with DPAPI
-and never sent to the browser.
+**The settings** (connections, email, sync, scheduled task) are in `App_Data/crm-records-settings.json`, every password
+encrypted with DPAPI and never sent to the browser.
 
-**The OutSystems database** (*Connections* tab): MyCRM's entities (`Feedback`, `Task`, `FeedbackAttachment`,
-`FeedbackDivision`, `FeedbackCategory`, `FeedbackMedium`, and the static entities `FeedbackGroup`, `FeedbackStatus`,
-`FeedbackType`, `AcknowledgedType`, `CustomerSatisfactionLevel`, `TaskType`), its users and roles. Reading needs
-`SELECT`; the sync needs `INSERT` and `UPDATE` on the six entity tables, and never `DELETE`.
+**The OutSystems database** (*Connections* tab): MyCRM's entities `Company`, `CompanyCaretake`, `CompanyRelationship`,
+`CompanyGroupName`, `Address`, `CompanyAddressLink`, `Contacts`, `CompanyContactLink`, `Phone`, `Email`, `CUser`,
+`Team`, `Territory`, `CompanyTerritory`, `TerritoryMovement`, the static entities `Role`, `CompanyGroup`,
+`CompAccountType`, `CompOwnership`, `CompanyIndustry`, `CustomerType`, `AdvanceCustomerType`, `AddressType`,
+`PhoneType`, `CompanyRelationshipType`, and the platform's users. Reading needs `SELECT`; the sync needs `INSERT` and
+`UPDATE` on the fifteen entity tables, and never `DELETE`.
 
-**AdvanceConnector**: `public_holiday` (the public holidays left out of the business days; read, cached for an hour).
-Reading needs `SELECT` only. Without it, only weekends are left out (the feedback page says so).
+**AdvanceConnector**: `Customer_Supp` (`Business_reg`, `Cust_no`), read by the scheduled task *Customer numbers from
+Advance*. Reading needs `SELECT` only.
 
 The table names are settings. The real column names of AdvanceConnector may differ from MyCRM's: every column is
-written through `ExternalTable` (`SqlHolidays`). *Test* on the Connections tab lists every table and column MyCRMRecords
-reads in each database.
+written through `ExternalTable` (`CustomerNumbers`). *Test* on the Connections tab lists every table and column
+MyCRMRecords reads in each database.
 
 ## The pages' API
 
 `api.ashx` returns JSON and needs a signed-in session (otherwise 401). Changes are POSTed as `application/json` and
 answer `{ result: { ok, code, message, errors, id }, data }`. The routes are in `Api/CrmApi.cs` (`session`, `lists`,
-`people`, `feedbacks`, `feedbacks/{id}`, `feedbacks/{id}/delete`, `feedbacks/{id}/close`, `feedbacks/{id}/tasks/{task}`,
-`tasks/{id}/complete`, `tasks/{id}/remove`, `files/{id}/remove`, `setup`, `setup/kpi`, `setup/divisions/{id}`,
-`setup/categories/{id}`, `setup/mediums/{id}` (and their `/remove`), `setup/kpi/{id}`, `statistics`,
-`statistics/report`), `Api/AdminApi.cs` (`admin/...`) and `Api/UsersApi.cs`. `file.ashx` downloads
-`attachment?id=` and `report?months=`; a POST (multipart, with the `X-MyCRMRecords` header) to
-`attachment?feedback=&kind=` (`CD` or `CS`) attaches a file.
+`people`, `companies`, `companies/{id}` and its `employees`, `remarks`, `relationships`, `addresses/{id}`,
+`contacts/{id}`, `groupnames`, `territories`, `territories/{id}` and its `add`, `takeout`, `match`, `remove`,
+`territories/search`, `crmusers`, `crmusers/person?login=`, `teams`), `Api/AdminApi.cs` (`admin/...`) and
+`Api/UsersApi.cs`. `file.ashx` downloads `sample?of=employees` and `sample?of=territory`; a POST (multipart, with the
+`X-MyCRMRecords` header) to `employees` or `territory-list?territory=` uploads an Excel workbook.
 
 ## IIS server setup (one time)
 
@@ -126,48 +140,49 @@ them.
 
 ### Switching over from MyCRM
 
-Both can be used side by side while people move over: the sync keeps them in step (next section).
+The sync stays on for good: the rest of MyCRM keeps using these tables.
 
-1. Give the logins `SELECT` on the tables above (and the OutSystems platform's user and role tables), and `INSERT` and
-   `UPDATE` on MyCRM's six synced entity tables. Never `DELETE`.
-2. Import MyCRM's data (admin page, *Import from MyCRM*), then at once turn on *Sync with MyCRM* (before
-   anyone uses MyCRMRecords, so every new feedback takes MyCRM's next number).
-3. Check the roles on the User roles page (the import copies MyCRM's).
-4. Check the email recipients (*Email* tab: the same addresses as MyCRM's).
-5. Tell people to use MyCRMRecords, and switch the emails on the same day (MyCRM sends its own while people use it). When
-   nobody uses MyCRM any more, turn the sync off.
+1. Give the logins `SELECT` on the tables above (and the OutSystems platform's user table), and `INSERT` and `UPDATE`
+   on MyCRM's fifteen synced entity tables. Never `DELETE`.
+2. In OutSystems, switch off MyCRM's timers that would fight MyCRMRecords (`docs/outsystems/README.md`, section 14):
+   the Advance territory rebuild and the old-CRM imports, and MyCRM's `UpdateCustomerNo` once MyCRMRecords' task is on.
+3. Import MyCRM's data (admin page, *Import from MyCRM*), press *Preview* on the *Sync with MyCRM* tab and note how
+   long it takes (the sync reads every synced row each time), then turn the sync on (every 10 minutes) before anyone
+   uses MyCRMRecords, so every new company, address and contact takes MyCRM's next number.
+4. Check the CRM users and name the territories (they come without names: "Territory 1203").
+5. Turn on the scheduled task *Customer numbers from Advance* (daily at 02:45).
+6. Send MyCRM's Users, territory and company screens to MyCRMRecords (`Set-OldAppRedirects.ps1`, section 14 of
+   `docs/outsystems/README.md`); the company picker other parts of MyCRM use stays in MyCRM.
 
 ### Sync with MyCRM
 
 `OldAppSync` (the engine, the same in every app that replaces an OutSystems app) with `CrmSync` (what is synced)
-keeps MyCRMRecords and MyCRM in step both ways, every few minutes, from the scheduler's timer, once *Sync with
-MyCRM* is on: the feedbacks, their tasks and attachments, the divisions, categories and mediums. The static entities
-(status, type...) are matched by their label, never by their Id, which differs between environments.
+keeps MyCRMRecords and MyCRM in step both ways, every 10 minutes, from the scheduler's timer, once *Sync with MyCRM*
+is on. The static entities (role, customer type, address type...) are matched by their label, never by their Id, which
+differs between environments.
 
 - Each record is paired with its row in `dbo.CrSyncLink`, with a fingerprint of each side as it was at the last sync;
-  the side whose fingerprint changed has changed, and its version is copied to the other (both changed: MyCRMRecords's
-  version). Records imported before the sync was on are paired by their `OutSystemsId`; the first sync after the import
-  writes nothing back to MyCRM.
-- **Nothing is ever deleted in MyCRM.** `IOldTablesWriter` has no delete. A feedback, division, category or medium
-  taken away here is `ISACTIVE = 0` there. A task or attachment (no such column) is detached from its feedback:
-  `FEEDBACKID` emptied (MyCRM no longer shows it) and `SESSIONID` `X:<feedback>:<session>` so the row still says
-  whose it was; an attachment's `FILENAME` also gets `(removed) ` before it. A task or attachment MyCRM keeps for a
-  feedback never saved is not copied.
-- **Files**: `CrmTables` reads MyCRM's attachments with each file's length (`DATALENGTH`, which does not read the file)
-  instead of its bytes. A file kept here for that row with that length is taken as it is (a file replaced in MyCRM by
-  one of exactly the same length would not be seen); only the others get their SHA-256 worked out by SQL Server, a few
-  at a time, so a sync does not read every file. The bytes are read once, to copy a new or changed file here. *Read
-  MyCRM's data* counts the attachments.
-- **Numbers**: while the sync is on, a new feedback is first added to MyCRM and takes the Id it got there, so the
-  feedback numbers (in the emails' subjects) are the same in both.
-- People are written as their OutSystems user (found by login, name or email), never added to OutSystems; roles are not
-  synced.
+  the side whose fingerprint changed has changed, and its version is copied to the other (both changed:
+  MyCRMRecords's version). Records imported before the sync was on are paired by their `OutSystemsId`; the first sync
+  after the import writes nothing back to MyCRM.
+- **Only MyCRM's permanent territories**: `CrmTables` reads the active permanent `Territory` rows and the active
+  `CompanyTerritory` rows of those territories (about 200 and 23,000), never the 32,000 temporary territories of
+  MyCRM's Projects and CSST parts nor the millions of inactive rows. A territory or a company link MyCRM turns off
+  leaves that set and is marked inactive here. A territory's name is kept here only. Territory movements are synced
+  for the last 60 days.
+- **Nothing is ever deleted in MyCRM.** `IOldTablesWriter` has no delete. What is taken away here is `ISACTIVE = 0`
+  there; a company's address link and a group name (no such column in MyCRM) are left there as they are (the address
+  itself is inactive). A CRM user record taken away is inactive with no team and, when the person has no team left, no
+  role, so MyCRM's `Role()`, `IsSalesAdmin` and `GetSub` read exactly what they read when MyCRM deleted the records.
+- **Numbers**: while the sync is on, a new company, address or contact is first added to MyCRM and takes the Id it got
+  there, so the numbers are the same in both (other parts of MyCRM, and Advance's `CustomerMapping`, refer to them).
+- People are written as their OutSystems user (found by login, name or email), never added to OutSystems.
 - **Safety**: what was written there is marked `Pending` until the commit is confirmed (written again otherwise); a sync
   that would change more than *Stop a sync that would change more than* records stops before changing anything and
   pauses until an administrator syncs. Every sync is in `dbo.CrSyncRun`, every value written in MyCRM in
   `dbo.CrSyncChange` with the value it replaced.
-- Adding a synced record or column: add it to `CrmSync` (both ways); the round-trip test
-  `Every_synced_field_goes_to_MyCRM_and_back_unchanged` fails until `FromOld` keeps every field.
+- Adding a synced record or column: add it to `CrmSync` (both ways); the round-trip test fails until `FromOld` keeps
+  every field.
 
 ## Deploying
 

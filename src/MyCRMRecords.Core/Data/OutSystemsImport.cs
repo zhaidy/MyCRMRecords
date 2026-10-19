@@ -170,10 +170,11 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
         var slash = name.IndexOf('\\');
         if (slash >= 0)
         {
-            if (!string.Equals(name.Substring(0, slash), domain, StringComparison.OrdinalIgnoreCase)) return name;
+            // DOMAIN\name@mail (OutSystems keeps some users so): DOMAIN\name, whatever the domain.
             var account = name.Substring(slash + 1);
             var sign = account.IndexOf('@');
-            return domain + "\\" + (sign > 0 ? account.Substring(0, sign) : account);
+            var prefix = string.Equals(name.Substring(0, slash), domain, StringComparison.OrdinalIgnoreCase) ? domain : name.Substring(0, slash);
+            return prefix + "\\" + (sign > 0 ? account.Substring(0, sign) : account);
         }
         var at = name.IndexOf('@');
         if (at > 0) name = name.Substring(0, at);

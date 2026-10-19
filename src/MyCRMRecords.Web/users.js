@@ -1,7 +1,7 @@
 (() => {
   'use strict';
-  // users.aspx: the roles people have (MyCRM's Admin, BE and HR; the administrators), finding people in Active
-  // Directory, and "Sign in as" (administrators see MyCRMRecords as someone else does).
+  // users.aspx: MyCRMRecords' administrators, finding people in Active Directory, and "Sign in as" (administrators see
+  // MyCRMRecords as someone else does). MyCRM roles are set on the CRM users page.
   const {$, $$, esc, api, toast, ask, dateTime, drawIcons} = window.WH;
   const page = $('#page');
   let data = null, filter = '', found = [], searchTimer = 0;
@@ -34,7 +34,7 @@
     const users = data.users.filter(u => !term || [u.displayName, u.login, u.email, u.roles.join(' ')].join(' ').toLowerCase().includes(term));
     const withRoles = users.filter(u => u.roles.length), others = users.filter(u => !u.roles.length);
     page.innerHTML = `
-      <div class="page-heading"><div><h1>User roles</h1><p>Everyone signed in can open MyCRMRecords, create feedbacks and work on those they are in charge of, as in MyCRM. The roles below are MyCRM's (its Admin is Feedback Admin here); Administrator is MyCRMRecords's own.</p></div></div>
+      <div class="page-heading"><div><h1>User roles</h1><p>Everyone signed in can open MyCRMRecords and the companies MyCRM's rule lets them open. What people do in the CRM comes from their MyCRM role, set by Sales Admins on the <a href="people.aspx">CRM users</a> page. The role below is MyCRMRecords's own.</p></div></div>
       <div class="stack">
         <section class="card"><h2>Find a person</h2><p class="muted small">Search Active Directory by name or login, then tick their roles and save.</p>
           <label class="search-box" style="margin-top:12px"><span data-icon="search"></span><input id="directory" type="search" placeholder="Name or login, e.g. Jamie or jlee" autocomplete="off"></label>

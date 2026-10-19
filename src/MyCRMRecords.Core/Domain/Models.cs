@@ -44,6 +44,10 @@ public sealed class AppUser : IRecord
     [Len(256)] public string DisplayName { get; set; } = "";
     [Len(256)] public string Email { get; set; } = "";
     public DateTime? LastSeenAt { get; set; }
+    /// <summary>False for a person merged into another (an imported login kept with its email address): when and by whom.</summary>
+    public bool IsActive { get; set; } = true;
+    public DateTime? RemovedOn { get; set; }
+    [Len(600)] public string RemovedBy { get; set; } = "";
 }
 
 [Table("dbo.CrUserRole")]

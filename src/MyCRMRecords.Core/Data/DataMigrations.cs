@@ -71,6 +71,9 @@ public static class DataMigrations
             [DisplayName] nvarchar(256) NOT NULL,
             [Email] nvarchar(256) NOT NULL,
             [LastSeenAt] datetime2(3) NULL,
+            [IsActive] bit NOT NULL,
+            [RemovedOn] datetime2(3) NULL,
+            [RemovedBy] nvarchar(600) NOT NULL,
             CONSTRAINT PK_CrUser PRIMARY KEY ([Id])
         );
         CREATE INDEX IX_CrUser_Login ON dbo.CrUser ([Login]);

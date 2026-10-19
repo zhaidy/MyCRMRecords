@@ -5,9 +5,11 @@ namespace MyCRMRecords.Tests;
 /// <summary>
 /// An old OutSystems app's tables in memory, for the sync's tests: rows with an identity ID, columns typed by their name
 /// as OutSystems makes them, users and static entities. Like the real writer it can add and change rows, never delete
-/// them; changes count only once committed, and <see cref="FailNextCommit"/> makes the next commit fail.
+/// them; changes count only once committed, and <see cref="FailNextCommit"/> makes the next commit fail. Of MyCRM's
+/// territories it gives the sync only the active permanent ones and their active companies, as <see cref="CrmTables"/>
+/// does, and it answers which companies people reach through the temporary ones.
 /// </summary>
-public sealed class FakeOldTables : IOldTables
+public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
 {
     private readonly Dictionary<string, Dictionary<string, OldColumn>> _schema = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<Dictionary<string, object?>>> _rows = new(StringComparer.OrdinalIgnoreCase);
@@ -20,49 +22,63 @@ public sealed class FakeOldTables : IOldTables
     public int Commits { get; private set; }
 
     /// <summary>
-    /// MyCRM's entities as OutSystems made them (Feedback, Task, FeedbackAttachment and the three lists), its static
-    /// entities with database Ids unlike MyCRMRecords's (11, 12... so a mapping by Id fails; "Confirmed Statisfaction" spelt as
-    /// MyCRM spells it), and its users. Time attributes are datetime columns holding 1900-01-01 and the time.
+    /// MyCRM's Users, Territory and Company entities as OutSystems made them, its static entities with database Ids unlike
+    /// MyCRMRecords's lists (Role 201..., so a mapping by Id or by order fails; MITSSpecialist labelled "SOL Specialist"),
+    /// and its users.
     /// </summary>
     public static FakeOldTables MyCRM()
     {
         var t = new FakeOldTables();
-        t.Define("FeedbackCategory", "ID:id LABEL:50 ORDER:int ISACTIVE:bit");
-        t.Define("FeedbackMedium", "ID:id LABEL:50 ORDER:int ISACTIVE:bit");
-        t.Define("FeedbackDivision", "ID:id DIVISION:50 PERSONINCHARGE:user ISACTIVE:bit");
-        t.Define("Feedback", "ID:id FEEDBACKGROUPID:ref PERSONRESPONSIBLE:user PERSONRESPONSIBLEDIVISION:50 FEEDBACKSTATUSID:ref COMPANYNAME:500 COMPANYADDRESS:5000 " +
-            "POSTALCODE:50 COMPANYPHONE:20 COMPANYFAX:20 COMPANYEMAIL:250 CONTACTNAME:50 FEEDBACKMEDIUMID:ref DATERECEIVED:date TIMERECEIVED:datetime FEEDBACKTYPEID:ref " +
-            "FEEDBACKCATEGORYID:ref FEEDBACKDESCRIPTION:max STAFFRESPONSIBLEFORPROBLEM:user CC:max ISACKNOWLEDGED:bit ACKNOWLEDGEDTYPEID:ref ACKNOWLEDGEDDATE:date " +
-            "ACKNOWLEDGEDTIME:datetime SIGNOFF:user FIRSTLOOKATFEEDBACK:max ROOTCAUSE:max CORRECTIVEACTION:max STAFFRESPONSIBLEFORSOLUTION:user CUSTOMERSATISFACTIONLEVELID:ref " +
-            "CREATEDON:datetime CREATEDBY:user CREATEDBYUSERNAME:500 UPDATEDON:datetime UPDATEDBY:user UPDATEDBYUSERNAME:500 ISACTIVE:bit SESSIONID:50 ACKNOWLEGEDHOURS:int " +
-            "STARTRESOLUTIONDAYS:int CLOSECASEDAYS:int STARTEDRESOLUTIONON:datetime COMPLETEDRESOLUTIONON:datetime ISCOMPLETED:bit CREATORHASSOLUTION:bit " +
-            "ESS_CREATORSOLUTIONDETAIL:max ESS_EXPECTEDOUTCOME:max ESS_SUGGESTIONMEETCRITERIA:500 ESS_RICOHWAYVALUE:500 HRACCEPTED:50 HRREMARKS:max HRUPDATEDON:datetime " +
-            "HRUPDATEDBY:user PREVENTIVEACTION:max MIGHTCAUSECUSTOMERCOMPLAINT:bit FEEDBACKDIVISIONID:ref");
-        t.Define("Task", "ID:id FEEDBACKID:ref ACTIONPLAN:max REMARKS:5000 PERSONINCHARGE:user DUEDATE:date SLAEXPECTEDCOMPLETIONDATE:date ISCOMPLETED:bit CREATEDON:datetime " +
-            "CREATEDBY:user SESSIONID:50 TASKTYPEID:ref");
-        t.Define("FeedbackAttachment", "ID:id FEEDBACKID:ref FILENAME:500 FILEBINARY:binary TYPE:50 UPLOADEDBY:user UPLOADEDON:datetime SESSIONID:50");
-        t.Static["FeedbackGroup"] = new() { [11] = "Customer Complaint", [12] = "Potential Customer Complaint", [13] = "Internal Challenges", [14] = "Area of Improvement" };
-        t.Static["FeedbackStatus"] = new()
-        {
-            [21] = "Pending HR", [22] = "New", [23] = "Acknowledged", [24] = "Investigation / Resolution", [25] = "Confirmed Statisfaction", [26] = "Closed",
-        };
-        t.Static["FeedbackType"] = new() { [31] = "Very Serious Complaint", [32] = "Serious Complaint", [33] = "Normal Complaint", [34] = "Feedback / Improvement" };
-        t.Static["AcknowledgedType"] = new()
-        {
-            [41] = "Email", [42] = "Face To Face", [43] = "Fax", [44] = "Internet", [45] = "Phone", [46] = "Postal Mail", [47] = "Text Message",
-        };
-        t.Static["CustomerSatisfactionLevel"] = new()
-        {
-            [51] = "No Acceptance (e.g. Abituary / Legal)", [52] = "Customer Accepted Solution", [53] = "Customer Accepted Solution and Expressed Appreciation",
-        };
-        t.Static["TaskType"] = new() { [61] = "Corrective Action", [62] = "Preventive Action" };
+        t.Define("CompanyGroupName", "ID:id GROUPNAME:255");
+        t.Define("Team", "ID:id NAME:255 SHORTNAME:50 ISACTIVE:bit");
+        t.Define("CUser", "ID:id USERID:user ROLEID:ref TEAMID:ref ISACTIVE:bit CREATEDBY:user CREATEDAT:datetime UPDATEDBY:user UPDATEDAT:datetime DESIGNATION:50 " +
+            "PHONENUMBER:20 SALESMANCODE:50 CID:int PROFILEID:ref TERRITORYCODE:50");
+        t.Define("Company", "ID:id COMPANY:250 BRN:50 WEBSITE:100 ISACTIVE:bit INCCERTNO:50 NOOFEMPLOYEES:int PAIDUPCAPITAL:int COMPANYGROUPID:ref COMPANYGROUPNAMEID:ref " +
+            "CRMCOMPANYID:long CREATEDDATE:date UPDATEDDATE:date COMPACCOUNTTYPEID:ref COMPOWNERSHIPID:ref ISCARETAKE:bit UPDATEDBY:user CREATEDBY:user REMARKS:10000 " +
+            "ISCHANNELPARTNER:bit PHONE:20 FAX:20 ISCREATEDBYMSD:bit MIFPOTENTIAL:int REVENUE:money COMPANYINDUSTRYID:ref PRECOMPANYNAME:250 PREBRN:50 PREWEBSITE:100 " +
+            "PREISACTIVE:bit PREINCCERTNO:50 PRENOOFEMPLOYEES:int PREPAIDUPCAPITAL:int PRECOMPANYGROUPID:ref PRECOMPANYGROUPNAMEID:ref PRECOMPACCOUNTTYPEID:ref " +
+            "PRECOMPOWNERSHIPID:ref PREISCARETAKE:bit PREREMARKS:10000 PREISCHANNELPARTNER:bit PREPHONE:20 PREFAX:20 PREMIFPOTENTIAL:int PREREVENUE:money " +
+            "PRECOMPANYINDUSTRYID:ref CUSTOMERTYPEID:ref ISCHANNELPARTNERFORVSS:bit ISCHANNELPARTNERFORCS:bit CUSTOMERNO:50 CREDITTERMS:50 SALESREMARKS:max ADVANCECUSTOMERTYPEID:ref");
+        t.Define("CompanyCaretake", "ID:id COMPANYID:ref CARETAKEACCOUNTREMARKS:10000 UPDATEDDATE:date CREATEDBY:user UPDATEDBY:user DATECREATED:date");
+        t.Define("CompanyRelationship", "ID:id COMPANYID:ref COMPANYRELATIONSHIPTYPEID:ref RELATEDCOMPANYID:ref ISACTIVE:bit");
+        t.Define("Address", "ID:id ADDRESSTYPEID:ref UNITNUMBER:2000 BLOCK:2000 STREET:2000 BUILDINGNAME:2000 POSTALCODE:50 ISACTIVE:bit CRMADDRESSID:long ISDEFAULT:bit " +
+            "COUNTRY:255 CITY:255 STATEPROVINCE:255 PREADDRESSTYPEID:ref PREUNITNUMBER:2000 PREBLOCK:2000 PRESTREET:2000 PREBUILDINGNAME:2000 PREPOSTALCODE:50 PRECOUNTRY:255 " +
+            "PRECITY:255 PRESTATEPROVINCE:255 PREISACTIVE:bit CREATEDAT:datetime CREATEDBY:user UPDATEDAT:datetime UPDATEDBY:user");
+        t.Define("CompanyAddressLink", "ID:id COMPANYID:ref ADDRESSID:ref CRMADDRESSLINK:long");
+        t.Define("Contacts", "ID:id FIRSTNAME:250 LASTNAME:250 ISACTIVE:bit DEPARTMENT:50 CID:long MIDDLENAME:250 CRMCONTACTLINKID:long DESIGNATION:250 SALUTATION:250 " +
+            "CREATEDAT:datetime CREATEDBY:user UPDATEDAT:datetime UPDATEDBY:user PREFIRSTNAME:250 PRELASTNAME:250 PREISACTIVE:bit PREDEPARTMENT:50 PREMIDDLENAME:250 " +
+            "PREDESIGNATION:250 PRESALUTATION:250 ISLINKEDIN:bit ISEQLIST:bit");
+        t.Define("CompanyContactLink", "ID:id COMPANYID:ref CONTACTID:ref CID:long ISDEFAULT:bit");
+        t.Define("Phone", "ID:id COMPANYID:ref CONTACTID:ref PHONETYPEID:ref PHONE:20 ISACTIVE:bit CRMPHONEID:long CRMPHONELINKID:long CREATEDAT:datetime CREATEDBY:user " +
+            "UPDATEDAT:datetime UPDATEDBY:user PREPHONE:20 PREPHONETYPEID:ref PREISACTIVE:bit");
+        t.Define("Email", "ID:id EMAIL:200 COMPANYID:ref CONTACTID:ref ISACTIVE:bit CID:long CRMEMAILLINKID:long CREATEDAT:datetime CREATEDBY:user UPDATEDAT:datetime " +
+            "UPDATEDBY:user PREEMAIL:250 PREISACTIVE:bit CONSENTTOMARKETINGINFO:bit");
+        t.Define("Territory", "ID:id TERRITORY:long OWNERID:user ISACTIVE:bit ISTEMPORARY:bit ISOWNER:bit");
+        t.Define("CompanyTerritory", "ID:id TERRITORYID:ref COMPANYID:ref ISACTIVE:bit CREATEDBY:user");
+        t.Define("TerritoryMovement", "ID:id COMPANYID:ref FROMUSERID:user TOUSERID:user UPDATEDBY:user UPDATEDAT:datetime");
+        // Static entities: Ids unlike any list's position, in an order unlike MyCRMRecords's lists.
+        t.Static["Role"] = CrmRoles.List.All.Select((c, i) => (Id: 245L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["CompanyGroup"] = new() { [301] = "SME", [302] = "SMEDEA", [303] = "DEA", [304] = "JKA", [305] = "GOV", [306] = "CA", [307] = "LG", [308] = "GA", [309] = "MA", [310] = "LMA", [311] = "GMA" };
+        t.Static["CompAccountType"] = new() { [321] = "Non-User", [322] = "User" };
+        t.Static["CompOwnership"] = new() { [331] = "Declared", [332] = "Owned" };
+        t.Static["CompanyIndustry"] = CompanyIndustries.List.All.Select((c, i) => (Id: 440L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["CustomerType"] = new() { [451] = "BDG - IT on MIF", [452] = "BDG - ZBA" };
+        t.Static["AdvanceCustomerType"] = AdvanceCustomerTypes.List.All.Select((c, i) => (Id: 480L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["AddressType"] = new() { [491] = "Mailing", [492] = "Storage", [493] = "Delivery", [494] = "Billing" };
+        t.Static["PhoneType"] = new() { [501] = "Home", [502] = "Fax", [503] = "Mobile", [504] = "Office" };
+        t.Static["CompanyRelationshipType"] = new() { [511] = "Peer", [512] = "Child", [513] = "Parent" };
         t.UserList.AddRange([
-            new OldUser(101, @"RSP\sam", "Sam Staff", "sam@example.com"), new OldUser(102, @"RSP\fay", "Fay Admin", "fay@example.com"),
-            new OldUser(103, @"RSP\hana", "Hana Hr", "hana@example.com"), new OldUser(104, @"RSP\ben", "Ben Be", "ben@example.com"),
-            new OldUser(105, @"RSP\olga", "Olga Other", "olga@example.com"), new OldUser(1, @"RSP\admin", "Administrator", "admin@example.com"),
+            new OldUser(101, @"RSP\sam", "Sam Sales", "sam@example.com"), new OldUser(102, @"RSP\sara", "Sara Admin", "sara@example.com"),
+            new OldUser(103, @"RSP\mia", "Mia Manager", "mia@example.com"), new OldUser(104, @"RSP\mark", "Mark Marketing", "mark@example.com"),
+            new OldUser(105, @"RSP\olga", "Olga Other", "olga@example.com"), new OldUser(106, @"RSP\dina", "Dina Director", "dina@example.com"),
+            new OldUser(107, @"RSP\ken", "Ken Kwan", "ken@example.com"), new OldUser(108, @"RSP\tom", "Tom Telesales", "tom@example.com"),
+            new OldUser(1, @"RSP\root", "Rob Root", "rob@example.com"),
         ]);
         return t;
     }
+
+    /// <summary>The Id of a static entity's record by its label (for rows written as MyCRM writes them).</summary>
+    public long StaticId(string entity, string label) => Static[entity].Single(p => p.Value == label).Key;
 
     /// <summary>
     /// A table with the given columns, "NAME:type" with type id (identity), ref (a reference: bigint, NULL allowed), user (a
@@ -140,7 +156,32 @@ public sealed class FakeOldTables : IOldTables
 
     public IReadOnlyList<Dictionary<string, object?>> Rows(string table, string? sinceColumn = null, DateTime? since = null) =>
         _rows[table].Where(r => sinceColumn is null || since is null || r[sinceColumn] is DateTime d && d >= since)
+            .Where(r => SyncSees(table, r))
             .Select(r => new Dictionary<string, object?>(r, StringComparer.OrdinalIgnoreCase)).ToList();
+
+    private static bool True(object? value) => value is bool b && b;
+
+    /// <summary>As CrmTables: only active permanent territories, and the active companies of those.</summary>
+    private bool SyncSees(string table, Dictionary<string, object?> row)
+    {
+        if (string.Equals(table, CrmSync.Territories, StringComparison.OrdinalIgnoreCase))
+            return True(row["ISACTIVE"]) && !True(row["ISTEMPORARY"]);
+        if (string.Equals(table, CrmSync.CompanyTerritories, StringComparison.OrdinalIgnoreCase))
+            return True(row["ISACTIVE"]) && row["TERRITORYID"] is not null
+                && _rows[CrmSync.Territories].Any(t => (long)t["ID"]! == Convert.ToInt64(row["TERRITORYID"], CultureInfo.InvariantCulture) && True(t["ISACTIVE"]) && !True(t["ISTEMPORARY"]));
+        return true;
+    }
+
+    /// <summary>As CrmTables: MyCRM's Ids of the active companies of these people's active temporary territories.</summary>
+    public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins)
+    {
+        var users = UserList.Where(u => logins.Any(l => string.Equals(l, u.Login, StringComparison.OrdinalIgnoreCase))).Select(u => u.Id).ToHashSet();
+        var territories = _rows[CrmSync.Territories].Where(t => True(t["ISACTIVE"]) && True(t["ISTEMPORARY"]) && t["OWNERID"] is not null
+            && users.Contains(Convert.ToInt64(t["OWNERID"], CultureInfo.InvariantCulture))).Select(t => (long)t["ID"]!).ToHashSet();
+        return _rows[CrmSync.CompanyTerritories].Where(ct => True(ct["ISACTIVE"]) && ct["TERRITORYID"] is not null
+                && territories.Contains(Convert.ToInt64(ct["TERRITORYID"], CultureInfo.InvariantCulture)))
+            .Select(ct => Convert.ToInt64(ct["COMPANYID"], CultureInfo.InvariantCulture)).Distinct().ToList();
+    }
 
     public IReadOnlyList<Dictionary<string, object?>> Rows(string table, string column, IReadOnlyCollection<long> values) =>
         _rows[table].Where(r => r[column] is not null && values.Contains(Convert.ToInt64(r[column], CultureInfo.InvariantCulture)))
@@ -240,12 +281,13 @@ public sealed class FakeOldTables : IOldTables
     }
 
     /// <summary>
-    /// AdvanceConnector's public holidays (for the SQL Server tests), with real-looking column names unlike MyCRM's
-    /// (other case, a look-alike column): ExternalTable must find them.
+    /// AdvanceConnector's Customer_Supp (for the SQL Server tests), with real-looking column names unlike MyCRM's
+    /// ([Business reg] for Business_reg, [Cust-no] for Cust_no): ExternalTable must find them. Two customers share a BRN.
     /// </summary>
     public static string AdvanceSql() => """
-        CREATE TABLE dbo.public_holiday ([Date] datetime NOT NULL, [Name] nvarchar(100) NOT NULL, [date-added] datetime NULL);
-        INSERT INTO dbo.public_holiday VALUES ('2026-10-16', N'Deepavali (test)', '2026-01-01'), ('2026-12-25', N'Christmas Day', NULL);
+        CREATE TABLE dbo.Customer_Supp ([Cust-no] nvarchar(20) NOT NULL, [Business reg] nvarchar(50) NULL, [Cust name] nvarchar(100) NULL);
+        INSERT INTO dbo.Customer_Supp VALUES (N'C0002', N'200012345K', N'Tan & Sons'), (N'C0001', N'199912345K', N'Lim Pte Ltd'),
+          (N'C0003', N'199912345K', N'Lim Pte Ltd (2)'), (N'C0004', NULL, N'No BRN'), (N'C0005', N'ABC', N'Short BRN');
         """;
 
     public static string Text(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";

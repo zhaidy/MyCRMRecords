@@ -26,18 +26,11 @@ public sealed class FakeEmail : IEmailSender
     }
 }
 
-/// <summary>Public holidays for the tests.</summary>
-public sealed class FakeHolidays : IHolidays
-{
-    public List<DateTime> List { get; } = [];
-    public bool Available => true;
-    public IReadOnlyCollection<DateTime> Dates() => List;
-}
-
 /// <summary>
-/// MyCRMRecords with its data in a temporary folder, a fixed clock (Saturday 17 October 2026, 09:30), email faked, public
-/// holidays in memory, and MyCRM's tables in memory. Fay is a Feedback Admin, Ben is BE, Hana is HR, Sam and Olga have no
-/// role.
+/// MyCRMRecords with its data in a temporary folder, a fixed clock (Saturday 17 October 2026, 09:30), email faked, and
+/// MyCRM's tables in memory (also MyCRM's temporary territories). With <c>crmUsers</c> (the default) the people have their
+/// MyCRM roles: Sara is SalesAdmin, Sam Sales and Mia Manager (both in Mia's team), Ken Sales in his own team, Mark
+/// Marketing, Dina MD and Tom Telemarketer; Olga has no CRM role. Rob is an administrator of MyCRMRecords (Web.config).
 /// </summary>
 public sealed class TestWorld : IDisposable
 {
@@ -48,35 +41,67 @@ public sealed class TestWorld : IDisposable
     public JsonRecordStore Store { get; }
     public CrmApp D { get; }
     /// <summary>MyCRM's tables, for the sync and the import.</summary>
-    public FakeOldTables OldApp { get; } = FakeOldTables.MyCRM();
-    public FakeHolidays Holidays { get; } = new();
+    public FakeOldTables OldApp { get; }
 
     public static readonly ApiUser Admin = new(@"RSP\root", "Rob Root", "rob@example.com", IsListedAdmin: true);
-    public static readonly ApiUser FeedbackAdmin = new(@"RSP\fay", "Fay Admin", "fay@example.com");
-    public static readonly ApiUser Be = new(@"RSP\ben", "Ben Be", "ben@example.com");
-    public static readonly ApiUser Hr = new(@"RSP\hana", "Hana Hr", "hana@example.com");
-    public static readonly ApiUser Sam = new(@"RSP\sam", "Sam Staff", "sam@example.com");
+    public static readonly ApiUser SalesAdmin = new(@"RSP\sara", "Sara Admin", "sara@example.com");
+    public static readonly ApiUser Sam = new(@"RSP\sam", "Sam Sales", "sam@example.com");
+    public static readonly ApiUser Mia = new(@"RSP\mia", "Mia Manager", "mia@example.com");
+    public static readonly ApiUser Ken = new(@"RSP\ken", "Ken Kwan", "ken@example.com");
+    public static readonly ApiUser Mark = new(@"RSP\mark", "Mark Marketing", "mark@example.com");
+    public static readonly ApiUser Dina = new(@"RSP\dina", "Dina Director", "dina@example.com");
+    public static readonly ApiUser Tom = new(@"RSP\tom", "Tom Telesales", "tom@example.com");
     public static readonly ApiUser Olga = new(@"RSP\olga", "Olga Other", "olga@example.com");
 
-    public TestWorld(Action<CrmSettings>? configure = null, IRecordStore? store = null, IOldTables? oldTables = null)
+    /// <summary>Mia's team (Mia, Sam) and Ken's team (Ken), when the world has CRM users.</summary>
+    public long MiaTeam { get; private set; }
+    public long KenTeam { get; private set; }
+
+    public TestWorld(Action<CrmSettings>? configure = null, IRecordStore? store = null, FakeOldTables? oldTables = null, bool crmUsers = true)
     {
         Directory.CreateDirectory(Folder);
+        OldApp = oldTables ?? FakeOldTables.MyCRM();
         SettingsFile = new SettingsFile<CrmSettings>(Path.Combine(Folder, "crm-records-settings.json"), new FakeProtector());
         SettingsFile.Change(s => s.Email.Enabled = true);
         if (configure is not null) SettingsFile.Change(configure);
         Store = new JsonRecordStore(Path.Combine(Folder, "data"));
         D = CrmFactory.Create(store ?? Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
-            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, oldTables ?? OldApp, Holidays);
-        D.Store.Batch(s =>
-        {
-            s.Insert(new UserRole { Login = FeedbackAdmin.Login, Role = Roles.FeedbackAdmin });
-            s.Insert(new UserRole { Login = Be.Login, Role = Roles.Be });
-            s.Insert(new UserRole { Login = Hr.Login, Role = Roles.Hr });
-        });
-        foreach (var user in new[] { FeedbackAdmin, Be, Hr, Sam, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
+            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, OldApp, OldApp);
+        foreach (var user in new[] { Admin, SalesAdmin, Sam, Mia, Ken, Mark, Dina, Tom, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
+        if (!crmUsers) return;
+        // Straight into the records (not through the sync): as if imported, with no MyCRM Id yet.
+        var records = store ?? Store;
+        MiaTeam = records.Insert(new CrmTeam { Name = "Mia Manager" }).Id;
+        KenTeam = records.Insert(new CrmTeam { Name = "Ken Kwan" }).Id;
+        void Profile(ApiUser user, string role, long? team) => records.Insert(new CrmUser { Login = user.Login, Role = role, TeamId = team, CreatedAt = Now });
+        Profile(SalesAdmin, CrmRoles.SalesAdmin, MiaTeam);
+        Profile(Sam, CrmRoles.Sales, MiaTeam);
+        Profile(Mia, CrmRoles.Manager, MiaTeam);
+        Profile(Ken, CrmRoles.Sales, KenTeam);
+        Profile(Mark, CrmRoles.Marketing, KenTeam);
+        Profile(Dina, CrmRoles.Md, null);
+        Profile(Tom, CrmRoles.Telemarketer, MiaTeam);
     }
 
     public Actor Actor(ApiUser user) => user.ToActor(D.People);
+
+    /// <summary>A company made by the Sales Admin's form (asserting it was saved).</summary>
+    public Company Company(string name, string brn = "")
+    {
+        var result = D.Companies.Save(Actor(Admin), 0, new Companies.CompanyInput { Name = name, Brn = brn, IsHomeUser = brn.Length == 0 });
+        Assert.True(result.Ok, result.Message);
+        return D.Companies.Get(result.Id!.Value)!;
+    }
+
+    /// <summary>A territory of the person (none: vacant), asserting it was saved.</summary>
+    public Territory Territory(string name, long number, ApiUser? owner = null, params long[] companies)
+    {
+        var admin = Actor(Admin);
+        var result = D.Territories.Save(admin, 0, new Territories.TerritoryInput { Name = name, Number = number, Owner = owner?.Login });
+        Assert.True(result.Ok, result.Message);
+        if (companies.Length > 0) Assert.True(D.Territories.AddCompanies(admin, result.Id!.Value, companies).Ok);
+        return D.Territories.Get(result.Id!.Value)!;
+    }
 
     public ApiResponse Call(string method, string path, object? body = null, ApiUser? user = null, Dictionary<string, string>? query = null) =>
         new CrmApi(D).Handle(method, path, body is null ? "" : MyCRMRecords.Json.Serialize(body), query ?? new Dictionary<string, string>(), user ?? Admin);

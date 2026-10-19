@@ -5,8 +5,9 @@ using MyCRMRecords.Web.Auth;
 namespace MyCRMRecords.Web;
 
 /// <summary>
-/// Serves <c>file.ashx/&lt;kind&gt;</c>: GET downloads a feedback's attachment or the statistics report (Excel); POST
-/// uploads a feedback's attachment (<c>attachment?feedback=&amp;kind=</c>) as multipart form data with an
+/// Serves <c>file.ashx/&lt;kind&gt;</c>: GET downloads an Excel sample to fill in (<c>sample?of=employees</c> or
+/// <c>sample?of=territory</c>); POST uploads an Excel workbook (<c>employees</c>, or <c>territory-list?territory=</c>)
+/// as multipart form data with an
 /// <c>X-MyCRMRecords</c> header. Browsers cannot add that header cross-site without a CORS preflight, which is never
 /// granted, so other sites cannot upload.
 /// </summary>
@@ -75,10 +76,11 @@ public sealed class FileHandler : IHttpHandler
             result = ApiResponse.Fail(500, "SERVER_ERROR", "Something went wrong: " + ex.Message);
         }
         var (ok, message) = ApiHandler.Outcome(result);
-        var feedback = query.TryGetValue("feedback", out var f) ? f : "";
+        var territory = query.TryGetValue("territory", out var t) ? t : "";
         var action = kind switch
         {
-            FilesApi.Attachment => $"Attach a file to feedback {feedback}",
+            FilesApi.Employees => "Upload the number of employees",
+            FilesApi.TerritoryList => $"Find an Excel list of companies for territory {territory}",
             _ => "Upload " + kind,
         };
         Services.Record(context, user, action, "file.ashx/" + kind, ok, message, posted is null ? "" : $"{posted.FileName} ({posted.ContentLength} bytes)", status: result.Status);

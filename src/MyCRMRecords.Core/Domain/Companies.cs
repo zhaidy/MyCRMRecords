@@ -452,7 +452,10 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
     {
         if (!actor.CanEditContacts) return OperationResult.Failure(ResultCodes.Forbidden, "Your role does not change companies' relationships.");
         if (Open(actor, id, out _) is { } refused) return refused;
-        if (store.Get<CompanyRelationship>(relationshipId) is not { IsActive: true } relationship) return OperationResult.Failure(ResultCodes.NotFound, "That relationship is not there.");
+        // Only a relationship the company's page shows: its parent's, its subsidiaries' and its siblings'.
+        if (store.Get<CompanyRelationship>(relationshipId) is not { IsActive: true } relationship
+            || (relationship.CompanyId != id && relationship.RelatedCompanyId != id && relationship.CompanyId != ParentOf(id)))
+            return OperationResult.Failure(ResultCodes.NotFound, "That relationship is not there.");
         relationship.IsActive = false;
         relationship.RemovedOn = clock();
         relationship.RemovedBy = Strings.Shorten(actor.ChangedBy, 600);

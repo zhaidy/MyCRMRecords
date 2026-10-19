@@ -3,15 +3,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Feedbacks · MyCRMRecords</title>
+  <title>Companies · MyCRMRecords</title>
   <%= Stylesheet() %>
 </head>
 <body>
-  <%= TopBar("./", "feedbacks") %>
-  <main id="feedbacks-page">
+  <%= TopBar("./", "companies") %>
+  <main id="companies-page">
     <div class="loading" id="loading">Loading…</div>
     <div id="page" hidden></div>
   </main>
-  <%= Scripts("feedbacks.js") %>
+  <%= Scripts("crm.js", "companies.js") %>
 </body>
 </html>

@@ -180,7 +180,7 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     /// with the import, and everyone who opened MyCRMRecords), by name.
     /// </summary>
     public IReadOnlyList<AppUser> Everyone() =>
-        store.Find<AppUser>().Where(u => u.Login.Length > 0 && Strings.IsEmail(u.Email))
+        store.Find<AppUser>().Where(u => u.IsActive && u.Login.Length > 0 && Strings.IsEmail(u.Email))
             .OrderBy(u => u.DisplayName.Length > 0 ? u.DisplayName : u.Login, StringComparer.OrdinalIgnoreCase).ToList();
 
     /// <summary>Adds someone found in Active Directory, so they can be chosen (their record is kept as it is when known).</summary>

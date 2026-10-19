@@ -3,9 +3,9 @@ using Newtonsoft.Json.Linq;
 namespace MyCRMRecords.Tests;
 
 /// <summary>
-/// The two-way sync with MyCRM (OldAppSync, CrmSync), against MyCRM's tables in memory: a feedback made here takes
-/// MyCRM's number, its fields, tasks and files reach MyCRM with MyCRM's users and static Ids, MyCRM's changes come here,
-/// and what is removed on either side is marked, never deleted.
+/// The two-way sync with MyCRM (OldAppSync, CrmSync), against MyCRM's tables in memory: a company, address or contact
+/// made here takes MyCRM's number, its fields reach MyCRM with MyCRM's users and static Ids, MyCRM's changes come here,
+/// only MyCRM's active permanent territories are synced, and what is removed on either side is marked, never deleted.
 /// </summary>
 public sealed class SyncTests
 {
@@ -24,6 +24,10 @@ public sealed class SyncTests
 
     private static long L(object? value) => Convert.ToInt64(value);
 
+    private static string Str(object? value) => FakeOldTables.Text(value);
+
+    private static bool B(object? value) => value is bool b && b;
+
     [Fact]
     public void Nothing_can_be_deleted_in_the_old_app()
     {
@@ -31,84 +35,88 @@ public sealed class SyncTests
         Assert.DoesNotContain(typeof(IOldTables).GetMethods(), m => m.Name.IndexOf("Delete", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
-    [Fact]
-    public void A_files_bytes_are_compared_by_their_length_and_hash()
-    {
-        Assert.Equal("", OldValues.Canonical(Array.Empty<byte>()));
-        Assert.Equal(OldValues.Canonical(new byte[] { 1, 2, 3 }), OldValues.Canonical(new byte[] { 1, 2, 3 }));
-        Assert.NotEqual(OldValues.Canonical(new byte[] { 1, 2, 3 }), OldValues.Canonical(new byte[] { 1, 2, 4 }));
-        Assert.StartsWith("bytes:3:", OldValues.Canonical(new byte[] { 1, 2, 3 }));
-    }
-
-    /// <summary>A division (in charge: Sam), a category and a medium, made here.</summary>
-    public static (long Division, long Category, long Medium) Lists(TestWorld world)
-    {
-        var fay = world.Actor(TestWorld.FeedbackAdmin);
-        var division = world.D.Setup.SaveDivision(fay, 0, new Setup.DivisionInput { Name = "Service", PersonInCharge = TestWorld.Sam.Login });
-        var category = world.D.Setup.SaveCategory(fay, 0, new Setup.ChoiceInput { Label = "Billing", SortOrder = 1 });
-        var medium = world.D.Setup.SaveMedium(fay, 0, new Setup.ChoiceInput { Label = "Email", SortOrder = 1 });
-        Assert.True(division.Ok && category.Ok && medium.Ok, division.Message + category.Message + medium.Message);
-        return (division.Id!.Value, category.Id!.Value, medium.Id!.Value);
-    }
-
-    /// <summary>A customer complaint as Olga makes it (in charge: Sam, Hana copied).</summary>
-    public static Feedbacks.FeedbackInput Complaint((long Division, long Category, long Medium) lists) => new()
-    {
-        FeedbackGroup = FeedbackGroups.CustomerComplaint, DivisionId = lists.Division, PersonResponsible = TestWorld.Sam.Login, CompanyName = "Tan & Sons",
-        ContactName = "Mr Tan", CompanyEmail = "tan@tan.example", MediumId = lists.Medium, DateReceived = new DateTime(2026, 10, 15), TimeReceived = "09:00",
-        FeedbackType = FeedbackTypes.Serious, CategoryId = lists.Category, Description = "The invoice went to the wrong address.", Cc = ["hana@example.com"],
-    };
-
-    /// <summary>A feedback made here by Olga, acknowledged by Sam with a corrective task (Ben's) and a file.</summary>
+    /// <summary>
+    /// Made here by Rob (an administrator): a group name, the company Tan &amp; Sons in it, its billing address, Mr Tan as its
+    /// primary contact with an email and a phone; returns the company's Id.
+    /// </summary>
     private static long MadeHere(TestWorld world)
     {
-        var lists = Lists(world);
-        var made = world.D.Feedbacks.Save(world.Actor(TestWorld.Olga), 0, Complaint(lists));
-        Assert.True(made.Ok, made.Message);
-        var id = made.Id!.Value;
-        var sam = world.Actor(TestWorld.Sam);
-        var input = FeedbackTests.InputOf(world, id);
-        input.IsAcknowledged = true;
-        Assert.True(world.D.Feedbacks.Save(sam, id, input).Ok);
-        var task = world.D.Feedbacks.SaveTask(sam, id, 0, new Feedbacks.TaskInput { TaskType = TaskTypes.Corrective, ActionPlan = "Correct the address", PersonInCharge = TestWorld.Be.Login, DueDate = new DateTime(2026, 10, 20) });
-        Assert.True(task.Ok, task.Message);
-        Assert.True(world.D.Feedbacks.Attach(world.Actor(TestWorld.Olga), id, FileKinds.Satisfaction, "letter.pdf", [1, 2, 3]).Ok);
+        var admin = world.Actor(TestWorld.Admin);
+        var group = world.D.Companies.SaveGroupName(admin, 0, new Companies.GroupNameInput { GroupName = "Tan Group" });
+        Assert.True(group.Ok, group.Message);
+        var company = world.D.Companies.Save(admin, 0, new Companies.CompanyInput
+        {
+            Name = "Tan & Sons", Brn = "200012345K", Website = "www.tan.example", CompanyGroup = "SME", CompAccountType = "User", CompOwnership = "Owned",
+            AdvanceCustomerType = "Healthcare", CompanyGroupNameId = group.Id, Remarks = "Good customer", IsChannelPartner = true,
+        });
+        Assert.True(company.Ok, company.Message);
+        var id = company.Id!.Value;
+        var address = world.D.Companies.SaveAddress(admin, id, 0, new Companies.AddressInput
+        {
+            IsDefault = true, AddressType = AddressTypes.Billing, Block = "1", Street = "Tan Road", PostalCode = "123456", UnitNumber = "#01-02",
+        });
+        Assert.True(address.Ok, address.Message);
+        var contact = world.D.Companies.SaveContact(admin, id, 0, new Companies.ContactInput
+        {
+            Salutation = "Mr", FirstName = "Ah", LastName = "Tan", Department = "Finance", Designation = "Director", IsDefault = true, IsEqList = true, IsLinkedIn = true,
+            Emails = [new Companies.EmailInput { Address = "tan@tan.example", ConsentToMarketingInfo = true }],
+            Phones = [new Companies.PhoneInput { Number = "61234567", PhoneType = "Office" }],
+        });
+        Assert.True(contact.Ok, contact.Message);
         return id;
     }
 
     [Fact]
-    public void A_feedback_made_here_takes_MyCRM_number_and_reaches_MyCRM()
+    public void A_company_made_here_takes_MyCRM_number_and_reaches_MyCRM_with_its_address_and_contact()
     {
-        using var world = new TestWorld(s => s.Sync.Enabled = true);
+        using var world = new TestWorld(s => s.Sync.Enabled = true, crmUsers: false);
         var old = world.OldApp;
         var id = MadeHere(world);
-        // MyCRM's number: the feedback's number is the same in both.
+        // MyCRM's numbers: the company, the address and the contact have the same number in both.
         Assert.Equal(1001, id);
+        Assert.Equal(1001, world.Store.Find<Address>().Single().Id);
+        Assert.Equal(1001, world.Store.Find<Contact>().Single().Id);
 
         Sync(world);
-        var row = old.Row("Feedback", 1001);
-        Assert.Equal(11L, L(row["FEEDBACKGROUPID"]));
-        Assert.Equal(23L, L(row["FEEDBACKSTATUSID"]));
-        Assert.Equal(32L, L(row["FEEDBACKTYPEID"]));
-        Assert.Equal(101L, L(row["PERSONRESPONSIBLE"]));
-        Assert.Equal(101L, L(row["SIGNOFF"]));
-        Assert.Equal("Tan & Sons", FakeOldTables.Text(row["COMPANYNAME"]));
-        Assert.Equal(new DateTime(1900, 1, 1, 9, 0, 0), row["TIMERECEIVED"]);
-        Assert.Equal(new DateTime(2026, 10, 15), row["DATERECEIVED"]);
-        Assert.Equal("hana@example.com", FakeOldTables.Text(row["CC"]));
-        Assert.True((bool)row["ISACTIVE"]!);
-        Assert.Equal(L(old.All("FeedbackDivision").Single()["ID"]), L(row["FEEDBACKDIVISIONID"]));
-        Assert.Equal(L(old.All("FeedbackCategory").Single()["ID"]), L(row["FEEDBACKCATEGORYID"]));
-        Assert.Equal(101L, L(old.All("FeedbackDivision").Single()["PERSONINCHARGE"]));
-        var task = old.All("Task").Single();
-        Assert.Equal(1001L, L(task["FEEDBACKID"]));
-        Assert.Equal(61L, L(task["TASKTYPEID"]));
-        Assert.Equal(104L, L(task["PERSONINCHARGE"]));
-        Assert.Equal(FakeOldTables.Text(row["SESSIONID"]), FakeOldTables.Text(task["SESSIONID"]));
-        var file = old.All("FeedbackAttachment").Single();
-        Assert.Equal(1001L, L(file["FEEDBACKID"]));
-        Assert.Equal("CS", FakeOldTables.Text(file["TYPE"]));
-        Assert.Equal(new byte[] { 1, 2, 3 }, (byte[])file["FILEBINARY"]!);
+        var row = old.Row("Company", 1001);
+        Assert.Equal("Tan & Sons", Str(row["COMPANY"]));
+        Assert.Equal(old.StaticId("CompanyGroup", "SME"), L(row["COMPANYGROUPID"]));
+        Assert.Equal(old.StaticId("CompAccountType", "User"), L(row["COMPACCOUNTTYPEID"]));
+        Assert.Equal(old.StaticId("CompOwnership", "Owned"), L(row["COMPOWNERSHIPID"]));
+        Assert.Equal(old.StaticId("AdvanceCustomerType", "Healthcare"), L(row["ADVANCECUSTOMERTYPEID"]));
+        Assert.Equal(L(old.All("CompanyGroupName").Single()["ID"]), L(row["COMPANYGROUPNAMEID"]));
+        Assert.Equal(1L, L(row["CREATEDBY"]));
+        Assert.Equal(world.Now.Date, row["CREATEDDATE"]);
+        Assert.True(B(row["ISCHANNELPARTNER"]));
+        Assert.Equal("", Str(row["PRECOMPANYNAME"]));
+        var address = old.Row("Address", 1001);
+        Assert.Equal(old.StaticId("AddressType", "Billing"), L(address["ADDRESSTYPEID"]));
+        Assert.Equal("Singapore", Str(address["COUNTRY"]));
+        Assert.True(B(address["ISDEFAULT"]));
+        var link = old.All("CompanyAddressLink").Single();
+        Assert.Equal(1001L, L(link["COMPANYID"]));
+        Assert.Equal(1001L, L(link["ADDRESSID"]));
+        Assert.Equal("Tan", Str(old.Row("Contacts", 1001)["LASTNAME"]));
+        Assert.True(B(old.All("CompanyContactLink").Single()["ISDEFAULT"]));
+        var phone = old.All("Phone").Single();
+        Assert.Equal(old.StaticId("PhoneType", "Office"), L(phone["PHONETYPEID"]));
+        Assert.Equal(1001L, L(phone["CONTACTID"]));
+        Assert.Equal(1001L, L(phone["COMPANYID"]));
+        Assert.Equal("tan@tan.example", Str(old.All("Email").Single()["EMAIL"]));
+        InStep(world);
+
+        // Edited here: MyCRM gets the new values and, in the Pre… columns, the ones before (its lists sort by PRECOMPANYNAME).
+        var admin = world.Actor(TestWorld.Admin);
+        var input = new Companies.CompanyInput { Name = "Tan and Sons", Brn = "200012345K", CompanyGroup = "GMA" };
+        Assert.True(world.D.Companies.Save(admin, id, input).Ok);
+        Sync(world);
+        row = old.Row("Company", 1001);
+        Assert.Equal("Tan and Sons", Str(row["COMPANY"]));
+        Assert.Equal("Tan & Sons", Str(row["PRECOMPANYNAME"]));
+        Assert.Equal(old.StaticId("CompanyGroup", "SME"), L(row["PRECOMPANYGROUPID"]));
+        Assert.Equal(old.StaticId("CompanyGroup", "GMA"), L(row["COMPANYGROUPID"]));
+        Assert.Equal(1L, L(row["UPDATEDBY"]));
+        Assert.NotEmpty(world.Store.Find<SyncChange>(Query.Where("OldTable", "Company")));
         InStep(world);
     }
 
@@ -117,17 +125,16 @@ public sealed class SyncTests
     {
         using var here = new TestWorld(s => s.Sync.Enabled = true);
         var id = MadeHere(here);
-        var internalOne = here.D.Feedbacks.Save(here.Actor(TestWorld.Olga), 0, new Feedbacks.FeedbackInput
-        {
-            FeedbackGroup = FeedbackGroups.InternalChallenges, PersonResponsible = TestWorld.Sam.Login, FeedbackType = FeedbackTypes.Improvement,
-            CategoryId = here.Store.Find<FeedbackCategory>().Single().Id, Description = "Reports typed twice.", CreatorHasSolution = true, SolutionDetail = "Tablets",
-            ExpectedOutcome = "Time saved", SuggestionMeetCriteria = ["Process Improvement"], RicohWayValue = ["Innovation", "Teamwork"], MightCauseCustomerComplaint = true,
-        });
-        Assert.True(internalOne.Ok, internalOne.Message);
-        Assert.Equal(FeedbackStatuses.PendingHr, here.D.Feedbacks.Get(internalOne.Id!.Value)!.Status);
+        var admin = here.Actor(TestWorld.Admin);
+        var other = here.D.Companies.Save(admin, 0, new Companies.CompanyInput { Name = "Tan Services", Brn = "200099999K" }).Id!.Value;
+        Assert.True(here.D.Companies.AddRelationship(admin, id, new Companies.RelationshipInput { CompanyId = other, Kind = "subsidiary" }).Ok);
+        Assert.True(here.D.Companies.Save(admin, id, new Companies.CompanyInput { Name = "Tan & Sons", Brn = "200012345K", CompanyGroup = "GMA", Remarks = "Edited" }).Ok);
+        here.Store.Insert(new CompanyCaretake { CompanyId = id, CaretakeAccountRemarks = "Caretaken", DateCreated = here.Now.Date, CreatedBy = TestWorld.Sam.Login });
+        here.Territory("North", 1203, TestWorld.Sam, id, other);
+        Assert.True(here.D.Users.Save(admin, TestWorld.Olga.Login, new CrmUsers.ProfileInput { Role = CrmRoles.Marketing, Designation = "Writer", Teams = [here.MiaTeam, here.KenTeam] }).Ok);
         Sync(here);
         // Another MyCRMRecords synced with the same MyCRM gets every record with the same values.
-        using var there = new TestWorld(s => s.Sync.Enabled = true, oldTables: here.OldApp);
+        using var there = new TestWorld(s => s.Sync.Enabled = true, oldTables: here.OldApp, crmUsers: false);
         // A row added in the last two minutes waits for the next sync.
         there.Now = here.Now.AddMinutes(5);
         Sync(there, allowLarge: true);
@@ -143,13 +150,24 @@ public sealed class SyncTests
             Assert.NotEmpty(mine);
             Assert.Equal(mine, there.Store.Find<T>().Select(Text).OrderBy(t => t, StringComparer.Ordinal).ToList());
         }
-        Same<Feedback>();
-        Same<FeedbackTask>();
-        Same<FeedbackFile>();
-        Same<FeedbackDivision>();
-        Same<FeedbackCategory>();
-        Same<FeedbackMedium>();
-        Assert.Equal(id, there.D.Feedbacks.Get(id)!.Id);
+        Same<Company>();
+        Same<CompanyGroupName>("IsActive", "RemovedOn", "RemovedBy");
+        Same<CompanyCaretake>();
+        Same<CompanyRelationship>("RemovedOn", "RemovedBy");
+        Same<Address>();
+        Same<CompanyAddressLink>("IsActive", "RemovedOn", "RemovedBy");
+        Same<Contact>();
+        Same<CompanyContactLink>();
+        Same<Phone>();
+        Same<ContactEmail>();
+        Same<CrmTeam>();
+        Same<CrmUser>("FormerTeamId", "RemovedOn", "RemovedBy");
+        // The territory's name is kept here only.
+        Same<Territory>("Name", "CreatedOn", "CreatedBy", "RemovedOn", "RemovedBy");
+        Same<CompanyTerritory>("CreatedOn", "RemovedOn", "RemovedBy");
+        Same<TerritoryMovement>();
+        Assert.Equal("", there.Store.Find<Territory>().Single().Name);
+        Assert.Equal(id, there.D.Companies.Get(id)!.Id);
         InStep(there);
         InStep(here);
     }
@@ -159,131 +177,223 @@ public sealed class SyncTests
     {
         using var world = new TestWorld(s => s.Sync.Enabled = true);
         var old = world.OldApp;
+        var admin = world.Actor(TestWorld.Admin);
         var id = MadeHere(world);
+        var other = world.D.Companies.Save(admin, 0, new Companies.CompanyInput { Name = "Tan Services", Brn = "200099999K" }).Id!.Value;
+        Assert.True(world.D.Companies.AddRelationship(admin, id, new Companies.RelationshipInput { CompanyId = other, Kind = "subsidiary" }).Ok);
+        var unused = world.D.Companies.SaveGroupName(admin, 0, new Companies.GroupNameInput { GroupName = "Unused" }).Id!.Value;
+        var north = world.Territory("North", 1203, TestWorld.Sam, id, other);
         Sync(world);
-        var sam = world.Actor(TestWorld.Sam);
-        var task = world.D.Feedbacks.Tasks(id).Single();
-        var file = world.D.Feedbacks.Files(id).Single();
-        Assert.True(world.D.Feedbacks.RemoveTask(sam, task.Id).Ok);
-        Assert.True(world.D.Feedbacks.RemoveFile(sam, file.Id).Ok);
-        var fay = world.Actor(TestWorld.FeedbackAdmin);
-        Assert.True(world.D.Setup.RemoveCategory(fay, world.Store.Find<FeedbackCategory>().Single().Id).Ok);
-        Assert.True(world.D.Setup.RemoveDivision(fay, world.Store.Find<FeedbackDivision>().Single().Id).Ok);
-        Assert.True(world.D.Feedbacks.Delete(world.Actor(TestWorld.Be), id).Ok);
+        var before = new[] { "Company", "CompanyRelationship", "CompanyGroupName", "Address", "CompanyAddressLink", "Contacts", "Phone", "Email", "CUser", "Team", "Territory", "CompanyTerritory" }
+            .ToDictionary(t => t, t => old.All(t).Select(r => L(r["ID"])).ToList());
+
+        var contact = world.Store.Find<Contact>().Single();
+        Assert.True(world.D.Companies.RemoveRelationship(admin, id, world.D.Companies.Relationships(id).Subsidiaries.Single().Id).Ok);
+        Assert.True(world.D.Companies.RemoveGroupName(admin, unused).Ok);
+        Assert.True(world.D.Companies.RemoveAddress(admin, id, world.Store.Find<Address>().Single().Id).Ok);
+        // The phone taken off the contact's list, then the contact deleted.
+        var edit = world.D.Companies.ContactForEdit(id, contact.Id)!.Value;
+        Assert.True(world.D.Companies.SaveContact(admin, id, contact.Id, new Companies.ContactInput
+        {
+            LastName = "Tan", Emails = [new Companies.EmailInput { Id = edit.Emails.Single().Id, Address = "tan@tan.example", ConsentToMarketingInfo = true }],
+        }).Ok);
+        Assert.True(world.D.Companies.RemoveContact(admin, id, contact.Id).Ok);
+        Assert.True(world.D.Territories.Remove(admin, north.Id).Ok);
+        // Mark, Marketing in Ken's team, now in Mia's: his record changes team in place.
+        Assert.True(world.D.Users.Save(admin, TestWorld.Mark.Login, new CrmUsers.ProfileInput { Role = CrmRoles.Marketing, Teams = [world.MiaTeam] }).Ok);
+        // Sam is no longer a CRM user.
+        Assert.True(world.D.Users.RemoveUserAndTerritories(admin, TestWorld.Sam.Login).Ok);
         Sync(world);
 
-        // Every row is still there, marked: detached from its feedback, its session saying which one.
-        var oldTask = old.All("Task").Single();
-        Assert.Null(oldTask["FEEDBACKID"]);
-        Assert.StartsWith("X:1001:", FakeOldTables.Text(oldTask["SESSIONID"]));
-        var oldFile = old.All("FeedbackAttachment").Single();
-        Assert.Null(oldFile["FEEDBACKID"]);
-        Assert.Equal("(removed) letter.pdf", FakeOldTables.Text(oldFile["FILENAME"]));
-        Assert.False((bool)old.All("FeedbackCategory").Single()["ISACTIVE"]!);
-        Assert.False((bool)old.All("FeedbackDivision").Single()["ISACTIVE"]!);
-        Assert.False((bool)old.Row("Feedback", 1001)["ISACTIVE"]!);
-        Assert.Equal(1, old.All("Feedback").Count);
+        // Every row is still there, marked.
+        foreach (var (table, ids) in before) Assert.All(ids, i => Assert.Contains(old.All(table), r => L(r["ID"]) == i));
+        Assert.False(B(old.All("CompanyRelationship").Single()["ISACTIVE"]));
+        Assert.Equal("Unused", Str(old.All("CompanyGroupName").Single(r => L(r["ID"]) != L(old.Row("Company", 1001)["COMPANYGROUPNAMEID"]))["GROUPNAME"]));
+        var address = old.All("Address").Single();
+        Assert.False(B(address["ISACTIVE"]));
+        Assert.True(B(address["PREISACTIVE"]));
+        Assert.Single(old.All("CompanyAddressLink"));
+        var oldContact = old.Row("Contacts", contact.Id);
+        Assert.False(B(oldContact["ISACTIVE"]));
+        Assert.True(B(oldContact["PREISACTIVE"]));
+        Assert.False(B(old.All("Phone").Single()["ISACTIVE"]));
+        Assert.True(B(old.All("Email").Single()["ISACTIVE"]));
+        var territory = old.All("Territory").Single();
+        Assert.False(B(territory["ISACTIVE"]));
+        Assert.All(old.All("CompanyTerritory"), ct => Assert.False(B(ct["ISACTIVE"])));
+        Assert.Contains(old.All("TerritoryMovement"), m => L(m["FROMUSERID"]) == 101 && m["TOUSERID"] is null);
+        var markRows = old.All("CUser").Where(r => L(r["USERID"]) == 104).ToList();
+        Assert.Single(markRows);
+        Assert.Equal(L(old.All("Team").Single(t => Str(t["NAME"]) == "Mia Manager")["ID"]), L(markRows[0]["TEAMID"]));
+        var samRow = old.All("CUser").Single(r => L(r["USERID"]) == 101);
+        Assert.False(B(samRow["ISACTIVE"]));
+        Assert.Null(samRow["TEAMID"]);
+        Assert.Null(samRow["ROLEID"]);
 
         // The marks are read back as they were written: nothing to do on either side, and the records stay removed here.
         InStep(world);
-        var kept = world.Store.Get<FeedbackTask>(task.Id)!;
-        Assert.False(kept.IsActive);
-        Assert.Equal(id, kept.FeedbackId);
-        var keptFile = world.Store.Get<FeedbackFile>(file.Id)!;
-        Assert.False(keptFile.IsActive);
-        Assert.Equal("letter.pdf", keptFile.FileName);
-        Assert.True(world.Store.Find<FeedbackCategory>().Single().Removed);
-        Assert.Null(world.D.Feedbacks.Get(id));
+        Assert.False(world.D.Territories.Get(north.Id)!.IsActive);
+        Assert.All(world.Store.Find<CompanyTerritory>(), ct => Assert.False(ct.IsActive));
+        Assert.False(world.Store.Get<Contact>(contact.Id)!.IsActive);
+        Assert.False(world.Store.Get<CompanyGroupName>(unused)!.IsActive);
+        Assert.False(world.Store.Find<CompanyRelationship>().Single().IsActive);
+        Assert.Equal(world.MiaTeam, world.Store.Find<CrmUser>(Query.Where("Login", TestWorld.Sam.Login)).Single().FormerTeamId);
     }
 
-    /// <summary>MyCRM's feedback 1001 (created by Fay, user 102, in charge Sam) with a task and a file, and its lists.</summary>
-    private static void MyCrmRows(FakeOldTables old)
+    /// <summary>
+    /// MyCRM's rows: a team and Sam's CUser (Sales), a group name, the company Lim Pte Ltd (created by Sara, 102) with its
+    /// address, contact, phone and email, Sam's permanent territory 1203 with the company, and two movements (one 138 days
+    /// old). Also rows that are not MyCRMRecords': a project's temporary territory of Ken's with the company, an inactive
+    /// territory, an inactive link.
+    /// </summary>
+    private static (long Company, long Territory, long Phone) MyCrmRows(FakeOldTables old)
     {
-        var category = old.Add("FeedbackCategory", new() { ["LABEL"] = "Service", ["ORDER"] = 1, ["ISACTIVE"] = true });
-        var medium = old.Add("FeedbackMedium", new() { ["LABEL"] = "Phone", ["ORDER"] = 1, ["ISACTIVE"] = true });
-        var division = old.Add("FeedbackDivision", new() { ["DIVISION"] = "Logistics", ["PERSONINCHARGE"] = 101L, ["ISACTIVE"] = true });
-        var feedback = old.Add("Feedback", new()
+        var team = old.Add("Team", new() { ["NAME"] = "Mia Manager", ["ISACTIVE"] = true });
+        old.Add("CUser", new()
         {
-            ["FEEDBACKGROUPID"] = 11L, ["PERSONRESPONSIBLE"] = 101L, ["FEEDBACKSTATUSID"] = 25L, ["COMPANYNAME"] = "Lim Pte Ltd", ["CONTACTNAME"] = "Ms Lim",
-            ["COMPANYEMAIL"] = "lim@lim.example", ["FEEDBACKMEDIUMID"] = medium, ["DATERECEIVED"] = new DateTime(2026, 9, 1), ["TIMERECEIVED"] = new DateTime(1900, 1, 1, 14, 5, 30),
-            ["FEEDBACKTYPEID"] = 33L, ["FEEDBACKCATEGORYID"] = category, ["FEEDBACKDESCRIPTION"] = "Late delivery", ["ISACKNOWLEDGED"] = true,
-            ["ACKNOWLEDGEDDATE"] = new DateTime(2026, 9, 1), ["ACKNOWLEDGEDTIME"] = new DateTime(1900, 1, 1, 15, 0, 0), ["SIGNOFF"] = 101L, ["ROOTCAUSE"] = "Wrong slot",
-            ["FIRSTLOOKATFEEDBACK"] = "Checked", ["STAFFRESPONSIBLEFORSOLUTION"] = 101L, ["CUSTOMERSATISFACTIONLEVELID"] = 52L, ["CREATEDON"] = new DateTime(2026, 9, 1, 14, 10, 0),
-            ["CREATEDBY"] = 102L, ["CREATEDBYUSERNAME"] = "Fay Admin", ["ISACTIVE"] = true, ["SESSIONID"] = "2026-09-01 14:09:00", ["HRACCEPTED"] = "-",
-            ["FEEDBACKDIVISIONID"] = division, ["ACKNOWLEGEDHOURS"] = 1, ["ISCOMPLETED"] = true, ["CLOSECASEDAYS"] = 3,
+            ["USERID"] = 101L, ["ROLEID"] = old.StaticId("Role", "Sales"), ["TEAMID"] = team, ["ISACTIVE"] = true, ["CREATEDAT"] = new DateTime(2026, 1, 5, 8, 0, 0),
+            ["DESIGNATION"] = "Sales Executive", ["CID"] = 12,
         });
-        old.Add("Task", new()
+        var group = old.Add("CompanyGroupName", new() { ["GROUPNAME"] = "Lim Group" });
+        var company = old.Add("Company", new()
         {
-            ["FEEDBACKID"] = feedback, ["ACTIONPLAN"] = "Rebook", ["PERSONINCHARGE"] = 104L, ["DUEDATE"] = new DateTime(2026, 9, 3), ["ISCOMPLETED"] = true,
-            ["CREATEDON"] = new DateTime(2026, 9, 2, 8, 0, 0), ["CREATEDBY"] = 101L, ["SESSIONID"] = "2026-09-01 14:09:00", ["TASKTYPEID"] = 61L,
+            ["COMPANY"] = "Lim Pte Ltd", ["BRN"] = "199912345K", ["ISACTIVE"] = true, ["COMPANYGROUPID"] = old.StaticId("CompanyGroup", "SME"), ["COMPANYGROUPNAMEID"] = group,
+            ["COMPACCOUNTTYPEID"] = old.StaticId("CompAccountType", "Non-User"), ["COMPANYINDUSTRYID"] = old.StaticId("CompanyIndustry", "Food & Beverage"),
+            ["ADVANCECUSTOMERTYPEID"] = old.StaticId("AdvanceCustomerType", "Wholesale & Retail"), ["CREATEDDATE"] = new DateTime(2025, 3, 1), ["CREATEDBY"] = 102L,
+            ["PRECOMPANYNAME"] = "Lim Ltd", ["CUSTOMERNO"] = "C0001 #Multiple", ["REVENUE"] = 1000.25m, ["CRMCOMPANYID"] = 555L, ["SALESREMARKS"] = "Call first",
         });
-        old.Add("FeedbackAttachment", new() { ["FEEDBACKID"] = feedback, ["FILENAME"] = "lim.pdf", ["FILEBINARY"] = new byte[] { 9, 8 }, ["TYPE"] = "CD", ["UPLOADEDBY"] = 102L });
+        var address = old.Add("Address", new()
+        {
+            ["ADDRESSTYPEID"] = old.StaticId("AddressType", "Billing"), ["BLOCK"] = "2", ["STREET"] = "Lim Street", ["POSTALCODE"] = "654321", ["ISACTIVE"] = true,
+            ["ISDEFAULT"] = true, ["COUNTRY"] = "Singapore", ["CREATEDAT"] = new DateTime(2025, 3, 1, 10, 0, 0), ["CREATEDBY"] = 102L,
+        });
+        old.Add("CompanyAddressLink", new() { ["COMPANYID"] = company, ["ADDRESSID"] = address });
+        var contact = old.Add("Contacts", new() { ["FIRSTNAME"] = "Mei", ["LASTNAME"] = "Lim", ["ISACTIVE"] = true, ["CREATEDAT"] = new DateTime(2025, 3, 1, 10, 5, 0), ["CREATEDBY"] = 102L });
+        old.Add("CompanyContactLink", new() { ["COMPANYID"] = company, ["CONTACTID"] = contact, ["ISDEFAULT"] = true });
+        var phone = old.Add("Phone", new()
+        {
+            ["COMPANYID"] = company, ["CONTACTID"] = contact, ["PHONETYPEID"] = old.StaticId("PhoneType", "Mobile"), ["PHONE"] = "91234567", ["ISACTIVE"] = true,
+            ["CREATEDAT"] = new DateTime(2025, 3, 1, 10, 6, 0),
+        });
+        old.Add("Email", new()
+        {
+            ["EMAIL"] = "mei@lim.example", ["COMPANYID"] = company, ["CONTACTID"] = contact, ["ISACTIVE"] = true, ["CONSENTTOMARKETINGINFO"] = true,
+            ["CREATEDAT"] = new DateTime(2025, 3, 1, 10, 7, 0),
+        });
+        var territory = old.Add("Territory", new() { ["TERRITORY"] = 1203L, ["OWNERID"] = 101L, ["ISACTIVE"] = true, ["ISOWNER"] = true });
+        old.Add("CompanyTerritory", new() { ["TERRITORYID"] = territory, ["COMPANYID"] = company, ["ISACTIVE"] = true });
+        old.Add("TerritoryMovement", new() { ["COMPANYID"] = company, ["FROMUSERID"] = 107L, ["TOUSERID"] = 101L, ["UPDATEDBY"] = 102L, ["UPDATEDAT"] = new DateTime(2026, 10, 1, 9, 0, 0) });
+        old.Add("TerritoryMovement", new() { ["COMPANYID"] = company, ["TOUSERID"] = 107L, ["UPDATEDBY"] = 102L, ["UPDATEDAT"] = new DateTime(2026, 6, 1, 9, 0, 0) });
+        // Not MyCRMRecords': a project's temporary territory, an inactive territory, an inactive link.
+        var project = old.Add("Territory", new() { ["TERRITORY"] = 1071001L, ["OWNERID"] = 107L, ["ISACTIVE"] = true, ["ISTEMPORARY"] = true });
+        old.Add("CompanyTerritory", new() { ["TERRITORYID"] = project, ["COMPANYID"] = company, ["ISACTIVE"] = true });
+        old.Add("Territory", new() { ["TERRITORY"] = 1203L, ["OWNERID"] = 101L, ["ISACTIVE"] = false });
+        old.Add("CompanyTerritory", new() { ["TERRITORYID"] = territory, ["COMPANYID"] = company, ["ISACTIVE"] = false });
+        return (company, territory, phone);
+    }
+
+    /// <summary>The rows of <see cref="MyCrmRows"/> MyCRMRecords copies (the second movement is older than 60 days).</summary>
+    private const int Copied = 13;
+
+    [Fact]
+    public void MyCRM_changes_come_here_and_what_MyCRM_deletes_or_turns_off_is_marked_here()
+    {
+        using var world = new TestWorld(s => s.Sync.Enabled = true, crmUsers: false);
+        var old = world.OldApp;
+        var (companyId, territoryId, phoneId) = MyCrmRows(old);
+        Assert.Equal(Copied, Sync(world).ToHere);
+        var c = world.D.Companies.Get(companyId)!;
+        Assert.Equal(1001, c.Id);
+        Assert.Equal("Lim Pte Ltd", c.Name);
+        Assert.Equal("SME", c.CompanyGroup);
+        Assert.Equal("NonUser", c.CompAccountType);
+        Assert.Equal(ChoiceList.Key("Food & Beverage"), c.CompanyIndustry);
+        Assert.Equal("Food & Beverage", CompanyIndustries.List.Label(c.CompanyIndustry));
+        Assert.Equal("WholesaleRetail", c.AdvanceCustomerType);
+        Assert.Equal(TestWorld.SalesAdmin.Login, c.CreatedBy);
+        Assert.Equal("Lim Ltd", c.PreName);
+        Assert.Equal(1000.25m, c.Revenue);
+        Assert.Equal(555, c.CrmCompanyId);
+        Assert.Equal("Lim Group", world.Store.Get<CompanyGroupName>(c.CompanyGroupNameId!.Value)!.GroupName);
+        var sam = world.Store.Find<CrmUser>().Single();
+        Assert.Equal(TestWorld.Sam.Login, sam.Login);
+        Assert.Equal(CrmRoles.Sales, sam.Role);
+        Assert.Equal(12, sam.CId);
+        Assert.Equal("Mia Manager", world.Store.Get<CrmTeam>(sam.TeamId!.Value)!.Name);
+        Assert.Equal(CrmRoles.Sales, world.D.People.CrmRoleOf(TestWorld.Sam.Login));
+        // Only the active permanent territory, with its one active company; no name (MyCRM has none).
+        var territory = world.Store.Find<Territory>().Single();
+        Assert.Equal(1203, territory.Number);
+        Assert.Equal(TestWorld.Sam.Login, territory.Owner);
+        Assert.Equal("", territory.Name);
+        Assert.Equal("Territory 1203", Territories.Title(territory));
+        Assert.Single(world.Store.Find<CompanyTerritory>(Query.Where("IsActive", true)));
+        Assert.Equal(TestWorld.Sam.Login, world.D.Territories.OwnerOf(companyId));
+        var movement = world.Store.Find<TerritoryMovement>().Single();
+        Assert.Equal(TestWorld.Ken.Login, movement.FromUser);
+        Assert.Equal(TestWorld.Sam.Login, movement.ToUser);
+        var view = world.D.Companies.Contacts(companyId).Single();
+        Assert.Equal("91234567", view.Phones.Single().Number);
+        Assert.Equal("Mobile", view.Phones.Single().PhoneType);
+        Assert.Equal("mei@lim.example", view.Emails.Single().Address);
+        Assert.Equal(AddressTypes.Billing, world.D.Companies.Addresses(companyId).Single().AddressType);
+        // Ken opens the company through MyCRM's temporary territory of his project (never copied here).
+        Assert.True(world.D.Access.CanOpen(world.Actor(TestWorld.Ken), c));
+        InStep(world);
+
+        // Changed in MyCRM: changed here; a new salesperson for the territory there is its salesperson here.
+        old.Change("Company", companyId, new() { ["COMPANY"] = "Lim Pte. Ltd.", ["UPDATEDDATE"] = new DateTime(2026, 10, 16), ["UPDATEDBY"] = 102L });
+        old.Change("Territory", territoryId, new() { ["OWNERID"] = 107L });
+        Sync(world);
+        Assert.Equal("Lim Pte. Ltd.", world.D.Companies.Get(companyId)!.Name);
+        Assert.Equal(TestWorld.Ken.Login, world.D.Territories.OwnerOf(companyId));
+
+        // MyCRM turns the territory off, its user page deletes Sam's CUser and its contact page a phone: all marked here.
+        old.Change("Territory", territoryId, new() { ["ISACTIVE"] = false });
+        old.DeleteRows("CUser", _ => true);
+        old.DeleteRows("Phone", r => L(r["ID"]) == phoneId);
+        Sync(world);
+        territory = world.Store.Find<Territory>().Single();
+        Assert.False(territory.IsActive);
+        Assert.Equal("MyCRM", territory.RemovedBy);
+        Assert.All(world.Store.Find<CompanyTerritory>(), ct => Assert.False(ct.IsActive));
+        Assert.Equal("", world.D.Territories.OwnerOf(companyId));
+        sam = world.Store.Find<CrmUser>().Single();
+        Assert.False(sam.IsActive);
+        Assert.Null(sam.TeamId);
+        Assert.NotNull(sam.FormerTeamId);
+        Assert.Equal("MyCRM", sam.RemovedBy);
+        Assert.False(world.Store.Find<Phone>().Single().IsActive);
+        Assert.Empty(world.D.Companies.Contacts(companyId).Single().Phones);
+        InStep(world);
     }
 
     [Fact]
-    public void MyCRM_changes_come_here_and_what_MyCRM_deletes_is_marked_here()
+    public void A_phone_MyCRM_keeps_for_a_contact_it_does_not_have_is_left_there_and_the_notes_say_which()
     {
-        using var world = new TestWorld(s => s.Sync.Enabled = true);
+        using var world = new TestWorld(s => s.Sync.Enabled = true, crmUsers: false);
         var old = world.OldApp;
-        MyCrmRows(old);
-        Assert.Equal(6, Sync(world).ToHere);
-        var f = world.D.Feedbacks.Get(1001)!;
-        Assert.Equal(FeedbackGroups.CustomerComplaint, f.FeedbackGroup);
-        // "Confirmed Statisfaction" in MyCRM.
-        Assert.Equal(FeedbackStatuses.ConfirmedSatisfaction, f.Status);
-        Assert.Equal(FeedbackTypes.Normal, f.FeedbackType);
-        Assert.Equal("Accepted", f.SatisfactionLevel);
-        Assert.Equal(TestWorld.Sam.Login, f.PersonResponsible);
-        Assert.Equal(TestWorld.FeedbackAdmin.Login, f.CreatedBy);
-        Assert.Equal("14:05:30", f.TimeReceived);
-        Assert.Equal("Logistics", Feedbacks.DivisionOf(f, world.D.Feedbacks.DivisionNames()));
-        var task = world.D.Feedbacks.Tasks(1001).Single();
-        Assert.Equal(TaskTypes.Corrective, task.TaskType);
-        Assert.Equal(TestWorld.Be.Login, task.PersonInCharge);
-        Assert.Equal(new byte[] { 9, 8 }, world.D.Feedbacks.Files(1001).Single().Content);
-        InStep(world);
-
-        // Changed in MyCRM: changed here.
-        old.Change("Feedback", 1001, new() { ["FEEDBACKSTATUSID"] = 26L, ["UPDATEDON"] = new DateTime(2026, 10, 16, 8, 0, 0) });
-        Sync(world);
-        Assert.Equal(FeedbackStatuses.Closed, world.D.Feedbacks.Get(1001)!.Status);
-
-        // MyCRM deletes the task and the file (its Delete buttons): marked removed here, kept.
-        old.DeleteRows("Task", _ => true);
-        old.DeleteRows("FeedbackAttachment", _ => true);
-        Sync(world);
-        Assert.Empty(world.D.Feedbacks.Tasks(1001));
-        Assert.Empty(world.D.Feedbacks.Files(1001));
-        var kept = world.Store.Find<FeedbackTask>().Single();
-        Assert.False(kept.IsActive);
-        Assert.Equal("MyCRM", kept.RemovedBy);
-        InStep(world);
-    }
-
-    [Fact]
-    public void A_task_MyCRM_keeps_for_a_feedback_never_saved_is_left_there_and_the_notes_say_which()
-    {
-        using var world = new TestWorld(s => s.Sync.Enabled = true);
-        var old = world.OldApp;
-        var lost = old.Add("Task", new() { ["ACTIONPLAN"] = "Never saved", ["PERSONINCHARGE"] = 101L, ["SESSIONID"] = "2026-01-01 10:00:00", ["TASKTYPEID"] = 61L });
+        var lost = old.Add("Phone", new() { ["CONTACTID"] = 9999L, ["PHONE"] = "60000000", ["ISACTIVE"] = true, ["CREATEDAT"] = new DateTime(2025, 1, 1) });
         var outcome = Sync(world, allowLarge: true);
-        Assert.Contains($"#{lost}", string.Join("\n", outcome.Details));
-        Assert.Empty(world.Store.Find<FeedbackTask>());
-        Assert.Equal("Never saved", FakeOldTables.Text(old.Row("Task", lost)["ACTIONPLAN"]));
+        var notes = string.Join("\n", outcome.Details);
+        Assert.Contains($"#{lost}", notes);
+        Assert.Contains("contact #9999", notes);
+        Assert.Empty(world.Store.Find<Phone>());
+        Assert.Equal("60000000", Str(old.Row("Phone", lost)["PHONE"]));
         InStep(world);
     }
 
     [Fact]
     public void Records_imported_before_the_sync_are_paired_without_copying_even_a_row_that_differs()
     {
-        using var world = new TestWorld();
+        using var world = new TestWorld(crmUsers: false);
         var old = world.OldApp;
-        MyCrmRows(old);
-        // As the import leaves them (MyCRM's Ids kept, OutSystemsId set); the description was changed here since. MyCRM never
-        // edited the row (UPDATEDON empty), which must not count as older: MyCRM's version is kept.
+        var (companyId, _, _) = MyCrmRows(old);
+        // As the import leaves them (MyCRM's Ids kept, OutSystemsId set); the remarks were changed here since. MyCRM never
+        // edited the row (UPDATEDDATE empty), which must not count as older: MyCRM's version is kept.
         CopyAsImported(world);
-        var imported = world.Store.Get<Feedback>(1001)!;
-        imported.Description = "As imported";
+        var imported = world.Store.Get<Company>(companyId)!;
+        imported.Remarks = "As imported";
         world.Store.Update(imported);
         world.SettingsFile.Change(s => s.Sync.Enabled = true);
 
@@ -293,8 +403,8 @@ public sealed class SyncTests
         var first = Sync(world);
         Assert.Equal(0, first.ToOldApp);
         Assert.Equal(1, first.ToHere);
-        Assert.Equal("Late delivery", world.D.Feedbacks.Get(1001)!.Description);
-        Assert.Equal(6, world.D.Store.Count<SyncLink>());
+        Assert.Equal("", world.D.Companies.Get(companyId)!.Remarks);
+        Assert.Equal(Copied, world.D.Store.Count<SyncLink>());
         InStep(world);
     }
 
@@ -322,52 +432,46 @@ public sealed class SyncTests
     [Fact]
     public void A_large_sync_stops_before_changing_anything()
     {
-        using var world = new TestWorld(s => { s.Sync.Enabled = true; s.Sync.LargeSync = 2; });
+        using var world = new TestWorld(s => { s.Sync.Enabled = true; s.Sync.LargeSync = 2; }, crmUsers: false);
         MyCrmRows(world.OldApp);
         var outcome = world.D.Sync.Run("test");
         Assert.False(outcome.Ok);
         Assert.Contains("Stopped before changing anything", outcome.Message);
-        Assert.Empty(world.D.Store.Find<Feedback>());
+        Assert.Empty(world.D.Store.Find<Company>());
         Assert.NotEmpty(world.SettingsFile.Load().Sync.Stopped);
-        Assert.Equal(6, Sync(world, allowLarge: true).ToHere);
+        Assert.Equal(Copied, Sync(world, allowLarge: true).ToHere);
+    }
+
+    [Fact]
+    public void The_sync_runs_every_10_minutes_once_turned_on()
+    {
+        var settings = new CrmSettings();
+        Assert.False(settings.Sync.Enabled);
+        Assert.Equal(10, settings.Sync.IntervalMinutes);
     }
 
     [Fact]
     public void The_import_counts_MyCRM_records_and_changes_nothing()
     {
-        using var world = new TestWorld();
+        using var world = new TestWorld(crmUsers: false);
         MyCrmRows(world.OldApp);
         var counts = world.D.Import.Preview();
-        Assert.Equal(1, counts.Found["Feedbacks"]);
-        Assert.Equal(1, counts.Found["Tasks"]);
-        Assert.Equal(1, counts.Found["Attachments"]);
-        Assert.Equal(1, counts.Found["Divisions"]);
-        Assert.Empty(world.Store.Find<Feedback>());
+        Assert.Equal(1, counts.Found["Companies"]);
+        Assert.Equal(1, counts.Found["CRM user records"]);
+        // Only the active permanent territory and its active link.
+        Assert.Equal(1, counts.Found["Territories (active, permanent)"]);
+        Assert.Equal(1, counts.Found["Companies of territories"]);
+        Assert.Equal(2, counts.Found["Territory movements"]);
+        Assert.Empty(world.Store.Find<Company>());
         Assert.Equal(0, world.OldApp.Commits);
     }
 
     [Theory]
-    [InlineData("ADMIN", "FeedbackAdmin")]
-    [InlineData("BE", "BE")]
-    [InlineData("HR", "HR")]
-    [InlineData("Registered", null)]
-    public void MyCRM_roles_are_kept_and_its_Admin_is_a_Feedback_Admin(string oldRole, string? role) =>
-        Assert.Equal(role, OutSystemsImport.RoleOf(oldRole));
-
-    [Theory]
     [InlineData(@"RSP\jsmith", @"RSP\jsmith")]
     [InlineData(@"RSP\jsmith@ricoh.sg", @"RSP\jsmith")]
+    [InlineData(@"RSP\alexthan@ricoh.sg", @"RSP\alexthan")]
+    [InlineData(@"OTHER\x@y", @"OTHER\x")]
     [InlineData("jsmith@ricoh.sg", @"RSP\jsmith")]
     [InlineData("jsmith", @"RSP\jsmith")]
-    public void MyCRM_usernames_become_logins(string username, string login) => Assert.Equal(login, OutSystemsImport.LoginOf(username, "RSP"));
-
-    [Theory]
-    [InlineData(@"RSP\jsmith@ricoh.sg", "jsmith@ricoh.sg", true, true)]
-    [InlineData(@"RSP\jsmith@rapp.ricoh.com", "jsmith@rapp.ricoh.com", true, true)]
-    [InlineData(@"RSP\zhaidy", "zhaidy@ricoh.sg", true, true)]
-    [InlineData(@"RSP\jsmith", "jsmith@ricoh.sg", true, false)]
-    [InlineData(@"RSP\jsmith@ricoh.sg", "jsmith@gmail.com", true, false)]
-    [InlineData(@"RSP\jsmith@ricoh.sg", "jsmith@ricoh.sg", false, false)]
-    public void The_people_offered_are_those_MyCRM_offered(string username, string email, bool active, bool offered) =>
-        Assert.Equal(offered, OutSystemsImport.IsOffered(username, email, active));
+    public void An_OutSystems_username_becomes_the_Windows_login(string username, string login) => Assert.Equal(login, OutSystemsImport.LoginOf(username, "RSP"));
 }

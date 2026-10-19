@@ -12,9 +12,10 @@ namespace MyCRMRecords.Web;
 
 /// <summary>
 /// Every page but signing in and out. Forms authentication only lets signed-in people reach them; each page checks the
-/// person's roles (<see cref="Allowed"/>): MyCRM's Admin (Feedback Admin here), BE and HR, and the administrators, given
-/// on the User roles page. Every signed-in person reaches the feedbacks and the statistics, as in MyCRM. The pages load
-/// their data from api.ashx.
+/// person's roles (<see cref="Allowed"/>): their MyCRM role (from their CRM user records: Sales Admins keep the CRM users
+/// and territories, MD the territories too) and MyCRMRecords' administrators, given on the User roles page. Every
+/// signed-in person reaches the companies, as in MyCRM (each company is checked by MyCRM's rule). The pages load their
+/// data from api.ashx.
 /// </summary>
 public class AppPage : Page
 {
@@ -27,7 +28,8 @@ public class AppPage : Page
     protected string? DataProblem { get; private set; }
 
     protected bool IsAdmin => Actor?.IsAdmin == true;
-    protected bool IsFeedbackAdmin => Actor?.IsFeedbackAdmin == true;
+    protected bool IsSalesAdmin => Actor?.IsSalesAdmin == true;
+    protected bool CanManageTerritories => Actor?.CanManageTerritories == true;
 
     /// <summary>Whether the person may open this page; the page says who may, otherwise.</summary>
     protected virtual bool Allowed => true;
@@ -76,7 +78,7 @@ public class AppPage : Page
         + "  <title>No access · MyCRMRecords</title>\n"
         + $"  <link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">\n</head>\n<body>\n"
         + TopBar("") + "\n  <div class=\"app-shell\"><main><div class=\"empty\"><h3>Not for your role</h3>"
-        + $"<p>{HttpUtility.HtmlEncode(AllowedWho)} Your account is {HttpUtility.HtmlEncode(Login)}; an administrator gives roles on the User roles page.</p>"
+        + $"<p>{HttpUtility.HtmlEncode(AllowedWho)} Your account is {HttpUtility.HtmlEncode(Login)}; a Sales Admin sets MyCRM roles on the CRM users page.</p>"
         + "<p><a class=\"button secondary small-btn\" href=\"guide.aspx\">Open the user guide</a></p></div></main></div>\n"
         + $"  <script src=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("common.js"))}\"></script>\n</body>\n</html>\n";
 
@@ -93,9 +95,9 @@ public class AppPage : Page
             .Append("<button class=\"icon-button menu-button\" id=\"menu-button\" aria-label=\"Menu\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span></button>")
             .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\"><span class=\"brand-mark\" aria-hidden=\"true\">C<span>.</span></span><span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
-        html.Append(Item("./", "file", "Feedbacks"));
-        html.Append(Item("statistics.aspx", "chart", "Statistics"));
-        if (IsFeedbackAdmin) html.Append(Item("lists.aspx", "settings", "Lists"));
+        html.Append(Item("./", "file", "Companies"));
+        if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
+        if (IsSalesAdmin) html.Append(Item("people.aspx", "users", "CRM users"));
         if (IsAdmin)
         {
             var adminPages = new[] { "users.aspx", "admin.aspx", "deployment.aspx", "audit.aspx" };
@@ -137,11 +139,18 @@ public class AppPage : Page
     }
 }
 
-/// <summary>lists.aspx: Feedback Admins and administrators (MyCRM's Admin screen).</summary>
-public class ListsPage : AppPage
+/// <summary>territories.aspx: Sales Admins (MyCRM role Admin or SalesAdmin), MD and administrators.</summary>
+public class TerritoriesPage : AppPage
 {
-    protected override bool Allowed => IsFeedbackAdmin;
-    protected override string AllowedWho => "The lists (divisions, feedback categories and mediums, KPI dates) are kept by Feedback Admins.";
+    protected override bool Allowed => CanManageTerritories;
+    protected override string AllowedWho => "Territories are kept by Sales Admins (MyCRM role Admin or SalesAdmin) and MD.";
+}
+
+/// <summary>people.aspx: Sales Admins (MyCRM role Admin or SalesAdmin) and administrators (MyCRM's Users screens).</summary>
+public class PeoplePage : AppPage
+{
+    protected override bool Allowed => IsSalesAdmin;
+    protected override string AllowedWho => "The CRM users and teams are kept by Sales Admins (MyCRM role Admin or SalesAdmin).";
 }
 
 /// <summary>users.aspx, admin.aspx, deployment.aspx and audit.aspx: administrators only.</summary>
@@ -189,7 +198,7 @@ public class LoginPage : Page
     }
 }
 
-/// <summary>logout.aspx: signs out; someone signed in as another person returns to their own account (and the Feedbacks page).</summary>
+/// <summary>logout.aspx: signs out; someone signed in as another person returns to their own account (and the Companies page).</summary>
 public class LogoutPage : Page
 {
     protected void Page_Load(object sender, EventArgs e)

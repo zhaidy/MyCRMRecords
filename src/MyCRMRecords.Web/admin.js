@@ -1,13 +1,13 @@
 (() => {
   'use strict';
   // admin.aspx (administrators): where MyCRMRecords keeps its data and its data migrations; the OutSystems database
-  // (MyCRM's tables) and AdvanceConnector (the public holidays); email, who gets the notices, and the emails sent;
+  // (MyCRM's tables) and AdvanceConnector (Advance's customers); email and the emails sent; the scheduled tasks;
   // importing MyCRM's data, and the two-way sync with it.
   // Passwords and keys are never shown: a blank one keeps the one saved.
   const {$, $$, esc, api, toast, ask, date, dateTime, dateInput, showErrors, drawIcons} = window.WH;
   const page = $('#page');
   const TABS = [['database', 'Database'], ['migrations', 'Data migrations'], ['connections', 'Connections'], ['email', 'Email'],
-    ['import', 'Import from MyCRM'], ['sync', 'Sync with MyCRM']];
+    ['jobs', 'Scheduled tasks'], ['import', 'Import from MyCRM'], ['sync', 'Sync with MyCRM']];
   let tab = TABS.some(([id]) => id === location.hash.slice(1)) ? location.hash.slice(1) : 'database';
   let importTimer = 0;
 
@@ -24,7 +24,7 @@
     $$('.page-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     history.replaceState(null, '', '#' + tab);
     $('#tab').innerHTML = '<div class="loading">Loading…</div>';
-    await {database, migrations, connections, email, importer, sync}[tab === 'import' ? 'importer' : tab]();
+    await {database, migrations, connections, email, jobs, importer, sync}[tab === 'import' ? 'importer' : tab]();
     drawIcons($('#tab'));
   }
   page.addEventListener('click', event => { const t = event.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; show(); } });
@@ -99,7 +99,7 @@
       </section>
       ${d.tables.length ? `<section class="card"><h2>Tables</h2><div class="table-wrap"><table class="data"><thead><tr><th>Table</th><th class="num">Rows</th></tr></thead>
         <tbody>${d.tables.map(t => `<tr><td><code>${esc(t.name)}</code></td><td class="num">${t.rows < 0 ? 'missing' : t.rows}</td></tr>`).join('')}</tbody></table></div></section>` : ''}
-      ${d.demoTools ? `<section class="card"><h2>Sample data</h2><p class="muted">For trying MyCRMRecords out (MyCRMRecords:DemoTools is on): adds a division, feedback categories and mediums when there are none, and three feedbacks in your charge: a new customer complaint, an acknowledged one with a task, and an internal challenge waiting for HR. Nothing is written to another database.</p>
+      ${d.demoTools ? `<section class="card"><h2>Sample data</h2><p class="muted">For trying MyCRMRecords out (MyCRMRecords:DemoTools is on): adds a team, a group name, two sample companies (a parent and its subsidiary) with an address and a primary contact, and a sample territory of yours holding the parent company. Nothing is written to another database.</p>
         <div class="action-buttons"><button class="button secondary" id="sample">Add sample data</button></div></section>` : ''}`;
     const form = $('#db-form');
     const body = () => {
@@ -147,8 +147,8 @@
     const c = settings.connections;
     const key = name => name.charAt(0).toLowerCase() + name.slice(1);
     const uses = {
-      OutSystems: "MyCRM's feedbacks with their tasks and attachments, its divisions, categories and mediums, its users and its people with their roles: read by the import; the feedbacks, tasks, attachments and lists read and written by the sync with MyCRM once it is turned on (adding and changing rows, never deleting).",
-      AdvanceConnector: "The public holidays (public_holiday), read only: they are left out of the working days of the KPIs. Without it, only weekends are.",
+      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: read by the import; read and written by the sync with MyCRM once it is turned on (adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company.",
+      AdvanceConnector: "Advance's customers (Customer_Supp: Business_reg, Cust_no), read only: the scheduled task Customer numbers from Advance fills each company's customer number from them.",
     };
     $('#tab').innerHTML = `<form id="conn-form" novalidate class="stack">
       <p class="muted">The OutSystems database (MyCRM's tables) and AdvanceConnector. Reading needs SELECT; the sync with MyCRM also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
@@ -159,7 +159,7 @@
         <div class="action-buttons"><button type="button" class="button secondary small-btn" data-test="${esc(d.name)}">Test</button></div><div data-test-result="${esc(d.name)}"></div></section>`).join('')}
       <section class="card"><details><summary class="text-button">Names in those databases</summary>
         <div class="form-grid two" style="margin-top:12px">
-          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'advanceTables.publicHolidays', 'Public holidays (AdvanceConnector)')}
+          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
         </div></details></section>
       <div class="action-buttons"><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="conn-result" hidden></div></form>`;
@@ -183,15 +183,13 @@
     const {settings} = await loadSettings();
     const e = settings.email;
     $('#tab').innerHTML = `<form id="email-form" novalidate class="stack"><section class="card"><h2>Email</h2>
-      <p class="muted">MyCRM's emails: a new feedback to its category's recipients below and to its person in charge (with the Copy To people), a new task to its person in charge, every task completed without a root cause to the person in charge, and a resolved feedback to BE. Off, emails are only written to the list below. While MyCRM is still used, its own emails go too: switch these on when people move to MyCRMRecords.</p>
+      <p class="muted">MyCRM's Users, Territory and Company screens send no emails, so MyCRMRecords sends none of its own yet; these settings are for the test email and any later notice. Off, emails are only written to the list below.</p>
       <div class="switches" style="margin-top:12px">${field(e, 'enabled', 'Send emails', {type: 'check'})}</div>
       <div class="form-grid two" style="margin-top:12px">
         ${field(e, 'server', 'SMTP server')}${field(e, 'port', 'Port', {type: 'number'})}
         ${field(e, 'userName', 'User name (blank: none)')}${field(e, 'password', 'Password', {type: 'secret'})}
         ${field(e, 'from', 'From address')}${field(e, 'fromName', 'From name')}
         ${field(e, 'siteUrl', "MyCRMRecords's address, for the links")}${field(e, 'redirectTo', 'Send every email only to (for trying it out)')}
-        ${field(e, 'internalChallengesNotify', 'Told of each new internal challenge (separated by commas)')}${field(e, 'complaintsNotify', 'Told of each new customer complaint or area of improvement')}
-        ${field(e, 'othersNotify', 'Told of each other new feedback (potential customer complaints)')}${field(e, 'beTo', 'BE: told when a feedback is resolved')}
       </div>
       <div class="action-buttons"><input id="test-to" placeholder="Test address" style="max-width:260px"><button type="button" class="button secondary" id="email-test">Send a test email</button><span class="grow"></span><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="email-result" hidden></div></section></form>`;
@@ -216,12 +214,45 @@
     emails();
   }
 
+  // ---- Scheduled tasks ----
+  async function jobs() {
+    const d = await api('GET', 'admin/jobs');
+    if (!d.result.ok) { $('#tab').innerHTML = `<div class="notice error">${esc(d.result.message)}</div>`; return; }
+    $('#tab').innerHTML = `<form id="jobs-form" class="stack"><section class="card"><h2>Scheduled tasks</h2>
+      <p class="muted">Tasks MyCRMRecords runs by itself (MyCRM's timers that are kept). All start switched off. Daily times are Singapore time; days are numbers from 0 (Sunday) to 6, separated by commas (blank: every day).</p>
+      <div class="switches" style="margin-top:12px"><label class="check"><input type="checkbox" id="jobs-enabled"${d.enabled ? ' checked' : ''}>Run the scheduled tasks</label></div></section>
+      ${d.jobs.map(j => `<section class="card" data-job="${esc(j.job)}"><div class="card-heading"><h2>${esc(j.title)}</h2>
+          <button type="button" class="button secondary small-btn" data-run-job="${esc(j.job)}"><span data-icon="refresh"></span>Run now</button></div>
+        ${j.job === 'customer-numbers' ? '<p class="muted small">MyCRM\'s UpdateCustomerNo: each active company whose BRN has more than 3 characters gets the customer number of Advance\'s customers with that BRN (with " #Multiple" after it when several share it). Needs AdvanceConnector (Connections tab). Switch MyCRM\'s own timer off when this one runs.</p>' : ''}
+        <div class="form-grid" style="margin-top:10px">
+          <label class="check"><input type="checkbox" data-j="enabled"${j.schedule.enabled ? ' checked' : ''}>On</label>
+          <label class="field"><span>Daily at (HH:mm)</span><input data-j="dailyAt" type="time" value="${esc(j.schedule.dailyAt || '')}"></label>
+          <label class="field"><span>Or every (minutes)</span><input data-j="everyMinutes" type="number" min="0" value="${j.schedule.everyMinutes || 0}"></label>
+          <label class="field"><span>Days</span><input data-j="days" value="${esc(j.schedule.days || '')}" placeholder="Every day"></label></div>
+        <p class="muted small" style="margin:10px 0 0">${j.lastStart ? `Last started ${esc(dateTime(j.lastStart))}.` : 'Not run yet.'}</p>
+        ${j.runs.length ? `<ul class="check-lines">${j.runs.map(r => `<li class="${r.outcome === 'Failed' ? 'bad' : r.outcome === 'Done' ? 'good' : ''}">${esc(dateTime(r.startedAt))} by ${esc(r.by)} · <b>${esc(r.outcome)}</b> · ${esc(r.summary)}</li>`).join('')}</ul>` : ''}</section>`).join('')}
+      <div class="action-buttons"><button type="submit" class="button primary">Save</button></div><div class="notice" id="jobs-result" hidden></div></form>`;
+    const form = $('#jobs-form');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const schedules = $$('[data-job]', form).map(card => ({job: card.dataset.job, enabled: $('[data-j=enabled]', card).checked,
+        dailyAt: $('[data-j=dailyAt]', card).value, everyMinutes: Number($('[data-j=everyMinutes]', card).value || 0), days: $('[data-j=days]', card).value.trim()}));
+      await saveSection('jobs', {enabled: $('#jobs-enabled').checked, schedules}, $('#jobs-result'));
+    });
+    $$('[data-run-job]', form).forEach(button => button.addEventListener('click', async () => {
+      button.disabled = true;
+      const a = await api('POST', 'admin/jobs/run', {name: button.dataset.runJob});
+      toast(a.result.message, !a.result.ok);
+      show();
+    }));
+  }
+
   // ---- Import ----
   async function importer() {
     const d = await api('GET', 'admin/import');
     const running = d.runs.some(r => r.outcome === 'Running');
     $('#tab').innerHTML = `<section class="card"><h2>Import from MyCRM</h2>
-      <p class="muted">Copies MyCRM's data, which is only read: the divisions, feedback categories and mediums, the feedbacks with their tasks and attachments (the files themselves), the people with MyCRM's roles (its Admin becomes Feedback Admin, BE and HR stay) and the people MyCRM offered to choose from. Records keep their numbers. What was imported (or synced) before is skipped, so it can be run again, e.g. once more on the day of the switch.</p>
+      <p class="muted">Copies MyCRM's Users, Territory and Company part, which is only read: the teams and CRM user records, the group names, the companies with their caretake remarks, relationships, addresses, contacts, phones and emails, the active permanent territories with their companies, the territory movements, and every OutSystems user (so names show). Records keep their numbers. What was imported (or synced) before is skipped, so it can be run again, e.g. once more on the day of the switch.</p>
       ${d.configured ? '' : '<div class="notice warn">Set up the OutSystems database on the Connections tab first.</div>'}
       <div class="toolbar" style="margin-top:14px">
         <button class="button secondary" id="preview"${d.configured ? '' : ' disabled'}>Read MyCRM's data</button>
@@ -253,7 +284,7 @@
     const d = await api('GET', 'admin/sync');
     const s = d.settings;
     $('#tab').innerHTML = `<section class="card"><h2>Sync with MyCRM</h2>
-      <p class="muted">While MyCRM is still used, the sync keeps both in step: the feedbacks, their tasks and attachments, and the divisions, categories and mediums, added or changed in either, are copied to the other every few minutes. Nothing is ever deleted in MyCRM: a feedback or division removed here is inactive there, a category or medium gets Is Active off, and a task or attachment is detached from its feedback (and a file gets "(removed)" before its name). Every value the sync changes in MyCRM is kept below with the value it replaced. While it is on, new feedbacks take their number from MyCRM.</p>
+      <p class="muted">While MyCRM is still used, the sync keeps both in step: the CRM users and teams, the companies with their addresses, contacts, phones, emails, relationships and group names, the permanent territories with their companies and the territory movements (last 60 days), added or changed in either, are copied to the other every few minutes. Nothing is ever deleted in MyCRM: what is taken away here is inactive there (a company address link or a group name, which MyCRM cannot mark, is left there as it is). MyCRM's temporary territories (projects, CSST) are never copied. Every value the sync changes in MyCRM is kept below with the value it replaced. While it is on, new companies, addresses and contacts take their number from MyCRM.</p>
       <p class="muted">Turn it on right after the import, before people use MyCRMRecords. The login of the OutSystems database (Connections tab) must be allowed to add and change rows of MyCRM's tables (never to delete them).</p>
       ${d.configured ? '' : '<div class="notice warn">Set up the OutSystems database on the Connections tab first.</div>'}
       ${s.stopped ? `<div class="notice error">The scheduled syncs are paused: ${esc(s.stopped)}</div>` : ''}
