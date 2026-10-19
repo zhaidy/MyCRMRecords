@@ -2,7 +2,7 @@ namespace MyCRMRecords.Domain;
 
 /// <summary>
 /// One choice of a list that is a static entity in MyCRM: its code here, its label on the pages, and the labels MyCRM
-/// may have for it (the sync matches MyCRM's records by label, never by Id).
+/// may have for it (MyCRM's records are matched by label, never by Id).
 /// </summary>
 public sealed record Choice(string Code, string Label, params string[] OldLabels)
 {
@@ -139,7 +139,7 @@ public static class CompanyIndustries
         C("Other"), C("Recreation"), C("Retail"), C("Shipping"), C("Technology"), C("Transportation"));
 }
 
-/// <summary>MyCRM's CustomerType (kept and synced; no page of MyCRM sets it).</summary>
+/// <summary>MyCRM's CustomerType (kept as it is; no page of MyCRM sets it).</summary>
 public static class CustomerTypes
 {
     public static readonly ChoiceList List = new("CustomerType", new Choice("BDG_ZBA", "BDG - ZBA"), new Choice("BDG_ITonMIF", "BDG - IT on MIF"));

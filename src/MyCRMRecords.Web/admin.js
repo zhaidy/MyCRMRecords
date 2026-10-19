@@ -2,14 +2,13 @@
   'use strict';
   // admin.aspx (administrators): where MyCRMRecords keeps its data and its data migrations; the OutSystems database
   // (MyCRM's tables) and AdvanceConnector (Advance's customers); email and the emails sent; the scheduled tasks;
-  // importing MyCRM's data, and the two-way sync with it.
+  // whether MyCRMRecords may change MyCRM's data, and every value it changed there.
   // Passwords and keys are never shown: a blank one keeps the one saved.
   const {$, $$, esc, api, toast, ask, date, dateTime, dateInput, showErrors, drawIcons} = window.WH;
   const page = $('#page');
   const TABS = [['database', 'Database'], ['migrations', 'Data migrations'], ['connections', 'Connections'], ['email', 'Email'],
-    ['jobs', 'Scheduled tasks'], ['import', 'Import from MyCRM'], ['sync', 'Sync with MyCRM']];
+    ['jobs', 'Scheduled tasks'], ['mycrm', 'MyCRM']];
   let tab = TABS.some(([id]) => id === location.hash.slice(1)) ? location.hash.slice(1) : 'database';
-  let importTimer = 0;
 
   function shell() {
     $('#loading').hidden = true;
@@ -20,11 +19,10 @@
     show();
   }
   async function show() {
-    clearTimeout(importTimer);
     $$('.page-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     history.replaceState(null, '', '#' + tab);
     $('#tab').innerHTML = '<div class="loading">Loading…</div>';
-    await {database, migrations, connections, email, jobs, importer, sync}[tab === 'import' ? 'importer' : tab]();
+    await {database, migrations, connections, email, jobs, mycrm}[tab]();
     drawIcons($('#tab'));
   }
   page.addEventListener('click', event => { const t = event.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; show(); } });
@@ -99,8 +97,7 @@
       </section>
       ${d.tables.length ? `<section class="card"><h2>Tables</h2><div class="table-wrap"><table class="data"><thead><tr><th>Table</th><th class="num">Rows</th></tr></thead>
         <tbody>${d.tables.map(t => `<tr><td><code>${esc(t.name)}</code></td><td class="num">${t.rows < 0 ? 'missing' : t.rows}</td></tr>`).join('')}</tbody></table></div></section>` : ''}
-      ${d.demoTools ? `<section class="card"><h2>Sample data</h2><p class="muted">For trying MyCRMRecords out (MyCRMRecords:DemoTools is on): adds a team, a group name, two sample companies (a parent and its subsidiary) with an address and a primary contact, and a sample territory of yours holding the parent company. Nothing is written to another database.</p>
-        <div class="action-buttons"><button class="button secondary" id="sample">Add sample data</button></div></section>` : ''}`;
+`;
     const form = $('#db-form');
     const body = () => {
       const s = collect(form, {sql}).sql;
@@ -116,7 +113,6 @@
       report($('#db-result'), a);
       if (a.result.ok) setTimeout(show, 1500);
     });
-    $('#sample')?.addEventListener('click', async () => { const a = await api('POST', 'admin/sample-data', {}); toast(a.result.message, !a.result.ok); });
   }
 
   // ---- Data migrations ----
@@ -147,11 +143,11 @@
     const c = settings.connections;
     const key = name => name.charAt(0).toLowerCase() + name.slice(1);
     const uses = {
-      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: read by the import; read and written by the sync with MyCRM once it is turned on (adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company.",
+      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: MyCRMRecords reads them where MyCRM keeps them, and changes them once Let MyCRMRecords change MyCRM's data is on (MyCRM tab: adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company.",
       AdvanceConnector: "Advance's customers (Customer_Supp: Business_reg, Cust_no), read only: the scheduled task Customer numbers from Advance fills each company's customer number from them.",
     };
     $('#tab').innerHTML = `<form id="conn-form" novalidate class="stack">
-      <p class="muted">The OutSystems database (MyCRM's tables) and AdvanceConnector. Reading needs SELECT; the sync with MyCRM also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
+      <p class="muted">The OutSystems database (MyCRM's tables) and AdvanceConnector. Reading needs SELECT; changing MyCRM's data (MyCRM tab) also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
       ${databases.map(d => `<section class="card"><div class="card-heading"><h2>${esc(d.title)}</h2>${d.configured ? '<span class="pill">Set up</span>' : '<span class="pill warn">Not set up</span>'}</div>
         <p class="muted small">${esc(uses[d.name] || '')}</p>
         <div style="margin:12px 0">${field(c, key(d.name) + '.configured', 'Use this database', {type: 'check'})}</div>
@@ -247,102 +243,34 @@
     }));
   }
 
-  // ---- Import ----
-  async function importer() {
-    const d = await api('GET', 'admin/import');
-    const running = d.runs.some(r => r.outcome === 'Running');
-    $('#tab').innerHTML = `<section class="card"><h2>Import from MyCRM</h2>
-      <p class="muted">Copies MyCRM's Users, Territory and Company part, which is only read: the teams and CRM user records, the group names, the companies with their caretake remarks, relationships, addresses, contacts, phones and emails, the active permanent territories with their companies, the territory movements, and every OutSystems user (so names show). Records keep their numbers. What was imported (or synced) before is skipped, so it can be run again, e.g. once more on the day of the switch.</p>
+  // ---- MyCRM: whether MyCRMRecords may change its data, and what it changed ----
+  async function mycrm() {
+    const d = await api('GET', 'admin/mycrm');
+    $('#tab').innerHTML = `<section class="card"><h2>MyCRM's data</h2>
+      <p class="muted">MyCRMRecords reads and writes the Users, Territory and Company part of MyCRM in MyCRM's own tables (the OutSystems database, Connections tab): the CRM users and teams, the companies with their addresses, contacts, phones, emails, relationships and group names, the permanent territories with their companies, and the territory movements. It keeps no copy, so MyCRM and MyCRMRecords always show the same data. MyCRM's temporary territories (projects, CSST) are only read, for who may open which company.</p>
       ${d.configured ? '' : '<div class="notice warn">Set up the OutSystems database on the Connections tab first.</div>'}
-      <div class="toolbar" style="margin-top:14px">
-        <button class="button secondary" id="preview"${d.configured ? '' : ' disabled'}>Read MyCRM's data</button>
-        <button class="button primary" id="run"${d.configured && !running ? '' : ' disabled'}>Import</button></div>
-      <div id="counts"></div>
-      <h3 style="margin-top:16px">Imports</h3>
-      ${d.runs.length ? `<ul class="check-lines">${d.runs.map(r => `<li class="${r.outcome === 'Failed' ? 'bad' : r.outcome === 'Done' ? 'good' : ''}">${esc(dateTime(r.startedAt))} by ${esc(r.by)} · <b>${esc(r.outcome)}</b> · ${esc(r.summary)}</li>`).join('')}</ul>` : '<p class="muted">None yet.</p>'}
-      </section>`;
-    $('#preview').addEventListener('click', async () => {
-      $('#counts').innerHTML = '<p class="loading">Reading…</p>';
-      const a = await api('POST', 'admin/import/preview', {});
-      if (!a.result.ok) { $('#counts').innerHTML = `<div class="notice error">${esc(a.result.message)}</div>`; return; }
-      const c = a.counts;
-      $('#counts').innerHTML = `<div class="table-wrap" style="margin-top:12px"><table class="data"><thead><tr><th>What</th><th class="num">In MyCRM</th><th class="num">Not imported yet</th></tr></thead><tbody>
-        ${Object.keys(c.found).map(k => `<tr><td>${esc(k)}</td><td class="num">${c.found[k]}</td><td class="num">${c.copied[k] ?? ''}</td></tr>`).join('')}</tbody></table></div>
-        ${c.notes.length ? `<div class="notice info" style="margin-top:10px">${c.notes.map(esc).join('<br>')}</div>` : ''}`;
-    });
-    $('#run').addEventListener('click', async () => {
-      if (!await ask({title: "Import MyCRM's data?", text: 'It runs in the background; this page shows how far it is. Nothing in OutSystems is changed.', ok: 'Import'})) return;
-      const a = await api('POST', 'admin/import/run', {});
-      toast(a.result.message, !a.result.ok);
-      show();
-    });
-    if (running) importTimer = setTimeout(() => { if (tab === 'import') show(); }, 3000);
-  }
-
-  // ---- Sync with MyCRM ----
-  async function sync() {
-    const d = await api('GET', 'admin/sync');
-    const s = d.settings;
-    $('#tab').innerHTML = `<section class="card"><h2>Sync with MyCRM</h2>
-      <p class="muted">While MyCRM is still used, the sync keeps both in step: the CRM users and teams, the companies with their addresses, contacts, phones, emails, relationships and group names, the permanent territories with their companies and the territory movements (last 60 days), added or changed in either, are copied to the other every few minutes. Nothing is ever deleted in MyCRM: what is taken away here is inactive there (a company address link or a group name, which MyCRM cannot mark, is left there as it is). MyCRM's temporary territories (projects, CSST) are never copied. Every value the sync changes in MyCRM is kept below with the value it replaced. While it is on, new companies, addresses and contacts take their number from MyCRM.</p>
-      <p class="muted">Turn it on right after the import, before people use MyCRMRecords. The login of the OutSystems database (Connections tab) must be allowed to add and change rows of MyCRM's tables (never to delete them).</p>
-      ${d.configured ? '' : '<div class="notice warn">Set up the OutSystems database on the Connections tab first.</div>'}
-      ${s.stopped ? `<div class="notice error">The scheduled syncs are paused: ${esc(s.stopped)}</div>` : ''}
-      <form id="sync-form" class="form-grid" style="margin-top:12px">
-        <label class="check wide"><input type="checkbox" id="sync-enabled"${s.enabled ? ' checked' : ''}>Sync with MyCRM</label>
-        <label class="field"><span>Every (minutes)</span><input type="number" min="1" max="1440" id="sync-interval" value="${s.intervalMinutes}"></label>
-        <label class="field"><span>Stop a sync that would change more than</span><input type="number" min="1" id="sync-large" value="${s.largeSync}"><small class="muted">records on either side, until an administrator checks it.</small></label>
-        <div class="action-buttons wide"><button class="button primary" type="submit">Save</button></div></form>
-      <div class="toolbar" style="margin-top:14px">
-        <button class="button secondary" id="sync-preview"${d.configured ? '' : ' disabled'}>Preview</button>
-        <button class="button primary" id="sync-run"${s.enabled ? '' : ' disabled'}>Sync now</button>
-        <label class="check"><input type="checkbox" id="sync-large-ok">Allow a large sync</label></div>
-      <div id="sync-result"></div>
-      ${d.preview ? `<div class="notice ${d.preview.outcome === 'Running' ? '' : d.preview.outcome === 'Done' ? 'ok' : 'error'}" style="margin-top:10px">
-        <strong>Preview of ${esc(dateTime(d.preview.startedAt))}${d.preview.outcome === 'Running' ? ' (running…)' : d.preview.finishedAt ? `, ${Math.max(1, Math.round((new Date(d.preview.finishedAt) - new Date(d.preview.startedAt)) / 1000))} s` : ''}</strong>
-        <pre class="small" style="white-space:pre-wrap;margin:6px 0 0">${esc(d.preview.summary)}</pre></div>` : ''}
-      <p class="muted small" style="margin-top:12px">${d.pairs} records are paired with MyCRM. The first sync after the import pairs every record: it runs in the background and takes several minutes.</p>
-      <h3 style="margin-top:16px">Syncs</h3>
-      ${d.runs.length ? `<ul class="check-lines">${d.runs.map(r => `<li class="${r.ok ? 'good' : r.finishedOn ? 'bad' : ''}">${esc(dateTime(r.startedOn))} · ${esc(r.by)} · ${esc(r.message)}${r.details ? `<details><summary>Details</summary><pre class="small">${esc(r.details)}</pre></details>` : ''}</li>`).join('')}</ul>` : '<p class="muted">None yet.</p>'}
-      </section>
+      <form id="mycrm-form" style="margin-top:12px">
+        <label class="check"><input type="checkbox" id="writes"${d.writesEnabled ? ' checked' : ''}>Let MyCRMRecords change MyCRM's data</label>
+        <p class="muted small">Until this is ticked MyCRMRecords only reads: saving a company, address, contact, territory, CRM user or team is refused, and every page says so. When it is ticked, MyCRMRecords adds and changes rows of MyCRM's tables (the OutSystems database's login needs INSERT and UPDATE on them) and never deletes one: what is taken away is marked inactive, as MyCRMRecords always did. Every value written is listed below with the value it replaced.</p>
+        <div class="action-buttons"><button class="button primary" type="submit">Save</button></div>
+        <div class="notice" id="mycrm-result" hidden></div></form></section>
       <section class="card"><h2>Changes made in MyCRM</h2>
-        <p class="muted">Every value the sync wrote in MyCRM, newest first, with the value it replaced.</p>
-        <div class="toolbar"><label class="search-box" style="flex:1"><span data-icon="search"></span><input id="changes-q" placeholder="Search table, number, column or value"></label></div>
+        <p class="muted">Every value MyCRMRecords wrote in MyCRM's tables, newest first, with the value it replaced and who made the change.</p>
+        <div class="toolbar"><label class="search-box" style="flex:1"><span data-icon="search"></span><input id="changes-q" placeholder="Search table, column, value or person"></label></div>
         <div id="changes"></div></section>`;
-    const result = answer => {
-      $('#sync-result').innerHTML = `<div class="notice ${answer.result.ok ? 'ok' : 'error'}" style="margin-top:10px">${esc(answer.result.message)}${(answer.details || []).length
-        ? `<ul class="small" style="margin:8px 0 0">${answer.details.slice(0, 300).map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}</div>`;
-    };
-    $('#sync-form').addEventListener('submit', async event => {
+    $('#mycrm-form').addEventListener('submit', async event => {
       event.preventDefault();
-      const enabled = $('#sync-enabled').checked;
-      if (enabled && !s.enabled && !await ask({title: 'Turn the sync on?', text: 'MyCRMRecords will copy its changes to MyCRM and MyCRM\'s changes here, starting now. Nothing is ever deleted in MyCRM.', ok: 'Turn on'})) return;
-      $('#sync-result').innerHTML = '<p class="loading">Saving…</p>';
-      const a = await api('POST', 'admin/sync', {enabled, intervalMinutes: Number($('#sync-interval').value || 5), largeSync: Number($('#sync-large').value || 200)});
-      toast(a.result.message, !a.result.ok);
-      await sync();
-      result(a);
+      const writesEnabled = $('#writes').checked;
+      if (writesEnabled && !d.writesEnabled && !await ask({title: "Let MyCRMRecords change MyCRM's data?", text: 'From now on, what people save in MyCRMRecords is written in MyCRM\'s tables (never deleting there), and listed on this tab.', ok: 'Turn on'})) return;
+      const a = await api('POST', 'admin/mycrm', {writesEnabled});
+      report($('#mycrm-result'), a);
+      if (a.result.ok) setTimeout(() => location.reload(), 1200);
     });
-    $('#sync-preview').addEventListener('click', async () => {
-      const a = await api('POST', 'admin/sync/preview', {});
-      toast(a.result.message, !a.result.ok);
-      await sync();
-    });
-    $('#sync-run').addEventListener('click', async () => {
-      const a = await api('POST', 'admin/sync/run', {allowLarge: $('#sync-large-ok').checked});
-      toast(a.result.message, !a.result.ok);
-      await sync();
-    });
-    // While a preview or a sync runs (in the background), the tab looks again every 5 seconds.
-    if ((d.preview && d.preview.outcome === 'Running') || d.runs.some(r => !r.finishedOn)) {
-      clearTimeout(window.syncPoll);
-      window.syncPoll = setTimeout(() => { if (tab === 'sync') sync(); }, 5000);
-    }
     let skip = 0, timer = 0;
     async function changes() {
-      const c = await api('GET', 'admin/sync/changes?' + new URLSearchParams({q: $('#changes-q').value, skip}));
-      $('#changes').innerHTML = c.rows.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data"><thead><tr><th>When</th><th>Record</th><th>Table</th><th>Column</th><th>Was</th><th>Now</th></tr></thead><tbody>
-        ${c.rows.map(r => `<tr><td class="nowrap small">${esc(dateTime(r.changedOn))}</td><td>${esc(r.record)}<span class="sub">${esc(r.action === 'Added' ? 'Added' : 'Changed')} · ${esc(r.oldKey)}</span></td><td>${esc(r.oldTable)}</td><td>${esc(r.column)}</td><td class="small">${esc(r.before)}</td><td class="small">${esc(r.after)}</td></tr>`).join('')}
+      const c = await api('GET', 'admin/mycrm/changes?' + new URLSearchParams({q: $('#changes-q').value, skip}));
+      $('#changes').innerHTML = c.rows && c.rows.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data"><thead><tr><th>When</th><th>Row</th><th>Column</th><th>Was</th><th>Now</th></tr></thead><tbody>
+        ${c.rows.map(r => `<tr><td class="nowrap small">${esc(dateTime(r.changedOn))}<span class="sub">${esc(r.changedBy)}</span></td><td>${esc(r.tableName)} #${r.rowId}</td><td><code>${esc(r.column)}</code></td><td class="small">${esc(r.before) || '<span class="muted">–</span>'}</td><td class="small">${esc(r.after) || '<span class="muted">–</span>'}</td></tr>`).join('')}
         </tbody></table></div><p class="muted small">${c.total} changes${c.total > 100 ? `, showing ${skip + 1} to ${Math.min(skip + 100, c.total)}` : ''}.</p>
         ${c.total > 100 ? `<div class="toolbar"><button class="button secondary small-btn" id="changes-prev"${skip ? '' : ' disabled'}>Newer</button><button class="button secondary small-btn" id="changes-next"${skip + 100 < c.total ? '' : ' disabled'}>Older</button></div>` : ''}`
         : '<p class="muted">None yet.</p>';

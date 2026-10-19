@@ -1,3 +1,4 @@
+using MyCRMRecords.Data;
 using System.Globalization;
 using MyCRMRecords.Documents;
 using MyCRMRecords.Domain;
@@ -54,7 +55,15 @@ public sealed class FilesApi(CrmApp w)
             {
                 var rows = Rows(content);
                 if (rows is null) return ApiResponse.Fail(400, ResultCodes.Validation, "Choose an Excel workbook (.xlsx) with the columns BRN and NoOfEmployees.");
-                return ApiResponse.Result(w.Companies.UploadEmployees(actor, rows.Select(r => (Value(r, "BRN"), Value(r, "NoOfEmployees"))).ToList()));
+                using var author = MyCrmStore.As(actor.ChangedBy);
+                try
+                {
+                    return ApiResponse.Result(w.Companies.UploadEmployees(actor, rows.Select(r => (Value(r, "BRN"), Value(r, "NoOfEmployees"))).ToList()));
+                }
+                catch (MyCrmRefusedException ex)
+                {
+                    return ApiResponse.Fail(409, ResultCodes.Conflict, ex.Message);
+                }
             }
             case TerritoryList:
             {

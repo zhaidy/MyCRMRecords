@@ -16,21 +16,20 @@ user to paste SQL into SQL Server Management Studio.
   list in a column. A new property of a record gets a column: a new migration with `ALTER TABLE`, and the property is
   mapped automatically (give text a `[Len]`). `Every_table_is_created_by_the_migrations_exactly_as_it_is_mapped` and
   the SQL Server tests fail until the migrations create it. A property that must not be stored gets `[NotStored]`.
-- What was sent, received or changed gets a table of its own (`dbo.CrEmail`, `dbo.CrAudit`, `dbo.CrSyncChange`),
+- What was sent, received or changed gets a table of its own (`dbo.CrEmail`, `dbo.CrAudit`, `dbo.CrChange`),
   never `dbo.CrMigrations`.
 - Write the migration so it is correct on the data as it is in production, and add a test for it in
   `tests/MyCRMRecords.Tests/SqlServerTests.cs` (the SQL Server tests run in CI against SQL Server LocalDB).
 
 ## Never change the other applications unless switched on
 
-MyCRMRecords reads and writes MyCRM's tables in the OutSystems database (the import reads them, the sync below writes
-the fifteen entities of `CrmSync`: companies, addresses, contacts, phones, emails, CUser, Team, permanent territories
-and their company links, territory movements...), and reads AdvanceConnector's `Customer_Supp` (the scheduled task
-*Customer numbers from Advance*). Every write outside MyCRMRecords is behind a switch that starts off
-(`SyncSettings.Enabled`, `EmailSettings.Enabled`, `JobSettings.Enabled`) and is recorded (`dbo.CrSyncChange`,
-`dbo.CrEmail`). No write ever
-deletes in another application: update or mark instead. A new write follows the same rules: a switch that starts off,
-and a record of every value written with the value it replaced.
+MyCRMRecords reads and writes MyCRM's tables in the OutSystems database (the fifteen entities of `MyCrmMap`: companies,
+addresses, contacts, phones, emails, CUser, Team, permanent territories and their company links, territory
+movements...), and reads AdvanceConnector's `Customer_Supp` (the scheduled task *Customer numbers from Advance*). Every
+write outside MyCRMRecords is behind a switch that starts off (`MyCrmSettings.WritesEnabled`, `EmailSettings.Enabled`,
+`JobSettings.Enabled`) and is recorded (`dbo.CrChange`, `dbo.CrEmail`). No write ever deletes in another application:
+update or mark instead. A new write follows the same rules: a switch that starts off, and a record of every value written
+with the value it replaced.
 
 ## Reading other databases: real column names, not OutSystems names
 
@@ -56,26 +55,30 @@ Nothing in MyCRMRecords deletes a record from its own tables: what people delete
 deleted gets an `IsActive` column (a migration with `ALTER TABLE`). Only the stores (`Records.cs`, `Storage.cs`)
 delete, and `Nothing_in_MyCRMRecords_deletes_a_record` fails on any other `Delete`.
 
-## Sync with the old app: never delete there
+## MyCRM's data stays in MyCRM: never delete there
 
-The rest of MyCRM stays in OutSystems and uses these tables, so `OldAppSync` keeps MyCRMRecords and MyCRM in step both
-ways for good (`CrmSync` says what), behind *Sync with MyCRM* on the admin page, which starts off. MyCRM must never
-lose data:
+The rest of MyCRM stays in OutSystems and uses these tables, so MyCRMRecords keeps no copy and has no sync: its pages'
+records of MyCRM (`MyCrmMap.All`) are read and written in MyCRM's own tables by `MyCrmStore`, behind the same
+`IRecordStore` as its own records (`RoutedStore`). MyCRM must never lose data:
 
-- Nothing is ever deleted in MyCRM. `IOldTablesWriter` can add and change rows, not delete them; keep it that way.
-  What is removed here is **marked** there instead (`ISACTIVE = 0`), and stays paired in `dbo.CrSyncLink` so it is not
-  copied back. A CRM user record taken away is inactive with no team (and no role when the person has no team left):
-  MyCRM reads every record's role and team whatever its `IsActive`.
-- Only MyCRM's active permanent territories and their active company links are read (`CrmTables`): the temporary
-  territories belong to MyCRM's Projects and CSST parts, which stay in OutSystems. Never sync them.
+- Nothing is ever deleted in MyCRM: `MyCrmStore` adds and changes rows only; keep it that way. What is taken away is
+  **marked** (`ISACTIVE = 0`). A CRM user record taken away is inactive with no team (and no role when the person has no
+  team left): MyCRM reads every record's role and team whatever its `IsActive`.
+- What MyCRM has no column for (a territory's name, removal dates and names, a CRM user's former team, a group name or
+  company address link taken away) is a `CrmFieldKind.Side` field, kept in `dbo.CrRecordNote` by MyCRM's entity and Id.
+  A new property of a MyCRM record goes in `MyCrmMap` (a column of MyCRM's, or a side field); every property is mapped.
+- Writes happen only when *Let MyCRMRecords change MyCRM's data* is on; otherwise `MyCrmStore` refuses with
+  `MyCrmRefusedException` (`WritesOff`). A batch is one transaction in MyCRM; every value written is recorded with the
+  value it replaced in `dbo.CrChange`, with who made it (`MyCrmStore.As`, set by the API and the scheduled task).
+- Only MyCRM's active permanent territories (and those noted here) and the active company links of active permanent
+  territories are read (`CrmRows`): the temporary territories belong to MyCRM's Projects and CSST parts, which stay in
+  OutSystems, and the millions of inactive rows are never read. A query MyCRM's columns cannot answer (a side field, a
+  person or code searched as text) is finished in memory after the SQL part: keep such queries narrow.
 - MyCRM's static entities (`Role`, `CompanyGroup`, `AddressType`...) are matched by their label (`ChoiceList`), never
   by Id: the Ids differ between environments, and the tests give them Ids no list starts with.
-- Every value the sync writes there is recorded with the value it replaced (`dbo.CrSyncChange`), every sync in
-  `dbo.CrSyncRun`; a sync that would change more than usual stops before changing anything.
-- New data MyCRMRecords keeps that MyCRM has a place for goes into the sync the same way: synced both ways, marked
-  rather than deleted there, recorded. `OldAppSync.cs`, `OldTables.cs`, `Records.cs`, `ExternalTable.cs` and
-  `BackgroundRuns.cs` are the same in every app that replaces an OutSystems app (MyWarehouse, MyServiceParts,
-  MyDeliveries, MyVendors, MyProjectManagement, MyCustomers): a fix to the engine goes to all of them.
+- `OldAppSync.cs`, `OldTables.cs`, `Records.cs`, `ExternalTable.cs` and `BackgroundRuns.cs` are the same in every app
+  that replaces an OutSystems app (MyWarehouse, MyServiceParts, MyDeliveries, MyVendors, MyProjectManagement,
+  MyCustomers): MyCRMRecords keeps the sync engine files though it does not sync; a fix to the engine goes to all of them.
 
 ## Keep MyCRM's behaviour unless there is a reason
 

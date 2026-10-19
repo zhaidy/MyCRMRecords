@@ -71,8 +71,9 @@ public sealed class AccessTests
     {
         using var world = new TestWorld();
         var old = world.OldApp;
-        // As imported: MyCRM's company 5001.
-        var project = world.Store.Insert(new Company { Name = "Project Co", Brn = "P1000", IsActive = true, OutSystemsId = 5001 });
+        // MyCRM's company 5001 (its Id is MyCRM's).
+        world.Store.InsertKeepingIds([new Company { Id = 5001, Name = "Project Co", Brn = "P1000", IsActive = true }]);
+        var project = world.Store.Get<Company>(5001)!;
         var territory = old.Add("Territory", new() { ["TERRITORY"] = 1015001L, ["OWNERID"] = 101L, ["ISACTIVE"] = true, ["ISTEMPORARY"] = true });
         old.Add("CompanyTerritory", new() { ["TERRITORYID"] = territory, ["COMPANYID"] = 5001L, ["ISACTIVE"] = true });
         Assert.True(world.D.Access.CanOpen(world.Actor(TestWorld.Sam), project));
@@ -82,7 +83,7 @@ public sealed class AccessTests
         // The project ended (MyCRM's timer turned the territory off): no longer.
         old.Change("Territory", territory, new() { ["ISACTIVE"] = false });
         Assert.False(world.D.Access.CanOpen(world.Actor(TestWorld.Sam), project));
-        // Temporary territories are never copied here.
+        // Temporary territories are not MyCRMRecords' territories.
         Assert.Empty(world.Store.Find<Territory>());
     }
 }

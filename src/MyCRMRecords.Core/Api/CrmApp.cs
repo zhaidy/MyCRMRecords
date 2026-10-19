@@ -28,7 +28,12 @@ public static class Input
 /// <summary>Everything MyCRMRecords does, for its pages and the tests.</summary>
 public sealed class CrmApp
 {
+    /// <summary>The records: MyCRM's in MyCRM's tables, MyCRMRecords' own in its storage (<see cref="RoutedStore"/>).</summary>
     public IRecordStore Store { get; init; } = null!;
+    /// <summary>MyCRMRecords' own records (people, roles, the audit log, task runs, notes, the changes made in MyCRM).</summary>
+    public IRecordStore Own { get; init; } = null!;
+    /// <summary>MyCRM's tables, when the app reads them there (null in the tests that keep MyCRM's records in memory).</summary>
+    public MyCrmStore? MyCrm { get; init; }
     public Func<CrmSettings> Settings { get; init; } = null!;
     public SettingsFile<CrmSettings> SettingsFile { get; init; } = null!;
     public People People { get; init; } = null!;
@@ -40,34 +45,27 @@ public sealed class CrmApp
     public Mailer Mailer { get; init; } = null!;
     public ExternalDatabases Databases { get; init; } = null!;
     public Scheduler Scheduler { get; init; } = null!;
-    /// <summary>The two-way sync with MyCRM (its tables in the OutSystems database).</summary>
-    public OldAppSync Sync { get; init; } = null!;
-    /// <summary>The copy of MyCRM's data (admin page).</summary>
-    public OutSystemsImport Import { get; init; } = null!;
     public Func<DateTime> Clock { get; init; } = null!;
+
+    /// <summary>Whether MyCRMRecords may change MyCRM's data now (the administrator's switch).</summary>
+    public bool CanWrite => MyCrm is null || MyCrm.CanWrite;
 }
 
 /// <summary>Builds MyCRMRecords's objects, the same for the web site and the tests.</summary>
 public static class CrmFactory
 {
-    /// <param name="oldTables">MyCRM's tables (tests); else those of the OutSystems database.</param>
+    /// <param name="store">MyCRMRecords' own records.</param>
+    /// <param name="myCrm">Where MyCRM's records are (tests: in memory); else MyCRM's tables in the OutSystems database.</param>
     /// <param name="temporary">MyCRM's temporary territories (tests); else read from the OutSystems database.</param>
     public static CrmApp Create(IRecordStore store, SettingsFile<CrmSettings> settingsFile, Func<string, DbConnection> connectionFactory,
-        string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IOldTables? oldTables = null, ITemporaryTerritories? temporary = null)
+        string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IRecordStore? myCrm = null, ITemporaryTerritories? temporary = null)
     {
         Func<CrmSettings> settings = settingsFile.Load;
         var databases = new ExternalDatabases(settings, connectionFactory);
-        // The sync with MyCRM sees the records as they are; the app's own changes go through SyncedStore. Of MyCRM's
-        // territories only the active permanent ones are read (CrmTables).
-        Func<string> module = () => settings().Connections.CrmModule;
-        var myCrm = new CrmTables(databases, module, new OutSystemsTables(databases, module, "MyCRM", "RSP"));
-        Func<IOldTables?> tables = () => oldTables ?? (databases.IsConfigured(ExternalNames.OutSystems) ? myCrm : null);
-        Func<ITemporaryTerritories?> temporaryTerritories = () => temporary ?? (oldTables is null && databases.IsConfigured(ExternalNames.OutSystems) ? myCrm : null);
-        var sync = new OldAppSync(store, tables,
-            CrmSync.Entities(clock), () => settings().Sync, change => settingsFile.Change(s => change(s.Sync)),
-            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(schedulerStateFile))!, "old-app-sync.lock"), clock);
-        var records = store;
-        store = new SyncedStore(store, sync);
+        var own = store;
+        var tables = myCrm is null ? new MyCrmStore(own, databases, () => settings().Connections.CrmModule, () => settings().MyCrm.WritesEnabled, clock) : null;
+        Func<ITemporaryTerritories?> temporaryTerritories = () => temporary ?? (tables is not null && tables.Available ? tables : null);
+        store = new RoutedStore(own, myCrm ?? tables!);
         var mailer = new Mailer(store, settings, clock, emailSender);
         var people = new People(store, clock);
         var access = new Access(store, temporaryTerritories);
@@ -76,6 +74,8 @@ public static class CrmFactory
         return new CrmApp
         {
             Store = store,
+            Own = own,
+            MyCrm = tables,
             Settings = settings,
             SettingsFile = settingsFile,
             People = people,
@@ -87,9 +87,7 @@ public static class CrmFactory
             Mailer = mailer,
             Databases = databases,
             Scheduler = new Scheduler(store, settings, schedulerStateFile,
-                new Dictionary<string, Func<string, JobOutcome>> { [Jobs.CustomerNumbers] = customerNumbers.Run }, clock, sync.Tick),
-            Sync = sync,
-            Import = new OutSystemsImport(records, databases, settings, clock, sync),
+                new Dictionary<string, Func<string, JobOutcome>> { [Jobs.CustomerNumbers] = customerNumbers.Run }, clock),
             Clock = clock,
         };
     }

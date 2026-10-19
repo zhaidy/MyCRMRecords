@@ -108,27 +108,42 @@ public sealed class SqlServerTests
         Assert.Throws<InvalidOperationException>(() => storage.RunMigration(database.Settings, DataMigrations.All[0], "Test"));
     }
 
+    /// <summary>MyCRM's tables in the OutSystems database, as MyCRMRecords reads and writes them (writing switched on).</summary>
+    private static MyCrmStore MyCrm(TestWorld world, TestDatabase outSystems, bool writes = true)
+    {
+        world.SettingsFile.Change(s =>
+        {
+            s.Connections.OutSystems.Configured = true;
+            s.Connections.OutSystems.SqlServer = outSystems.Settings;
+        });
+        return new MyCrmStore(world.Store, new ExternalDatabases(world.SettingsFile.Load, TestDatabase.Connect), () => "MyCRM", () => writes, () => world.Now);
+    }
+
     [Fact]
-    public void The_sql_store_answers_queries_as_the_json_store_does()
+    public void MyCRM_tables_answer_queries_as_the_json_store_does()
     {
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;
-        using var database = new TestDatabase();
-        using var world = new TestWorld();
-        var storage = Storage(world.Folder);
-        storage.RunPendingMigrations(database.Settings, "Test");
-        var sql = storage.SqlServer(database.Settings);
-        foreach (var store in new IRecordStore[] { world.Store, sql })
+        using var outSystems = new TestDatabase();
+        outSystems.Execute(FakeOldTables.MyCRM().OutSystemsSql("MyCRM"));
+        using var world = new TestWorld(crmUsers: false);
+        using var other = new TestWorld(crmUsers: false);
+        var day = world.Now.Date;
+        foreach (var store in new IRecordStore[] { other.Store, MyCrm(world, outSystems) })
         {
-            store.Delete<Company>(Query.All());
-            var a = store.Insert(new Company { UpdatedDate = world.Now, Website = "Logistics", Brn = "a_b", SalesRemarks = "100% done" });
-            var b = store.Insert(new Company { UpdatedDate = world.Now.AddMinutes(1), Website = "IT", Brn = "axb", SalesRemarks = "Could not be reached" });
-            var c = store.Insert(new Company { UpdatedDate = world.Now.AddMinutes(2), Website = "Logistics", Brn = "c" });
+            var a = store.Insert(new Company { Name = "A", UpdatedDate = day, Website = "Logistics", Brn = "a_b", SalesRemarks = "100% done", IsActive = true });
+            var b = store.Insert(new Company { Name = "B", UpdatedDate = day.AddDays(1), Website = "IT", Brn = "axb", SalesRemarks = "Could not be reached", IsActive = false });
+            var c = store.Insert(new Company { Name = "C", UpdatedDate = day.AddDays(2), Website = "Logistics", Brn = "c", CompanyGroup = CompanyGroups.List.All[1].Code, IsActive = false });
             Assert.Equal(new[] { c.Id, a.Id }, store.Find<Company>(Query.Where("Website", "logistics").Newest()).Select(m => m.Id));
             Assert.Equal(new[] { a.Id }, store.Find<Company>(Query.All().Search("a_b", "Brn")).Select(m => m.Id));
             Assert.Equal(new[] { a.Id }, store.Find<Company>(Query.All().Search("100%", "SalesRemarks")).Select(m => m.Id));
             Assert.Equal(2, store.Count<Company>(Query.All().Not("Website", "IT")));
-            Assert.Equal(new[] { b.Id, c.Id }, store.Find<Company>(Query.All().AtLeast("UpdatedDate", world.Now.AddMinutes(1)).Sort("UpdatedDate")).Select(m => m.Id));
+            Assert.Equal(new[] { a.Id }, store.Find<Company>(Query.Where("IsActive", true)).Select(m => m.Id));
+            Assert.Equal(2, store.Count<Company>(Query.Where("IsActive", false)));
+            Assert.Equal(new[] { b.Id, c.Id }, store.Find<Company>(Query.All().AtLeast("UpdatedDate", day.AddDays(1)).Sort("UpdatedDate")).Select(m => m.Id));
             Assert.Equal(new[] { a.Id, c.Id }, store.Find<Company>(Query.All().In("Id", new object[] { a.Id, c.Id })).Select(m => m.Id));
+            // A code of a list (MyCRM's static record of that label), and none.
+            Assert.Equal(new[] { c.Id }, store.Find<Company>(Query.Where("CompanyGroup", CompanyGroups.List.All[1].Code)).Select(m => m.Id));
+            Assert.Equal(new[] { a.Id, b.Id }, store.Find<Company>(Query.Where("CompanyGroup", "").Sort("Id")).Select(m => m.Id));
             // More values than SQL Server takes as parameters (2100), and text with quotes.
             var ids = Enumerable.Range(1, 3000).Select(i => (object)(i * 1000000L)).Append(a.Id).Append(c.Id).ToList();
             Assert.Equal(new[] { a.Id, c.Id }, store.Find<Company>(Query.All().In("Id", ids).Sort("Id")).Select(m => m.Id));
@@ -136,11 +151,15 @@ public sealed class SqlServerTests
             Assert.Equal(new[] { a.Id, c.Id }, store.Find<Company>(Query.All().In("Brn", codes).Sort("Id")).Select(m => m.Id));
             Assert.Equal(2, store.Count<Company>(Query.All().In("Id", ids)));
             Assert.Equal(new[] { b.Id }, store.Find<Company>(Query.All().Sort("Id").Page(1, 1)).Select(m => m.Id));
-            // A nullable reference (long?) found in a list, and columns named like SQL words (Number, Owner).
+            // A nullable reference (long?) found in a list; people by login; what MyCRM has no column for (a territory's name).
             store.Insert(new Phone { ContactId = 42, Number = "1" });
             Assert.Single(store.Find<Phone>(Query.All().In("ContactId", new object[] { 42L, 43L })));
-            store.Insert(new Territory { Number = 3, Owner = "o" });
-            Assert.Equal(3, store.Find<Territory>(Query.All().Sort("Number", descending: true)).First().Number);
+            var north = store.Insert(new Territory { Name = "North", Number = 3, Owner = TestWorld.Sam.Login, IsActive = true });
+            store.Insert(new Territory { Name = "South", Number = 4, Owner = TestWorld.Ken.Login, IsActive = true });
+            Assert.Equal(4, store.Find<Territory>(Query.All().Sort("Number", descending: true)).First().Number);
+            Assert.Equal(new[] { north.Id }, store.Find<Territory>(Query.Where("Owner", TestWorld.Sam.Login)).Select(t => t.Id));
+            Assert.Equal(new[] { north.Id }, store.Find<Territory>(Query.Where("Name", "north")).Select(t => t.Id));
+            Assert.Equal(new[] { "North", "South" }, store.Find<Territory>(Query.Where("IsActive", true).Sort("Name")).Select(t => t.Name));
             Assert.Throws<InvalidOperationException>(() => store.Batch(s =>
             {
                 s.Insert(new Company { Name = "Lost" });
@@ -156,12 +175,12 @@ public sealed class SqlServerTests
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;
         using var database = new TestDatabase();
         using var world = new TestWorld();
-        SeedData.Add(world.Store, world.Now, world.Actor(TestWorld.Admin));
-        var companies = world.Store.Count<Company>();
-        Assert.Equal(2, companies);
+        var people = world.Store.Count<AppUser>();
+        Assert.True(people > 0);
+        world.Store.Insert(new AuditEntry { At = world.Now, Login = TestWorld.Sam.Login, Action = "Sign in" });
         var storage = new DatabaseStorage(new DatabaseSettingsFile(Path.Combine(world.Folder, "database-settings.json"), new FakeProtector()), world.Store, TestDatabase.Connect);
-        var d = CrmFactory.Create(storage, world.SettingsFile, TestDatabase.Connect, Path.Combine(world.Folder, "tasks.json"), () => world.Now);
-        var admin = new AdminApi(d, storage, null!, _ => { }, demoTools: false);
+        var d = CrmFactory.Create(storage, world.SettingsFile, TestDatabase.Connect, Path.Combine(world.Folder, "tasks.json"), () => world.Now, myCrm: world.Store);
+        var admin = new AdminApi(d, storage, demoTools: false);
         var answer = admin.Handle("POST", "admin/database", MyCRMRecords.Json.Serialize(new
         {
             provider = StorageProviders.SqlServer,
@@ -169,33 +188,28 @@ public sealed class SqlServerTests
         }), new Dictionary<string, string>(), TestWorld.Admin);
         Assert.True(answer.Status == 200, answer.Json);
         Assert.NotNull(storage.CurrentSqlServer());
-        Assert.Equal(companies, storage.Count<Company>());
-        Assert.Equal((long)companies, Convert.ToInt64(database.Scalar("SELECT COUNT(*) FROM dbo.CrCompany")));
-        var list = new CrmApi(d).Handle("GET", "companies", "", new Dictionary<string, string>(), TestWorld.Admin);
-        Assert.True(list.Status == 200, list.Json);
-        Assert.Contains(SeedData.SampleCompany, list.Json);
+        Assert.Equal(people, storage.Count<AppUser>());
+        Assert.Equal((long)people, Convert.ToInt64(database.Scalar("SELECT COUNT(*) FROM dbo.CrUser")));
+        Assert.Equal("Sign in", storage.Find<AuditEntry>(Query.Where("Login", TestWorld.Sam.Login)).Single().Action);
     }
 
-    private static CrmApp Connected(TestWorld world, TestDatabase outSystems, TestDatabase? advance, bool sync)
+    private static CrmApp Connected(TestWorld world, TestDatabase outSystems, TestDatabase? advance, bool writes)
     {
         world.SettingsFile.Change(s =>
         {
             s.Connections.OutSystems.Configured = true;
             s.Connections.OutSystems.SqlServer = outSystems.Settings;
             if (advance is not null) s.Connections.AdvanceConnector = new ExternalDatabase { Configured = true, SqlServer = advance.Settings };
-            s.Sync.Enabled = sync;
+            s.MyCrm.WritesEnabled = writes;
         });
         return CrmFactory.Create(world.Store, world.SettingsFile, TestDatabase.Connect, Path.Combine(world.Folder, "tasks.json"), () => world.Now, world.Email);
     }
 
-    /// <summary>The rows MyCRMRecords copies from <see cref="FillMyCRM"/>.</summary>
-    private const int Copied = 13;
-
     /// <summary>
-    /// MyCRM in OutSystems: Mia's team with Sam's CUser (Sales), the group Lim Group, company 7 (created by Sara, 102) with its
-    /// address, primary contact, phone and email, Sam's permanent territory 1203 with company 7 and a recent movement; and
-    /// rows that are not MyCRMRecords': Ken's temporary territory of a project with company 7, an inactive territory and an
-    /// inactive link.
+    /// MyCRM in OutSystems: Mia's team (1001) with Sam's CUser (Sales), the group Lim Group, company 7 (created by Sara, 102)
+    /// with its address, primary contact, phone and email, Sam's permanent territory 1203 (1001) with company 7 and a
+    /// movement; and rows that are not MyCRMRecords': Ken's temporary territory of a project (1002) with company 7, an
+    /// inactive territory (1003) and an inactive link.
     /// </summary>
     private static void FillMyCRM(TestDatabase outSystems)
     {
@@ -228,24 +242,13 @@ public sealed class SqlServerTests
     }
 
     [Fact]
-    public void MyCRM_data_is_imported_with_its_people_and_only_the_permanent_territories()
+    public void MyCRM_data_is_read_where_MyCRM_keeps_it_with_only_the_permanent_territories()
     {
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;
         using var outSystems = new TestDatabase();
         FillMyCRM(outSystems);
         using var world = new TestWorld(crmUsers: false);
-        world.Store.Delete<UserRole>(Query.All());
-        world.Store.Delete<AppUser>(Query.All());
-        var d = Connected(world, outSystems, null, sync: false);
-        var preview = d.Import.Preview();
-        Assert.Equal(1, preview.Found["Companies"]);
-        // Read through CrmTables: of the three territories and three links, the active permanent one and its active link.
-        Assert.Equal(1, preview.Found["Territories (active, permanent)"]);
-        Assert.Equal(1, preview.Found["Companies of territories"]);
-        var counts = d.Import.Import("Test", _ => { });
-        Assert.Equal(1, counts.Copied["Companies"]);
-        Assert.Equal(1, counts.Copied["CRM user records"]);
-        Assert.Equal(1, counts.Copied["Territories (active, permanent)"]);
+        var d = Connected(world, outSystems, null, writes: false);
         var c = d.Store.Get<Company>(7)!;
         Assert.Equal("Lim Pte Ltd", c.Name);
         Assert.Equal("SME", c.CompanyGroup);
@@ -253,75 +256,107 @@ public sealed class SqlServerTests
         // MyCRM's users are RSP\name@ricoh.sg: the logins are RSP\name.
         Assert.Equal(@"RSP\sara", c.CreatedBy);
         Assert.Equal(1000.25m, c.Revenue);
+        Assert.Equal(new DateTime(2025, 3, 1), c.CreatedDate);
         Assert.Equal("Lim Group", d.Store.Get<CompanyGroupName>(c.CompanyGroupNameId!.Value)!.GroupName);
         var sam = d.Store.Find<CrmUser>().Single();
         Assert.Equal(@"RSP\sam", sam.Login);
         Assert.Equal(CrmRoles.Sales, sam.Role);
-        Assert.Equal(@"RSP\sam", d.Store.Find<Territory>().Single().Owner);
-        Assert.Equal(1203, d.Store.Find<Territory>().Single().Number);
-        Assert.Equal(AddressTypes.Billing, d.Store.Find<Address>().Single().AddressType);
+        Assert.Equal(1001, sam.TeamId);
+        // Of the three territories and three links, the active permanent one and its active link.
+        var territory = d.Store.Find<Territory>().Single();
+        Assert.Equal((1001L, @"RSP\sam", 1203L), (territory.Id, territory.Owner, territory.Number));
+        Assert.Equal(7, d.Store.Find<CompanyTerritory>().Single().CompanyId);
+        Assert.Equal(@"RSP\sam", d.Territories.OwnerOf(7));
+        Assert.Equal(AddressTypes.Billing, d.Companies.Addresses(7).Single().AddressType);
         Assert.Equal("Mobile", d.Store.Find<Phone>().Single().PhoneType);
-        Assert.Contains(d.People.Everyone(), u => u.Login == @"RSP\olga" && u.DisplayName == "Olga Other");
+        Assert.Equal((@"RSP\ken", @"RSP\sam"), (d.Territories.Movements(7).Single().FromUser, d.Territories.Movements(7).Single().ToUser));
+        // Ken reaches company 7 through MyCRM's temporary territory of his project; Olga does not.
+        Assert.True(d.Access.CanOpen(new ApiUser(@"RSP\ken", "Ken Kwan").ToActor(d.People), c));
+        Assert.False(d.Access.CanOpen(new ApiUser(@"RSP\olga", "Olga Other").ToActor(d.People), c));
+        var list = new CrmApi(d).Handle("GET", "companies", "", new Dictionary<string, string>(), TestWorld.Admin);
+        Assert.True(list.Status == 200, list.Json);
+        Assert.Contains("Lim Pte Ltd", list.Json);
+        Assert.All(d.Databases.Test(ExternalNames.OutSystems), l => Assert.True(l.Ok, l.Line));
 
-        // Again: nothing twice.
-        var again = d.Import.Import("Test", _ => { });
-        Assert.Equal(0, again.Copied["Companies"]);
-        Assert.Equal(1, d.Store.Count<Company>());
-
-        // Then the sync pairs everything without changing anything, either side.
-        world.SettingsFile.Change(s => s.Sync.Enabled = true);
-        var outcome = d.Sync.Run("test");
-        Assert.True(outcome.Ok, outcome.Message + "\n" + string.Join("\n", outcome.Details));
-        Assert.True(outcome.ToOldApp + outcome.ToHere == 0, string.Join("\n", outcome.Details));
+        // Writing is off: a change is refused and nothing changes in MyCRM.
+        var saved = new CrmApi(d).Handle("POST", "companies/7/employees", MyCRMRecords.Json.Serialize(new { noOfEmployees = 12 }), new Dictionary<string, string>(), TestWorld.Admin);
+        Assert.Equal(409, saved.Status);
+        Assert.Contains("only reads MyCRM", saved.Json);
+        Assert.Equal(0, Convert.ToInt32(outSystems.Scalar("SELECT NOOFEMPLOYEES FROM dbo.[OSUSR_ab1_COMPANY] WHERE ID = 7")));
+        Assert.Empty(world.Store.Find<MyCrmChange>());
+        Assert.Contains("only reads MyCRM", new CrmApi(d).Handle("GET", "session", "", new Dictionary<string, string>(), TestWorld.Admin).Json);
     }
 
     [Fact]
-    public void The_sync_writes_MyCRM_tables_and_never_deletes_there()
+    public void MyCRMRecords_writes_MyCRM_tables_when_let_never_deletes_there_and_records_every_value()
     {
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;
         using var outSystems = new TestDatabase();
         FillMyCRM(outSystems);
         using var world = new TestWorld(crmUsers: false);
-        var d = Connected(world, outSystems, null, sync: true);
-        SyncOutcome Sync()
-        {
-            var outcome = d.Sync.Run("test", allowLarge: true);
-            Assert.True(outcome.Ok, outcome.Message + "\n" + string.Join("\n", outcome.Details));
-            return outcome;
-        }
-        Assert.Equal(Copied, Sync().ToHere);
-        var settled = Sync();
-        Assert.True(settled.ToHere + settled.ToOldApp == 0, string.Join("\n", settled.Details));
-        // Ken reaches company 7 through MyCRM's temporary territory of his project (read from MyCRM, never copied).
-        var lim = d.Store.Get<Company>(7)!;
-        Assert.True(d.Access.CanOpen(new ApiUser(@"RSP\ken", "Ken Kwan").ToActor(d.People), lim));
-        Assert.False(d.Access.CanOpen(new ApiUser(@"RSP\olga", "Olga Other").ToActor(d.People), lim));
-
-        // A new company takes MyCRM's number; a new territory of Sam's takes it and company 7 (out of territory 1203); an
-        // address of company 7 is deleted.
+        var d = Connected(world, outSystems, null, writes: true);
+        int Count(string table, string where = "1 = 1") => Convert.ToInt32(outSystems.Scalar($"SELECT COUNT(*) FROM dbo.[OSUSR_ab1_{table}] WHERE {where}"));
+        var rows = new[] { "COMPANY", "ADDRESS", "COMPANYADDRESSLINK", "TERRITORY", "COMPANYTERRITORY", "CUSER", "TEAM" }.ToDictionary(t => t, t => Count(t));
         var admin = world.Actor(TestWorld.Admin);
+        using var author = MyCrmStore.As(admin.ChangedBy);
+
+        // A new company takes MyCRM's number, with MyCRM's static record and user.
         var made = d.Companies.Save(admin, 0, new Companies.CompanyInput { Name = "Tan & Sons", Brn = "200012345K", CompanyGroup = "GMA" });
         Assert.True(made.Ok, made.Message);
         var id = made.Id!.Value;
         Assert.NotEqual(7, id);
-        Assert.Equal(1, Convert.ToInt32(outSystems.Scalar($"SELECT COUNT(*) FROM dbo.[OSUSR_ab1_COMPANY] WHERE ID = {id} AND COMPANY = N'Tan & Sons'")));
+        Assert.Equal(1, Count("COMPANY", $"ID = {id} AND COMPANY = N'Tan & Sons' AND COMPANYGROUPID = {FakeOldTables.MyCRM().StaticId("CompanyGroup", "GMA")} AND CREATEDBY = 1"));
+        Assert.Equal("GMA", d.Store.Get<Company>(id)!.CompanyGroup);
+
+        // A new territory of Sam's, with its name kept here, takes Tan & Sons and company 7 (out of territory 1203).
         var territory = d.Territories.Save(admin, 0, new Territories.TerritoryInput { Name = "North", Number = 2001, Owner = @"RSP\sam" });
         Assert.True(territory.Ok, territory.Message);
-        Assert.True(d.Territories.AddCompanies(admin, territory.Id!.Value, [id, 7]).Ok);
-        Assert.True(d.Companies.RemoveAddress(admin, 7, d.Store.Find<Address>().Single().Id).Ok);
-        Sync();
-        Assert.Equal(1, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_TERRITORY] WHERE TERRITORY = 2001 AND OWNERID = 101 AND ISACTIVE = 1 AND ISTEMPORARY = 0")));
-        Assert.Equal(5, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_COMPANYTERRITORY]")));
-        Assert.Equal(0, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_COMPANYTERRITORY] WHERE TERRITORYID = 1001 AND ISACTIVE = 1")));
+        var north = territory.Id!.Value;
+        Assert.Equal(1, Count("TERRITORY", $"ID = {north} AND TERRITORY = 2001 AND OWNERID = 101 AND ISACTIVE = 1 AND ISTEMPORARY = 0"));
+        Assert.Equal("North", d.Territories.Get(north)!.Name);
+        Assert.True(d.Territories.AddCompanies(admin, north, [id, 7]).Ok);
+        Assert.Equal(0, Count("COMPANYTERRITORY", "TERRITORYID = 1001 AND ISACTIVE = 1"));
+        Assert.Equal(2, Count("COMPANYTERRITORY", $"TERRITORYID = {north} AND ISACTIVE = 1"));
         // MyCRM's project territory is left as it is.
-        Assert.Equal(1, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_COMPANYTERRITORY] WHERE TERRITORYID = 1002 AND ISACTIVE = 1")));
-        Assert.Equal(1, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_ADDRESS] WHERE ISACTIVE = 0 AND PREISACTIVE = 1")));
+        Assert.Equal(1, Count("COMPANYTERRITORY", "TERRITORYID = 1002 AND ISACTIVE = 1"));
         // Tan & Sons moved from nobody to Sam; company 7 stayed Sam's (no movement).
-        Assert.Equal(2, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_ab1_TERRITORYMOVEMENT]")));
-        Assert.NotEmpty(d.Store.Find<SyncChange>());
+        Assert.Equal(2, Count("TERRITORYMOVEMENT"));
+        Assert.Equal(new[] { id, 7L }.OrderBy(x => x), d.Territories.Companies(north, null, 0).Rows.Select(x => x.Id).OrderBy(x => x));
 
-        var again = Sync();
-        Assert.True(again.ToOldApp + again.ToHere == 0, string.Join("\n", again.Details));
+        // An address of company 7 deleted: the address inactive in MyCRM, its link (MyCRM has no mark) kept and marked here.
+        var address = d.Companies.Addresses(7).Single();
+        Assert.True(d.Companies.RemoveAddress(admin, 7, address.Id).Ok);
+        Assert.Equal(1, Count("ADDRESS", $"ID = {address.Id} AND ISACTIVE = 0 AND PREISACTIVE = 1"));
+        Assert.Empty(d.Companies.Addresses(7));
+
+        // Ken made a CRM user of Mia's team, then taken away: inactive with no team in MyCRM, his former team kept here.
+        Assert.True(d.Users.Save(admin, @"RSP\ken", new CrmUsers.ProfileInput { Role = CrmRoles.Sales, Teams = [1001] }).Ok);
+        Assert.Equal(1, Count("CUSER", "USERID = 107 AND TEAMID = 1001 AND ISACTIVE = 1"));
+        Assert.True(d.Users.RemoveUserAndTerritories(admin, @"RSP\ken").Ok);
+        Assert.Equal(1, Count("CUSER", "USERID = 107 AND TEAMID IS NULL AND ISACTIVE = 0"));
+        Assert.Equal(1001, d.Store.Find<CrmUser>(Query.Where("Login", @"RSP\ken")).Single().FormerTeamId);
+
+        // The territory taken away: inactive in MyCRM, still listed here with its name among the taken away ones.
+        Assert.True(d.Territories.Remove(admin, north).Ok);
+        Assert.Equal(1, Count("TERRITORY", $"ID = {north} AND ISACTIVE = 0"));
+        Assert.DoesNotContain(d.Territories.All(), t => t.Id == north);
+        Assert.Equal("North", d.Territories.All(includeInactive: true).Single(t => t.Id == north).Name);
+
+        // Nothing deleted anywhere; every value written is recorded with the one it replaced.
+        Assert.Equal(rows["COMPANY"] + 1, Count("COMPANY"));
+        Assert.Equal(rows["ADDRESS"], Count("ADDRESS"));
+        Assert.Equal(rows["COMPANYADDRESSLINK"], Count("COMPANYADDRESSLINK"));
+        Assert.Equal(rows["TERRITORY"] + 1, Count("TERRITORY"));
+        Assert.Equal(rows["COMPANYTERRITORY"] + 2, Count("COMPANYTERRITORY"));
+        Assert.Equal(rows["CUSER"] + 1, Count("CUSER"));
+        var changes = world.Store.Find<MyCrmChange>();
+        Assert.Contains(changes, x => x.TableName == "Company" && x.RowId == id && x.Column == "COMPANY" && x.Before == "" && x.After == "Tan & Sons" && x.ChangedBy == "Rob Root");
+        Assert.Contains(changes, x => x.TableName == "CompanyTerritory" && x.RowId == 1001 && x.Column == "ISACTIVE" && x.Before == "1" && x.After == "0");
+        Assert.Contains(changes, x => x.TableName == "Address" && x.RowId == address.Id && x.Column == "ISACTIVE" && x.Before == "1" && x.After == "0");
+        // Saving what did not change writes nothing.
+        var before = changes.Count;
+        d.Store.Update(d.Store.Get<Company>(7)!);
+        Assert.Equal(before, world.Store.Count<MyCrmChange>());
     }
 
     [Fact]
@@ -333,20 +368,81 @@ public sealed class SqlServerTests
         using var advance = new TestDatabase();
         advance.Execute(FakeOldTables.AdvanceSql());
         using var world = new TestWorld(crmUsers: false);
-        var d = Connected(world, outSystems, advance, sync: false);
-        var tan = world.Store.Insert(new Company { Name = "Tan & Sons", Brn = "200012345K", IsActive = true });
-        var lim = world.Store.Insert(new Company { Name = "Lim", Brn = "199912345K", IsActive = true, CustomerNo = "OLD" });
-        var shortBrn = world.Store.Insert(new Company { Name = "Short", Brn = "ABC", IsActive = true, CustomerNo = "KEPT" });
+        var d = Connected(world, outSystems, advance, writes: true);
+        var tan = d.Store.Insert(new Company { Name = "Tan & Sons", Brn = "200012345K", IsActive = true });
+        var lim = d.Store.Get<Company>(7)!;
+        lim.CustomerNo = "OLD";
+        d.Store.Update(lim);
+        var shortBrn = d.Store.Insert(new Company { Name = "Short", Brn = "ABC", IsActive = true, CustomerNo = "KEPT" });
         var run = d.Scheduler.Run(Jobs.CustomerNumbers, "Test");
         Assert.True(run.Outcome == "Done", run.Summary);
         Assert.Equal(2, run.Processed);
-        Assert.Equal("C0002", world.Store.Get<Company>(tan.Id)!.CustomerNo);
-        Assert.Equal("C0001 #Multiple", world.Store.Get<Company>(lim.Id)!.CustomerNo);
-        Assert.Equal("KEPT", world.Store.Get<Company>(shortBrn.Id)!.CustomerNo);
+        Assert.Equal("C0002", d.Store.Get<Company>(tan.Id)!.CustomerNo);
+        Assert.Equal("C0001 #Multiple", outSystems.Scalar("SELECT CUSTOMERNO FROM dbo.[OSUSR_ab1_COMPANY] WHERE ID = 7"));
+        Assert.Equal("KEPT", d.Store.Get<Company>(shortBrn.Id)!.CustomerNo);
+        Assert.Contains(world.Store.Find<MyCrmChange>(), x => x.RowId == 7 && x.Column == "CUSTOMERNO" && x.Before == "OLD" && x.ChangedBy == "Test");
         Assert.Equal(0, d.Scheduler.Run(Jobs.CustomerNumbers, "Test").Processed);
         Assert.All(d.Databases.Test(ExternalNames.AdvanceConnector), l => Assert.True(l.Ok, l.Line));
         Assert.All(d.Databases.Test(ExternalNames.OutSystems), l => Assert.True(l.Ok, l.Line));
         world.SettingsFile.Change(s => s.Connections.AdvanceTables.CustomerSupp = "dbo.NoSuchTable");
         Assert.Contains(d.Databases.Test(ExternalNames.AdvanceConnector), l => !l.Ok && l.Line.Contains("NoSuchTable"));
+    }
+
+    [Fact]
+    public void The_cleanup_migration_keeps_what_MyCRM_has_no_column_for_and_drops_the_copies_only_when_nothing_is_lost()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var database = new TestDatabase();
+        using var world = new TestWorld(crmUsers: false);
+        var storage = Storage(world.Folder);
+        foreach (var m in DataMigrations.All.TakeWhile(m => m.Id != DataMigrations.MyCrmTablesDirectly))
+            storage.RunMigration(database.Settings, m, "Test");
+        // As the import and the sync left them: MyCRM's Ids kept on each record.
+        database.Execute("""
+            INSERT INTO dbo.CrUser ([Login], [DisplayName], [Email], [LastSeenAt], [IsActive], [RemovedOn], [RemovedBy]) VALUES (N'RSP\sam', N'Sam Sales', N'sam@example.com', NULL, 1, NULL, N'');
+            INSERT INTO dbo.CrTeam ([Name], [ShortName], [IsActive], [OutSystemsId]) VALUES (N'Mia Manager', N'', 1, 1001);
+            INSERT INTO dbo.CrCrmUser ([Login], [Role], [TeamId], [IsActive], [CreatedBy], [CreatedAt], [UpdatedBy], [UpdatedAt], [Designation], [PhoneNumber], [SalesmanCode], [CId],
+              [ProfileId], [TerritoryCode], [FormerTeamId], [RemovedOn], [RemovedBy], [OutSystemsId])
+              VALUES (N'RSP\ken', N'', NULL, 0, N'', NULL, N'', NULL, N'', N'', N'', 0, NULL, N'', 1, '2026-10-18 10:00', N'Sara Admin', 2001);
+            INSERT INTO dbo.CrTerritory ([Name], [Number], [Owner], [IsActive], [IsOwner], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [OutSystemsId])
+              VALUES (N'North', 2001, N'RSP\sam', 1, 1, '2026-10-18 09:00', N'RSP\sara', NULL, N'', 3001), (N'', 1203, N'RSP\sam', 1, 1, NULL, N'', NULL, N'', 3002);
+            INSERT INTO dbo.CrSyncLink ([Entity], [LocalId], [OldKey], [LocalHash], [OldHash], [RemovedHere], [RemovedThere], [Pending], [SyncedOn], [Unpaired])
+              VALUES (N'Territory', 1, N'3001', N'', N'', 0, 0, 0, '2026-10-18 09:05', 0);
+            """);
+        var migration = DataMigrations.Find(DataMigrations.MyCrmTablesDirectly)!;
+        void Refused()
+        {
+            Assert.ThrowsAny<Exception>(() => storage.RunMigration(database.Settings, migration, "Test"));
+            Assert.Equal(2, Convert.ToInt32(database.Scalar("SELECT COUNT(*) FROM dbo.CrTerritory")));
+        }
+
+        // An import still recorded as running: nothing dropped.
+        database.Execute("INSERT INTO dbo.CrJobRun ([Job], [StartedAt], [FinishedAt], [Outcome], [By], [Processed], [Summary], [Watermark]) VALUES (N'outsystems-import', '2026-10-18 08:00', NULL, N'Running', N'', 0, N'', NULL);");
+        Refused();
+        database.Execute("UPDATE dbo.CrJobRun SET [Outcome] = N'Stopped';");
+        // A record that is only here (never synced): nothing dropped.
+        database.Execute("INSERT INTO dbo.CrCompanyContactLink ([CompanyId], [ContactId], [CId], [IsDefault], [OutSystemsId]) VALUES (1, 1, 0, 1, NULL);");
+        Refused();
+        database.Execute("UPDATE dbo.CrCompanyContactLink SET [OutSystemsId] = 4001;");
+        // A write to MyCRM the sync never confirmed: nothing dropped.
+        database.Execute("UPDATE dbo.CrSyncLink SET [Pending] = 1;");
+        Refused();
+        database.Execute("UPDATE dbo.CrSyncLink SET [Pending] = 0;");
+
+        storage.RunMigration(database.Settings, migration, "Test");
+        foreach (var table in new[] { "CrTeam", "CrCrmUser", "CrCompany", "CrTerritory", "CrCompanyTerritory", "CrSyncLink", "CrSyncRun", "CrSyncChange" })
+            Assert.Equal(0, Convert.ToInt32(database.Scalar($"SELECT CASE WHEN OBJECT_ID(N'dbo.{table}') IS NULL THEN 0 ELSE 1 END")));
+        var store = storage.SqlServer(database.Settings);
+        // The territory's name and who made it, and Ken's former team (MyCRM's Id of it), kept by MyCRM's Ids.
+        var notes = store.Find<RecordNote>();
+        Assert.Equal(2, notes.Count);
+        var north = notes.Single(n => n.Entity == "Territory");
+        Assert.Equal((3001L, "North", @"RSP\sara"), (north.RecordId, north.Name, north.CreatedBy));
+        var ken = notes.Single(n => n.Entity == "CUser");
+        Assert.Equal((2001L, 1001L, "Sara Admin"), (ken.RecordId, ken.FormerTeamId!.Value, ken.RemovedBy));
+        Assert.Equal(1, store.Count<AppUser>());
+        store.Insert(new MyCrmChange { ChangedOn = world.Now, TableName = "Company", RowId = 7, Column = "COMPANY", Before = "A", After = "B" });
+        Assert.Equal("B", store.Find<MyCrmChange>().Single().After);
+        Assert.Empty(storage.RunPendingMigrations(database.Settings, "Test"));
     }
 }

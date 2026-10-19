@@ -6,6 +6,10 @@ profile of each person (their MyCRM role and teams). It replaces the Users, Terr
 rest of MyCRM (activities, prospects, projects, MIF, CSST…) stays in MyCRM and keeps working with the same companies.
 Sign in with your Windows (RSP) username and password.
 
+MyCRMRecords and MyCRM share the same data: what you save here is in MyCRM at once, and the other way round. Until an
+administrator lets MyCRMRecords change MyCRM's data, MyCRMRecords only shows it: a bar at the top of every page says so,
+and saving is refused with that message.
+
 Nothing is ever deleted for good: a company, address, contact, phone, email, relationship, territory, territory's
 company or CRM user taken away is kept in the database, marked, and no longer shown.
 
@@ -143,34 +147,22 @@ For administrators. Everything that sends or changes something outside MyCRMReco
   **Customer numbers from Advance** (MyCRM's UpdateCustomerNo, daily at 02:45) gives each active company the
   customer number of Advance's customers with its BRN (with " #Multiple" after it when several share the BRN).
   **Run now** runs a task at once. Switch MyCRM's own timer off when this one runs.
-- **Import from MyCRM**: **Read MyCRM's data** counts what is there; **Import** copies the CRM users and teams, the
-  companies with their addresses, contacts, phones, emails, relationships and group names, the active permanent
-  territories with their companies, the territory movements, and every OutSystems user (so names show). It can be run
-  again: what was imported before is skipped. If the website restarts while an import runs, the import shows
-  **Stopped**: press **Import** again to carry on from where it stopped.
-- **Sync with MyCRM**: while MyCRM is still used, keeps both in step. Tick **Sync with MyCRM** and press
-  **Save** to turn it on (right after the import, before people use MyCRMRecords); it syncs at once, then every few
-  minutes (**Every (minutes)**).
-  - What is added or changed in either app reaches the other: the CRM users and teams, the companies with their
-    addresses, contacts, phones, emails, relationships and group names, the permanent territories with their
-    companies, and the territory movements of the last 60 days. Changed in both since the last sync, MyCRMRecords's
-    version is kept.
-  - MyCRM's temporary territories (its projects and CSST) are never copied; MyCRMRecords reads them only to decide who
-    may open a company.
-  - Nothing is ever deleted in MyCRM: what is taken away here is made inactive there (a company's address link or a
-    group name, which MyCRM cannot mark, is left there as it is).
-  - While it is on, a new company, address or contact takes its number from MyCRM, so the numbers are the same in both.
-  - The first sync after the import pairs each imported record with its row in MyCRM. Where the two differ, the
-    record keeps MyCRM's version: what was imported is never written back to MyCRM.
-  - **Preview** shows what a sync would do without changing anything. **Sync now** syncs at once. Both run in the
-    background: the tab shows the preview's result (and how long it took) and the sync under **Syncs** when they end.
-    The first sync after the import pairs every record and takes several minutes. A sync shown as "Cut off before it
-    finished" was stopped (the website restarted): nothing it did was kept, and the next sync does it again.
-  - A sync that would change more than **Stop a sync that would change more than** records stops before changing
-    anything, and the syncs pause until you look: press **Preview**, and if it is right, tick **Allow a large sync** and
-    press **Sync now**.
-  - **Syncs** lists every sync and what it did; **Changes made in MyCRM** lists every value the sync wrote there
-    with the value it replaced, so anything can be put back.
+- **MyCRM**: MyCRMRecords reads and writes the CRM users and teams, the companies with their addresses, contacts,
+  phones, emails, relationships and group names, the permanent territories with their companies, and the territory
+  movements in MyCRM's own tables (**Connections**), so both always show the same data. MyCRM's temporary territories
+  (its projects and CSST) are only read, to decide who may open a company.
+  - **Let MyCRMRecords change MyCRM's data**: tick it and press **Save** to let people save in MyCRMRecords. Until then
+    MyCRMRecords only reads. It adds and changes rows of MyCRM's tables and never deletes one: what is taken away is
+    made inactive there (a company's address link or a group name, which MyCRM cannot mark, is kept and marked here).
+    The OutSystems database's login needs to be allowed to add and change rows (INSERT and UPDATE) in MyCRM's tables.
+  - **Changes made in MyCRM** lists every value MyCRMRecords wrote in MyCRM's tables, newest first, with the value it
+    replaced and who made the change, so anything can be put back. The search box finds a table, column, value or
+    person.
+  - MyCRMRecords used to keep its own copy of MyCRM's data and sync it. To remove the copy, run **MyCRM's data stays in
+    MyCRM** on the **Data migrations** tab. It keeps what MyCRM has no place for (each territory's name, who took
+    something away and when, a CRM user's former team), removes only MyCRMRecords' copy (MyCRM keeps everything), and
+    keeps people, roles and the audit log. It does nothing when something would be lost: an import still recorded as
+    running, a record that exists only in MyCRMRecords, or a change the last sync never confirmed.
 
 ## Deployment
 

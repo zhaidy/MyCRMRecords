@@ -6,7 +6,7 @@ namespace MyCRMRecords.Tests;
 /// An old OutSystems app's tables in memory, for the sync's tests: rows with an identity ID, columns typed by their name
 /// as OutSystems makes them, users and static entities. Like the real writer it can add and change rows, never delete
 /// them; changes count only once committed, and <see cref="FailNextCommit"/> makes the next commit fail. Of MyCRM's
-/// territories it gives the sync only the active permanent ones and their active companies, as <see cref="CrmTables"/>
+/// territories it gives the sync only the active permanent ones and their active companies, as MyCRMRecords reads them
 /// does, and it answers which companies people reach through the temporary ones.
 /// </summary>
 public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
@@ -161,24 +161,24 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
 
     private static bool True(object? value) => value is bool b && b;
 
-    /// <summary>As CrmTables: only active permanent territories, and the active companies of those.</summary>
+    /// <summary>As MyCrmStore: only active permanent territories, and the active companies of those.</summary>
     private bool SyncSees(string table, Dictionary<string, object?> row)
     {
-        if (string.Equals(table, CrmSync.Territories, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(table, MyCrmMap.Territories, StringComparison.OrdinalIgnoreCase))
             return True(row["ISACTIVE"]) && !True(row["ISTEMPORARY"]);
-        if (string.Equals(table, CrmSync.CompanyTerritories, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(table, MyCrmMap.CompanyTerritories, StringComparison.OrdinalIgnoreCase))
             return True(row["ISACTIVE"]) && row["TERRITORYID"] is not null
-                && _rows[CrmSync.Territories].Any(t => (long)t["ID"]! == Convert.ToInt64(row["TERRITORYID"], CultureInfo.InvariantCulture) && True(t["ISACTIVE"]) && !True(t["ISTEMPORARY"]));
+                && _rows[MyCrmMap.Territories].Any(t => (long)t["ID"]! == Convert.ToInt64(row["TERRITORYID"], CultureInfo.InvariantCulture) && True(t["ISACTIVE"]) && !True(t["ISTEMPORARY"]));
         return true;
     }
 
-    /// <summary>As CrmTables: MyCRM's Ids of the active companies of these people's active temporary territories.</summary>
+    /// <summary>As MyCrmStore: MyCRM's Ids of the active companies of these people's active temporary territories.</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins)
     {
         var users = UserList.Where(u => logins.Any(l => string.Equals(l, u.Login, StringComparison.OrdinalIgnoreCase))).Select(u => u.Id).ToHashSet();
-        var territories = _rows[CrmSync.Territories].Where(t => True(t["ISACTIVE"]) && True(t["ISTEMPORARY"]) && t["OWNERID"] is not null
+        var territories = _rows[MyCrmMap.Territories].Where(t => True(t["ISACTIVE"]) && True(t["ISTEMPORARY"]) && t["OWNERID"] is not null
             && users.Contains(Convert.ToInt64(t["OWNERID"], CultureInfo.InvariantCulture))).Select(t => (long)t["ID"]!).ToHashSet();
-        return _rows[CrmSync.CompanyTerritories].Where(ct => True(ct["ISACTIVE"]) && ct["TERRITORYID"] is not null
+        return _rows[MyCrmMap.CompanyTerritories].Where(ct => True(ct["ISACTIVE"]) && ct["TERRITORYID"] is not null
                 && territories.Contains(Convert.ToInt64(ct["TERRITORYID"], CultureInfo.InvariantCulture)))
             .Select(ct => Convert.ToInt64(ct["COMPANYID"], CultureInfo.InvariantCulture)).Distinct().ToList();
     }

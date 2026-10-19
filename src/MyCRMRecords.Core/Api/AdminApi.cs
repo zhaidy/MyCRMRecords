@@ -13,10 +13,10 @@ namespace MyCRMRecords.Api;
 
 /// <summary>
 /// The admin page's API (api.ashx/admin/...), administrators only: where MyCRMRecords keeps its data, the data
-/// migrations, the settings (connections, email, scheduled tasks), the import from MyCRM, the sync with it and the
-/// audit log. Secrets are never sent back: a blank secret keeps the one saved.
+/// migrations, the settings (connections, email, scheduled tasks), whether MyCRMRecords may change MyCRM's data and the
+/// changes it made there, and the audit log. Secrets are never sent back: a blank secret keeps the one saved.
 /// </summary>
-public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport import, Action<Action> runInBackground, bool demoTools)
+public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
 {
     public static bool Handles(string path) => path.Trim('/') == "admin" || path.Trim('/').StartsWith("admin/", StringComparison.Ordinal);
 
@@ -66,25 +66,33 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
                     var run = w.Scheduler.Run(job, user.ChangedBy);
                     return ApiResponse.Result(run.Outcome == "Done" ? OperationResult.Success(run.Summary) : OperationResult.Failure(ResultCodes.Failed, run.Summary), new { run });
                 }
-                case "admin/import" when get:
-                    BackgroundRuns.StopAbandoned(w.Store, w.Clock);
-                    return ApiResponse.Of(new { runs = w.Store.Find<JobRun>(Query.Where("Job", OutSystemsImport.Job).Newest().First(5)), configured = w.Databases.IsConfigured(ExternalNames.OutSystems) });
-                case "admin/import/preview" when !get:
+                case "admin/mycrm" when get:
+                    return ApiResponse.Of(new
+                    {
+                        writesEnabled = w.Settings().MyCrm.WritesEnabled, configured = w.Databases.IsConfigured(ExternalNames.OutSystems),
+                        changes = w.Own.Count<MyCrmChange>(),
+                    });
+                case "admin/mycrm" when !get:
                 {
-                    if (!w.Databases.IsConfigured(ExternalNames.OutSystems))
-                        return ApiResponse.Fail(400, ResultCodes.Validation, "Set up the OutSystems database on the Connections tab first.");
-                    var counts = import.Preview();
-                    return ApiResponse.Of(new { result = new { ok = true, code = ResultCodes.Ok, message = "Read MyCRM's data." }, counts });
+                    var input = Input.Read<MyCrmInput>(body);
+                    if (input.WritesEnabled && !w.Databases.IsConfigured(ExternalNames.OutSystems))
+                        return ApiResponse.Fail(400, ResultCodes.Validation, "Set up the OutSystems database on the Connections tab first: MyCRM keeps its tables there.");
+                    w.SettingsFile.Change(x =>
+                    {
+                        x.MyCrm.WritesEnabled = input.WritesEnabled;
+                        x.ChangedBy = user.ChangedBy;
+                        x.ChangedAt = DateTimeOffset.Now;
+                    });
+                    return ApiResponse.Ok(input.WritesEnabled
+                        ? "Saved: MyCRMRecords changes MyCRM's data from now on, and lists every value it writes there."
+                        : "Saved: MyCRMRecords only reads MyCRM's data.");
                 }
-                case "admin/import/run" when !get:
+                case "admin/mycrm/changes" when get:
                 {
-                    BackgroundRuns.StopAbandoned(w.Store, w.Clock);
-                    if (w.Store.Count<JobRun>(Query.Where("Job", OutSystemsImport.Job).And("Outcome", "Running")) > 0)
-                        return ApiResponse.Fail(409, ResultCodes.Conflict, "An import is running already.");
-                    var run = w.Store.Insert(new JobRun { Job = OutSystemsImport.Job, StartedAt = w.Clock(), Outcome = "Running", By = user.ChangedBy, Summary = "Starting…" });
-                    BackgroundRuns.Started(run.Id);
-                    runInBackground(() => Import(run, user.ChangedBy));
-                    return ApiResponse.Ok("The import is running; this page shows its progress.", new { run });
+                    // Every value MyCRMRecords wrote in MyCRM's tables, newest first, with the value it replaced.
+                    var q = Query.All().Search(Q("q"), "TableName", "Column", "Before", "After", "ChangedBy").Sort("Id", descending: true);
+                    var skip = int.TryParse(Q("skip"), out var from) ? Math.Max(0, from) : 0;
+                    return ApiResponse.Of(new { total = w.Own.Count<MyCrmChange>(q.Unpaged()), rows = w.Own.Find<MyCrmChange>(q.Page(skip, 100)) });
                 }
                 case "admin/audit" when get:
                 {
@@ -92,45 +100,6 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
                     if (Q("failed") == "1") q.And("Succeeded", false);
                     var skip = int.TryParse(Q("skip"), out var s) ? Math.Max(0, s) : 0;
                     return ApiResponse.Of(new { total = w.Store.Count<AuditEntry>(q.Unpaged()), rows = w.Store.Find<AuditEntry>(q.Page(skip, 100)) });
-                }
-                case "admin/sample-data" when !get && demoTools:
-                    if (w.Settings().Sync.Enabled)
-                        return ApiResponse.Fail(409, ResultCodes.Conflict, "The sync with MyCRM is on: sample data would be copied there. Turn the sync off first.");
-                    return ApiResponse.Ok(SeedData.Add(w.Store, w.Clock(), user.ToActor(w.People)));
-                case "admin/sync" when get:
-                    return ApiResponse.Of(new
-                    {
-                        settings = w.Settings().Sync, configured = w.Databases.IsConfigured(ExternalNames.OutSystems),
-                        runs = w.Store.Find<SyncRun>(Query.All().Sort("Id", descending: true).First(20)),
-                        pairs = w.Store.Count<SyncLink>(),
-                        preview = StoppedAbandoned().FindFirst<JobRun>(Query.Where("Job", SyncPreviewJob).Newest()),
-                    });
-                case "admin/sync" when !get:
-                    return SaveSync(Input.Read<SyncInput>(body), user);
-                case "admin/sync/preview" when !get:
-                {
-                    // In the background: with hundreds of thousands of records (the first sync after the import pairs them all)
-                    // it takes longer than ASP.NET lets a page wait.
-                    BackgroundRuns.StopAbandoned(w.Store, w.Clock);
-                    if (w.Store.Count<JobRun>(Query.Where("Job", SyncPreviewJob).And("Outcome", "Running")) > 0)
-                        return ApiResponse.Fail(409, ResultCodes.Conflict, "A preview is running already.");
-                    var run = w.Store.Insert(new JobRun { Job = SyncPreviewJob, StartedAt = w.Clock(), Outcome = "Running", By = user.ChangedBy, Summary = "Reading both…" });
-                    BackgroundRuns.Started(run.Id);
-                    runInBackground(() => Preview(run));
-                    return ApiResponse.Ok("The preview is running; this page shows what it finds.", new { run });
-                }
-                case "admin/sync/run" when !get:
-                {
-                    if (!w.Settings().Sync.Enabled) return ApiResponse.Fail(409, ResultCodes.Conflict, "Turn the sync on first.");
-                    var allowLarge = Input.Read<SyncInput>(body).AllowLarge;
-                    runInBackground(() => w.Sync.Run(user.ChangedBy, allowLarge));
-                    return ApiResponse.Ok("The sync is running; this page shows it under Syncs when it ends.");
-                }
-                case "admin/sync/changes" when get:
-                {
-                    var q = Query.All().Search(Q("q"), "OldTable", "OldKey", "Record", "Column", "Before", "After").Sort("Id", descending: true);
-                    var skip = int.TryParse(Q("skip"), out var from) ? Math.Max(0, from) : 0;
-                    return ApiResponse.Of(new { total = w.Store.Count<SyncChange>(q.Unpaged()), rows = w.Store.Find<SyncChange>(q.Page(skip, 100)) });
                 }
             }
             if (route.StartsWith("admin/settings/", StringComparison.Ordinal) && !get)
@@ -145,65 +114,9 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
 
     public sealed class NameInput { public string? Name { get; set; } }
 
-    public sealed class SyncInput
+    public sealed class MyCrmInput
     {
-        public bool Enabled { get; set; }
-        public int IntervalMinutes { get; set; } = 5;
-        public int LargeSync { get; set; } = 200;
-        public bool AllowLarge { get; set; }
-    }
-
-    /// <summary>Turns the sync with MyCRM on or off; turned on, it syncs at once (stopping if that would change a lot).</summary>
-    private ApiResponse SaveSync(SyncInput input, ApiUser user)
-    {
-        if (input.IntervalMinutes is < 1 or > 1440) return ApiResponse.Fail(400, ResultCodes.Validation, "Sync every 1 to 1440 minutes.");
-        if (input.LargeSync is < 1 or > 100000) return ApiResponse.Fail(400, ResultCodes.Validation, "Enter how many changes make a sync large: 1 to 100000.");
-        if (input.Enabled && !w.Databases.IsConfigured(ExternalNames.OutSystems))
-            return ApiResponse.Fail(400, ResultCodes.Validation, "Set up the OutSystems database on the Connections tab first: MyCRM keeps its tables there.");
-        var wasOn = w.Settings().Sync.Enabled;
-        w.SettingsFile.Change(s =>
-        {
-            s.Sync.Enabled = input.Enabled;
-            s.Sync.IntervalMinutes = input.IntervalMinutes;
-            s.Sync.LargeSync = input.LargeSync;
-            if (input.Enabled && !wasOn) s.Sync.Stopped = "";
-            s.ChangedBy = user.ChangedBy;
-            s.ChangedAt = DateTimeOffset.Now;
-        });
-        if (!input.Enabled) return ApiResponse.Ok("Saved: the sync with MyCRM is off.");
-        if (wasOn) return ApiResponse.Ok("Saved.");
-        // The first sync runs in the background: after the import it pairs every record, longer than a page may wait.
-        runInBackground(() => w.Sync.Run(user.ChangedBy));
-        return ApiResponse.Ok("The sync is on, and the first sync is running: this page shows it under Syncs when it ends.");
-    }
-
-    public const string SyncPreviewJob = "sync-preview";
-
-    private IRecordStore StoppedAbandoned()
-    {
-        BackgroundRuns.StopAbandoned(w.Store, w.Clock);
-        return w.Store;
-    }
-
-    /// <summary>A preview of the sync, in the background: what it would change, kept in the run's summary.</summary>
-    private void Preview(JobRun run)
-    {
-        try
-        {
-            var outcome = w.Sync.Preview();
-            run.Outcome = outcome.Ok ? "Done" : "Failed";
-            run.Processed = outcome.Details.Count;
-            run.Summary = outcome.Message + (outcome.Details.Count == 0 ? "" : "\n" + string.Join("\n", outcome.Details.Take(300))
-                + (outcome.Details.Count > 300 ? $"\n… and {(outcome.Details.Count - 300).ToString(System.Globalization.CultureInfo.InvariantCulture)} more." : ""));
-        }
-        catch (Exception ex)
-        {
-            run.Outcome = "Failed";
-            run.Summary = "The preview stopped: " + ex.Message;
-        }
-        run.FinishedAt = w.Clock();
-        w.Store.Update(run);
-        BackgroundRuns.Ended(run.Id);
+        public bool WritesEnabled { get; set; }
     }
 
     public sealed class SqlInput
@@ -454,35 +367,5 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
                 runs = w.Store.Find<JobRun>(Query.Where("Job", j).Newest().First(5)),
             }),
         });
-    }
-
-    private void Import(JobRun run, string by)
-    {
-        try
-        {
-            var counts = import.Import(by, progress =>
-            {
-                // Marked stopped meanwhile (the website restarted and the new one took over): this one stops too.
-                if (w.Store.Get<JobRun>(run.Id) is { } saved && saved.Outcome != "Running") throw new OperationCanceledException();
-                run.Summary = progress;
-                w.Store.Update(run);
-            });
-            run.Outcome = "Done";
-            run.Processed = counts.Copied.Values.Sum();
-            run.Summary = string.Join("; ", counts.Copied.Select(c => $"{c.Key}: {c.Value} copied")) + (counts.Notes.Count == 0 ? "" : ". " + string.Join(" ", counts.Notes));
-        }
-        catch (OperationCanceledException)
-        {
-            BackgroundRuns.Ended(run.Id);
-            return;
-        }
-        catch (Exception ex)
-        {
-            run.Outcome = "Failed";
-            run.Summary = "The import stopped: " + ex.Message + " What was copied before stays; importing again skips it.";
-        }
-        run.FinishedAt = w.Clock();
-        w.Store.Update(run);
-        BackgroundRuns.Ended(run.Id);
     }
 }

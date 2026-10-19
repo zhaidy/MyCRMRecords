@@ -217,7 +217,13 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     recent-items log; MyCRM's raw Territories list and TerritoryDetail flags (replaced by the named territories); the
     Admin page's developer tools and Month Coverage (MIF, stays in MyCRM); "Customer code" falls back no more to a live
     look-up in Advance by name (it shows `CustomerNo`, which the scheduled task fills); `AddressContactLink` (never
-    used) is not synced; the push to the old CRM (switched off in MyCRM).
+    used) is not read; the push to the old CRM (switched off in MyCRM).
+17. **No copy, no sync: MyCRM's tables are read and written where they are** (decided 2026-10-19). MyCRMRecords first
+    copied this part of MyCRM and synced it both ways; the first sync pairs ~700,000 records and the territory tables
+    hold millions of rows. Now its pages read and write MyCRM's own tables (`MyCrmStore`), so MyCRM, MyCRMRecords and
+    the apps reading MyCRM's companies see a change at once. Writing waits for an administrator's switch; nothing is
+    deleted there; every value written is recorded; what MyCRM has no column for (a territory's name, who took something
+    away and when, a former team, a company address link or group name taken away) is kept by MyCRMRecords by MyCRM's Id.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

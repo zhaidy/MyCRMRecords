@@ -156,7 +156,7 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
             switch (name)
             {
                 case ExternalNames.OutSystems:
-                    foreach (var (entity, columns) in OldTableColumns.Checked)
+                    foreach (var (entity, columns) in MyCrmMap.Checked)
                         Entity(c.CrmModule, entity, columns);
                     Check("dbo.OSSYS_USER", "ID", "USERNAME", "NAME", "EMAIL", "IS_ACTIVE");
                     break;

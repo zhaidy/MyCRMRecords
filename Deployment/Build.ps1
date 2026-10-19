@@ -19,6 +19,32 @@ if (-not $env:RUNNER_TEMP) { throw 'Build.ps1 must run in the GitHub build job.'
 Import-Module (Join-Path $PSScriptRoot 'Files.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'ChangeLog.psm1') -Force
 $repo = Split-Path $PSScriptRoot -Parent
+
+<#
+    Runs a dotnet command, showing its output as it comes, and returns its exit code. When it fails, its compile errors
+    and failed tests (or else its last lines) are also written as annotations of the run, which can be read where the
+    log itself cannot be downloaded. Standard error is shown too, without stopping the script.
+#>
+function Invoke-Reported([scriptblock]$Command) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    & {
+        $ErrorActionPreference = 'Continue'
+        & $Command 2>&1 | ForEach-Object { $line = "$_"; Write-Host $line; $lines.Add($line) }
+    }
+    $code = $LASTEXITCODE
+    if (-not $code) { return 0 }
+    $errors = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $lines) { if ($line -match 'error (CS|MSB|NU|NETSDK)\d+' -and -not $errors.Contains($line.Trim())) { $errors.Add($line.Trim()) } }
+    $failure = $null
+    foreach ($line in $lines) {
+        if ($line -match '^\s*Failed [A-Za-z_][\w.]*') { if ($failure) { $errors.Add($failure) }; $failure = $line.Trim() }
+        elseif ($failure -and $failure.Length -lt 3000 -and $line -notmatch '^\s*(Passed|Skipped) ') { $failure += '%0A' + $line.Trim() }
+    }
+    if ($failure) { $errors.Add($failure) }
+    if ($errors.Count -eq 0) { $errors.Add((($lines | Select-Object -Last 25) | ForEach-Object { $_.Trim() }) -join '%0A') }
+    foreach ($e in ($errors | Select-Object -First 10)) { Write-Host ('::error::' + $e) }
+    return $code
+}
 $release = Join-Path $env:RUNNER_TEMP 'MyCRMRecords-release'
 $site = Join-Path $release 'site'
 if (Test-Path -LiteralPath $release) { Remove-Item -LiteralPath $release -Recurse -Force }
@@ -33,11 +59,9 @@ try {
     if ($LASTEXITCODE) { throw 'NuGet restore failed.' }
     if ($SkipTests) { Write-Host "Not testing $Revision again: the pull request checks tested this exact commit." }
     else {
-        & dotnet test --configuration Release
-        if ($LASTEXITCODE) { throw 'Tests failed.' }
+        if (Invoke-Reported { & dotnet test --configuration Release }) { throw 'Tests failed.' }
     }
-    & dotnet build src/MyCRMRecords.Web/MyCRMRecords.Web.csproj --configuration Release
-    if ($LASTEXITCODE) { throw 'Web build failed.' }
+    if (Invoke-Reported { & dotnet build src/MyCRMRecords.Web/MyCRMRecords.Web.csproj --configuration Release }) { throw 'Web build failed.' }
 
     $web = Join-Path $repo 'src/MyCRMRecords.Web'
     New-Item -ItemType Directory -Path (Join-Path $site 'bin') | Out-Null

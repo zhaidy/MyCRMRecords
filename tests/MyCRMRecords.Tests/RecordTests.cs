@@ -97,7 +97,8 @@ public sealed class RecordTests
         var schema = Schema();
         foreach (var type in Tables.All)
             Assert.Contains(Table.Of(type).CreateSql(), schema);
-        Assert.Equal(Tables.All.Count, Regex.Matches(sql, "CREATE TABLE").Count);
+        // Every table the migrations make and keep is mapped (the copy of MyCRM's data was dropped again).
+        Assert.Equal(Tables.All.Count, Regex.Matches(sql, "CREATE TABLE").Count - Regex.Matches(sql, "DROP TABLE").Count);
         Assert.Equal(DataMigrations.All.Count, DataMigrations.All.Select(m => m.Id).Distinct().Count());
         Assert.All(DataMigrations.All, m => Assert.Matches(@"^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$", m.Id));
     }
@@ -142,6 +143,22 @@ public sealed class RecordTests
     }
 
     [Fact]
+    public void Every_property_of_MyCRMs_records_has_a_place_in_MyCRM_of_its_own()
+    {
+        foreach (var e in MyCrmMap.All)
+        {
+            var stored = e.Stored.Select(f => f.Column).ToList();
+            Assert.True(stored.Count == stored.Distinct(StringComparer.OrdinalIgnoreCase).Count(), $"{e.Entity} maps two properties to one column: {string.Join(", ", stored)}");
+            Assert.DoesNotContain("ID", stored);
+            Assert.All(e.Fields.Where(f => f.Kind == CrmFieldKind.User), f => Assert.Equal(typeof(string), f.Type));
+            Assert.All(e.Fields.Where(f => f.Kind == CrmFieldKind.Static), f => Assert.NotNull(f.List));
+            Assert.Equal(e.Type.GetProperties().Count(p => p.CanWrite && p.Name != "Id"), e.Fields.Count);
+        }
+        Assert.Equal("CREATEDBY", MyCrmMap.Of<Company>()!.Field("CreatedBy")!.Column);
+        Assert.Equal("UPDATEDBY", MyCrmMap.Of<Company>()!.Field("UpdatedBy")!.Column);
+    }
+
+    [Fact]
     public void Every_text_column_has_a_length()
     {
         foreach (var type in Tables.All)
@@ -153,26 +170,26 @@ public sealed class RecordTests
     public void Copying_between_stores_keeps_the_ids()
     {
         using var world = new TestWorld(crmUsers: false);
-        world.Store.Insert(new Company { Name = "A" });
-        world.Store.Insert(new Company { Name = "B" });
-        world.Store.Delete<Company>(1);
+        world.Store.Insert(new JobRun { Job = "A" });
+        world.Store.Insert(new JobRun { Job = "B" });
+        world.Store.Delete<JobRun>(1);
         using var other = new TestWorld(crmUsers: false);
         other.Store.Delete<UserRole>(Query.All());
         other.Store.Delete<AppUser>(Query.All());
         var copied = DatabaseStorage.CopyAll(world.Store, other.Store);
         Assert.True(copied >= 2);
-        Assert.Equal("B", other.Store.Get<Company>(2)!.Name);
-        Assert.Null(other.Store.Get<Company>(1));
-        Assert.Equal(3, other.Store.Insert(new Company { Name = "C" }).Id);
+        Assert.Equal("B", other.Store.Get<JobRun>(2)!.Job);
+        Assert.Null(other.Store.Get<JobRun>(1));
+        Assert.Equal(3, other.Store.Insert(new JobRun { Job = "C" }).Id);
     }
 
     [Fact]
     public void Imported_records_keep_their_ids_and_new_ones_follow()
     {
         using var world = new TestWorld();
-        world.Store.InsertKeepingIds(new[] { new Company { Id = 412, Name = "P0412" }, new Company { Id = 17, Name = "P0017" } });
-        Assert.Equal("P0412", world.Store.Get<Company>(412)!.Name);
-        Assert.Equal(413, world.Store.Insert(new Company()).Id);
+        world.Store.InsertKeepingIds(new[] { new JobRun { Id = 412, Job = "P0412" }, new JobRun { Id = 17, Job = "P0017" } });
+        Assert.Equal("P0412", world.Store.Get<JobRun>(412)!.Job);
+        Assert.Equal(413, world.Store.Insert(new JobRun()).Id);
     }
 
     [Fact]
@@ -213,7 +230,7 @@ public sealed class SettingsTests
     public void Saving_a_section_with_blank_secrets_keeps_the_saved_ones()
     {
         using var world = new TestWorld(s => s.Email.Password = "mail-pass");
-        var admin = new AdminApi(world.D, null!, null!, _ => { }, demoTools: false);
+        var admin = new AdminApi(world.D, null!, demoTools: false);
         Assert.Equal(200, admin.Handle("POST", "admin/settings/email", "{\"enabled\":true,\"server\":\"smtp.example.com\",\"port\":25,\"password\":\"\",\"from\":\"rspapps@ricoh.sg\",\"siteUrl\":\"https://apps.ricoh.sg/MyCRMRecords/\"}",
             new Dictionary<string, string>(), TestWorld.Admin).Status);
         var saved = world.SettingsFile.Load();
@@ -228,7 +245,7 @@ public sealed class SettingsTests
         var s = new CrmSettings();
         Assert.False(s.Email.Enabled);
         Assert.False(s.Jobs.Enabled);
-        Assert.False(s.Sync.Enabled);
+        Assert.False(s.MyCrm.WritesEnabled);
         Assert.All(ExternalNames.All, n => Assert.False(new ExternalDatabases(() => s, _ => throw new InvalidOperationException()).IsConfigured(n)));
     }
 }

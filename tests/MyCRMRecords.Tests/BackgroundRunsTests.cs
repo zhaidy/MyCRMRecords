@@ -11,7 +11,7 @@ public sealed class BackgroundRunsTests
         // Ids no other test's runs have (BackgroundRuns is shared by the tests running at the same time).
         JobRun Add(long id, DateTime startedAt, string summary = "")
         {
-            store.InsertKeepingIds([new JobRun { Id = id, Job = OutSystemsImport.Job, StartedAt = startedAt, Outcome = "Running", Summary = summary }]);
+            store.InsertKeepingIds([new JobRun { Id = id, Job = "test-job", StartedAt = startedAt, Outcome = "Running", Summary = summary }]);
             return store.Get<JobRun>(id)!;
         }
         // Cut off by a restart: still Running, done by no process.
