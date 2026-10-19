@@ -427,14 +427,14 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
                         // One IN list; a long one is written into the statement (a list of parameters has a limit), and an
                         // empty value also finds NULL (OutSystems keeps "none" as NULL, 0 or '').
                         var column = f is null ? "x.[ID]" : "x.[" + f.Column + "]";
-                        var text = f is not null && f.Type == typeof(string);
-                        bool Empty(object? v) => v is null || (text ? ((string)v).Trim().Length == 0 : Convert.ToInt64(v, CultureInfo.InvariantCulture) == 0);
-                        var listed = values.Where(v => !Empty(v)).Select(v => text ? (object)(string)v : Convert.ToInt64(v, CultureInfo.InvariantCulture)).Distinct().ToList();
+                        var isText = f is not null && f.Type == typeof(string);
+                        bool Empty(object? v) => v is null || (isText ? ((string)v).Trim().Length == 0 : Convert.ToInt64(v, CultureInfo.InvariantCulture) == 0);
+                        var listed = values.Where(v => !Empty(v)).Select(v => isText ? (object)(string)v : Convert.ToInt64(v, CultureInfo.InvariantCulture)).Distinct().ToList();
                         var options = new List<string>();
                         if (listed.Count > 0)
                             options.Add(column + " IN (" + string.Join(", ", listed.Select(v =>
-                                listed.Count > 500 && Sql.Literal(v, text ? typeof(string) : typeof(long)) is { } literal ? literal : P(v))) + ")");
-                        if (values.Any(Empty)) options.Add(Equal(f, text ? "" : 0L)!);
+                                listed.Count > 500 && Sql.Literal(v, isText ? typeof(string) : typeof(long)) is { } literal ? literal : P(v))) + ")");
+                        if (values.Any(Empty)) options.Add(Equal(f, isText ? "" : 0L)!);
                         sql = "(" + string.Join(" OR ", options) + ")";
                     }
                     else
