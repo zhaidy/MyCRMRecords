@@ -165,19 +165,48 @@ public sealed class SyncContext
 
     public IReadOnlyList<OldUser> Users => _users ??= _tables.Users();
 
+    // The users by Id, login, name and email (the first of each, as a search of the list would find), made once: a sync
+    // looks people up for every record, and searching thousands of users each time made a sync of hundreds of thousands
+    // of records (MyCRMRecords' first sync after the import) take hours.
+    private Dictionary<long, OldUser>? _byId;
+    private Dictionary<string, OldUser>? _byLogin, _byName, _byEmail;
+
+    private void Index()
+    {
+        if (_byId is not null) return;
+        _byId = new Dictionary<long, OldUser>();
+        _byLogin = new Dictionary<string, OldUser>(StringComparer.OrdinalIgnoreCase);
+        _byName = new Dictionary<string, OldUser>(StringComparer.OrdinalIgnoreCase);
+        _byEmail = new Dictionary<string, OldUser>(StringComparer.OrdinalIgnoreCase);
+        static void Keep<TKey>(Dictionary<TKey, OldUser> index, TKey key, OldUser user) where TKey : notnull
+        {
+            if (!index.ContainsKey(key)) index[key] = user;
+        }
+        foreach (var user in Users)
+        {
+            Keep(_byId, user.Id, user);
+            if ((user.Login ?? "").Trim() is { Length: > 0 } login) Keep(_byLogin, login, user);
+            if ((user.Name ?? "").Trim() is { Length: > 0 } name) Keep(_byName, name, user);
+            if ((user.Email ?? "").Trim() is { Length: > 0 } email) Keep(_byEmail, email, user);
+        }
+    }
+
     /// <summary>The old app's user of a login (RSP\jsmith), or of a name when no login matches; null when unknown.</summary>
     public long? OldUser(string? loginOrName)
     {
         var text = (loginOrName ?? "").Trim();
         if (text.Length == 0) return null;
-        return (Users.FirstOrDefault(u => Strings.SameText(u.Login, text)) ?? Users.FirstOrDefault(u => Strings.SameText(u.Name, text))
-            ?? Users.FirstOrDefault(u => Strings.SameText(u.Email, text)))?.Id;
+        Index();
+        return (_byLogin!.TryGetValue(text, out var byLogin) ? byLogin : _byName!.TryGetValue(text, out var byName) ? byName
+            : _byEmail!.TryGetValue(text, out var byEmail) ? byEmail : null)?.Id;
     }
 
     public OldUser? User(object? id)
     {
         var value = OldValues.Long(id);
-        return value == 0 ? null : Users.FirstOrDefault(u => u.Id == value);
+        if (value == 0) return null;
+        Index();
+        return _byId!.TryGetValue(value, out var user) ? user : null;
     }
 
     /// <summary>A static entity's Id whose label matches (letters and digits only, ignoring case); null when none does.</summary>
@@ -307,6 +336,7 @@ public sealed class OldAppSync
         if (tables is null) return new SyncOutcome(false, "The OutSystems database is not set up (Connections tab).", []);
         using var held = Hold(TimeSpan.Zero);
         if (held is null) return new SyncOutcome(false, $"A sync with {tables.Title} is already running.", []);
+        StopCutOffRuns();
         var startedOn = _clock();
         var run = preview ? null : _store.Insert(new SyncRun { StartedOn = startedOn, By = Strings.Shorten(by, 256), Message = "Running…" });
         SyncOutcome outcome;
@@ -427,6 +457,22 @@ public sealed class OldAppSync
             // app keeps it, it is never deleted) and another number is taken.
             if (attempt >= 20) throw new InvalidOperationException($"No free number could be taken from {tables.Title}.");
             pass.Abandon(entity, link, newId, values);
+        }
+    }
+
+    /// <summary>
+    /// Ends the syncs still recorded as running: this one holds the sync, so none of them is (each was cut off: the website
+    /// restarted, or the page that started it waited too long and ASP.NET ended it). Nothing they did was kept: both sides
+    /// are undone together.
+    /// </summary>
+    private void StopCutOffRuns()
+    {
+        foreach (var run in _store.Find<SyncRun>(Query.Where("FinishedOn", null)))
+        {
+            run.FinishedOn = _clock();
+            run.Ok = false;
+            run.Message = "Cut off before it finished (the website restarted, or the page that started it waited too long): nothing it did was kept.";
+            _store.Update(run);
         }
     }
 

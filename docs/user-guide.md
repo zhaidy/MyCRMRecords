@@ -162,7 +162,10 @@ For administrators. Everything that sends or changes something outside MyCRMReco
   - While it is on, a new company, address or contact takes its number from MyCRM, so the numbers are the same in both.
   - The first sync after the import pairs each imported record with its row in MyCRM. Where the two differ, the
     record keeps MyCRM's version: what was imported is never written back to MyCRM.
-  - **Preview** shows what a sync would do without changing anything. **Sync now** syncs at once.
+  - **Preview** shows what a sync would do without changing anything. **Sync now** syncs at once. Both run in the
+    background: the tab shows the preview's result (and how long it took) and the sync under **Syncs** when they end.
+    The first sync after the import pairs every record and takes several minutes. A sync shown as "Cut off before it
+    finished" was stopped (the website restarted): nothing it did was kept, and the next sync does it again.
   - A sync that would change more than **Stop a sync that would change more than** records stops before changing
     anything, and the syncs pause until you look: press **Preview**, and if it is right, tick **Allow a large sync** and
     press **Sync now**.

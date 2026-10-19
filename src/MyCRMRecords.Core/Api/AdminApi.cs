@@ -103,19 +103,28 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
                         settings = w.Settings().Sync, configured = w.Databases.IsConfigured(ExternalNames.OutSystems),
                         runs = w.Store.Find<SyncRun>(Query.All().Sort("Id", descending: true).First(20)),
                         pairs = w.Store.Count<SyncLink>(),
+                        preview = StoppedAbandoned().FindFirst<JobRun>(Query.Where("Job", SyncPreviewJob).Newest()),
                     });
                 case "admin/sync" when !get:
                     return SaveSync(Input.Read<SyncInput>(body), user);
                 case "admin/sync/preview" when !get:
                 {
-                    var outcome = w.Sync.Preview();
-                    return ApiResponse.Result(outcome.Ok ? OperationResult.Success(outcome.Message) : OperationResult.Failure(ResultCodes.Failed, outcome.Message), new { details = outcome.Details });
+                    // In the background: with hundreds of thousands of records (the first sync after the import pairs them all)
+                    // it takes longer than ASP.NET lets a page wait.
+                    BackgroundRuns.StopAbandoned(w.Store, w.Clock);
+                    if (w.Store.Count<JobRun>(Query.Where("Job", SyncPreviewJob).And("Outcome", "Running")) > 0)
+                        return ApiResponse.Fail(409, ResultCodes.Conflict, "A preview is running already.");
+                    var run = w.Store.Insert(new JobRun { Job = SyncPreviewJob, StartedAt = w.Clock(), Outcome = "Running", By = user.ChangedBy, Summary = "Reading both…" });
+                    BackgroundRuns.Started(run.Id);
+                    runInBackground(() => Preview(run));
+                    return ApiResponse.Ok("The preview is running; this page shows what it finds.", new { run });
                 }
                 case "admin/sync/run" when !get:
                 {
                     if (!w.Settings().Sync.Enabled) return ApiResponse.Fail(409, ResultCodes.Conflict, "Turn the sync on first.");
-                    var outcome = w.Sync.Run(user.ChangedBy, Input.Read<SyncInput>(body).AllowLarge);
-                    return ApiResponse.Result(outcome.Ok ? OperationResult.Success(outcome.Message) : OperationResult.Failure(ResultCodes.Failed, outcome.Message), new { details = outcome.Details });
+                    var allowLarge = Input.Read<SyncInput>(body).AllowLarge;
+                    runInBackground(() => w.Sync.Run(user.ChangedBy, allowLarge));
+                    return ApiResponse.Ok("The sync is running; this page shows it under Syncs when it ends.");
                 }
                 case "admin/sync/changes" when get:
                 {
@@ -163,9 +172,38 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
         });
         if (!input.Enabled) return ApiResponse.Ok("Saved: the sync with MyCRM is off.");
         if (wasOn) return ApiResponse.Ok("Saved.");
-        var outcome = w.Sync.Run(user.ChangedBy);
-        return ApiResponse.Result(outcome.Ok ? OperationResult.Success("The sync is on. " + outcome.Message) : OperationResult.Failure(ResultCodes.Failed, "The sync is on, but the first sync did not finish: " + outcome.Message),
-            new { details = outcome.Details });
+        // The first sync runs in the background: after the import it pairs every record, longer than a page may wait.
+        runInBackground(() => w.Sync.Run(user.ChangedBy));
+        return ApiResponse.Ok("The sync is on, and the first sync is running: this page shows it under Syncs when it ends.");
+    }
+
+    public const string SyncPreviewJob = "sync-preview";
+
+    private IRecordStore StoppedAbandoned()
+    {
+        BackgroundRuns.StopAbandoned(w.Store, w.Clock);
+        return w.Store;
+    }
+
+    /// <summary>A preview of the sync, in the background: what it would change, kept in the run's summary.</summary>
+    private void Preview(JobRun run)
+    {
+        try
+        {
+            var outcome = w.Sync.Preview();
+            run.Outcome = outcome.Ok ? "Done" : "Failed";
+            run.Processed = outcome.Details.Count;
+            run.Summary = outcome.Message + (outcome.Details.Count == 0 ? "" : "\n" + string.Join("\n", outcome.Details.Take(300))
+                + (outcome.Details.Count > 300 ? $"\n… and {(outcome.Details.Count - 300).ToString(System.Globalization.CultureInfo.InvariantCulture)} more." : ""));
+        }
+        catch (Exception ex)
+        {
+            run.Outcome = "Failed";
+            run.Summary = "The preview stopped: " + ex.Message;
+        }
+        run.FinishedAt = w.Clock();
+        w.Store.Update(run);
+        BackgroundRuns.Ended(run.Id);
     }
 
     public sealed class SqlInput

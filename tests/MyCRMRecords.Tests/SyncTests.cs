@@ -36,6 +36,56 @@ public sealed class SyncTests
     }
 
     /// <summary>
+    /// A sync cut off before it finished (the website restarted, or ASP.NET ended the page that started it) stayed
+    /// "Running…" for good: the next sync, which holds the sync so none other runs, marks it as cut off.
+    /// </summary>
+    [Fact]
+    public void A_sync_cut_off_before_it_finished_is_marked_so_by_the_next_one()
+    {
+        using var world = new TestWorld(s => s.Sync.Enabled = true, crmUsers: false);
+        var cut = world.Store.Insert(new SyncRun { StartedOn = world.Now.AddMinutes(-20), By = "Rob Root", Message = "Running…" });
+        Sync(world);
+        var marked = world.Store.Get<SyncRun>(cut.Id)!;
+        Assert.NotNull(marked.FinishedOn);
+        Assert.False(marked.Ok);
+        Assert.StartsWith("Cut off before it finished", marked.Message);
+        Assert.All(world.Store.Find<SyncRun>(), r => Assert.NotNull(r.FinishedOn));
+    }
+
+    /// <summary>The users are looked up by login, then name, then email, the first of the list winning, as before the index.</summary>
+    [Fact]
+    public void The_sync_finds_the_old_apps_users_by_login_then_name_then_email()
+    {
+        var users = new List<OldUser>
+        {
+            new(5, @"RSP\ann", "Ann Lee", "ann@example.com"), new(6, @"RSP\bob", "Ann Lee", "bob@example.com"),
+            new(7, @"RSP\cat", "Cat Tan", "ann@example.com"), new(8, @"rsp\ANN", "Other", "other@example.com"),
+        };
+        var context = new SyncContext(new UsersOnly(users), [], DateTime.Now);
+        Assert.Equal(5L, context.OldUser(@" rsp\Ann "));
+        Assert.Equal(5L, context.OldUser("ann lee"));
+        Assert.Equal(6L, context.OldUser("bob@example.com"));
+        Assert.Equal(5L, context.OldUser("ann@example.com"));
+        Assert.Null(context.OldUser("nobody"));
+        Assert.Null(context.OldUser(""));
+        Assert.Equal("Cat Tan", context.User(7L)!.Name);
+        Assert.Null(context.User(0));
+        Assert.Null(context.User(99L));
+    }
+
+    private sealed class UsersOnly(IReadOnlyList<OldUser> users) : IOldTables
+    {
+        public string Title => "Old";
+        public IReadOnlyList<Dictionary<string, object?>> Rows(string table, string? sinceColumn = null, DateTime? since = null) => [];
+        public IReadOnlyList<Dictionary<string, object?>> Rows(string table, string column, IReadOnlyCollection<long> values) => [];
+        public Dictionary<string, object?>? Find(string table, IReadOnlyDictionary<string, object?> key) => null;
+        public IReadOnlyDictionary<string, OldColumn> Columns(string table) => new Dictionary<string, OldColumn>();
+        public IReadOnlyDictionary<long, string> Labels(string table) => new Dictionary<long, string>();
+        public IReadOnlyList<OldUser> Users() => users;
+        public IOldTablesWriter BeginWrite() => throw new NotSupportedException();
+    }
+
+    /// <summary>
     /// Made here by Rob (an administrator): a group name, the company Tan &amp; Sons in it, its billing address, Mr Tan as its
     /// primary contact with an email and a phone; returns the company's Id.
     /// </summary>
