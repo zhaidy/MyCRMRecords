@@ -143,8 +143,8 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
 
 1. The real schedules of MyCRM's timers in Service Center (the model has almost none): which still run (section 14).
 2. Whether the old CRM still exists (its Id columns are kept and synced as they are).
-3. MyOrders' `Profiles` attributes behind the Profile drop-down (MyCRMRecords keeps a person's `ProfileId` as it is
-   and does not offer the choice yet).
+3. MyOrders' `Profiles` attributes behind the Profile drop-down: only needed if the choice is wanted later (not for
+   now, decided 2026-10-19); MyCRMRecords keeps a person's `ProfileId` as it is.
 4. The Role Ids in production (MyCRMRecords matches roles by label, so it does not need them).
 
 ## 12. Rules MyCRMRecords changes on purpose
@@ -195,7 +195,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     carried over. MyCRM's team rules per role are kept: Sales, PP Specialist and CLETrainer one team; the managers'
     roles the team named after them (with *Create team*); CSST one team or none; other roles any number. A person
     saved with no team is no longer a CRM user, as in MyCRM, but the page now says so before saving (MyCRM's warning
-    could never show). The MyOrders profile is kept as it is but not offered (question 3).
+    could never show). The MyOrders profile is kept as it is but not offered (not needed for now, decided 2026-10-19).
 11. **A CRM user record taken away keeps no team, and no role once the person has no team left.** MyCRM reads every
     record's role and team whatever its `IsActive` (`Role()`, `IsSalesAdmin`, `GetSub`), so an inactive record keeping
     its team or role would change what MyCRM shows; emptied, MyCRM reads exactly what it read when the records were
@@ -212,8 +212,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     list is kept on the page (MyCRM's `TempCompanies` scratch table is not used).
 15. **MD keeps the territories like a Sales Admin** (MyCRM let MD only use the bulk transfer screen), and **only
     administrators sign in as someone else**.
-16. **Not carried over**: the postal-code look-up from Google on the address form (it needs a Google API key: ask if it
-    is wanted); the company list's contract-date filters (they read `ExpireMachine`, which stays in MyCRM); the
+16. **Not carried over**: the postal-code look-up from Google on the address form (not wanted, decided 2026-10-19); the company list's contract-date filters (they read `ExpireMachine`, which stays in MyCRM); the
     caretakers from projects and the MSD sales rep on the company page (Projects and MyCRMMSD stay in MyCRM); the
     recent-items log; MyCRM's raw Territories list and TerritoryDetail flags (replaced by the named territories); the
     Admin page's developer tools and Month Coverage (MIF, stays in MyCRM); "Customer code" falls back no more to a live
