@@ -1,0 +1,36 @@
+name: Diagnose (temporary branch)
+on:
+  push:
+    branches: [ci-diagnose]
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - shell: powershell
+        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { Start-Process SqlLocalDB -ArgumentList 'start', 'MSSQLLocalDB' -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - shell: powershell
+        run: ./Deployment/StartLocalDb.ps1
+      - name: Build and test
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Continue'
+          New-Item -ItemType Directory -Force out | Out-Null
+          cmd /c "dotnet restore > out\restore.txt 2>&1"
+          cmd /c "dotnet build MyCRMRecords.sln --configuration Release --no-restore > out\build.txt 2>&1"
+          cmd /c "dotnet test --configuration Release --no-build --logger console;verbosity=normal > out\test.txt 2>&1"
+          cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File tests\Deployment\DeploymentTests.ps1 > out\deployment.txt 2>&1"
+          Set-Content out/sha.txt $env:GITHUB_SHA
+      - shell: powershell
+        run: |
+          Set-Location out
+          git init -q; git config user.name ci; git config user.email ci@example.com
+          git checkout -q -b ci-logs; git add -A; git commit -q -m "logs for $env:GITHUB_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-logs
