@@ -1,0 +1,4 @@
+  Determining projects to restore...
+  Restored D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\MyCRMRecords.Core.csproj (in 23.93 sec).
+  Restored D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Web\MyCRMRecords.Web.csproj (in 23.93 sec).
+  Restored D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\MyCRMRecords.Tests.csproj (in 30.82 sec).

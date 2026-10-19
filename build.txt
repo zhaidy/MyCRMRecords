@@ -1,0 +1,19 @@
+D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\Data\OutSystemsImport.cs(18,105): warning CS9113: Parameter 'settings' is unread. [D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\MyCRMRecords.Core.csproj::TargetFramework=net48]
+  MyCRMRecords.Core -> D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\bin\Release\net48\MyCRMRecords.Core.dll
+D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\Data\OutSystemsImport.cs(18,105): warning CS9113: Parameter 'settings' is unread. [D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\MyCRMRecords.Core.csproj::TargetFramework=net8.0]
+  MyCRMRecords.Core -> D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\bin\Release\net8.0\MyCRMRecords.Core.dll
+  MyCRMRecords.Web -> D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Web\bin\MyCRMRecords.Web.dll
+D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\AccessTests.cs(46,40): warning CS8604: Possible null reference argument for parameter 'actual' in 'void Assert.Equal<long>(IEnumerable<long> expected, IEnumerable<long> actual)'. [D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\MyCRMRecords.Tests.csproj]
+D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\TerritoryTests.cs(98,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\MyCRMRecords.Tests.csproj]
+  MyCRMRecords.Tests -> D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\bin\Release\net8.0\MyCRMRecords.Tests.dll
+
+Build succeeded.
+
+D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\Data\OutSystemsImport.cs(18,105): warning CS9113: Parameter 'settings' is unread. [D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\MyCRMRecords.Core.csproj::TargetFramework=net48]
+D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\Data\OutSystemsImport.cs(18,105): warning CS9113: Parameter 'settings' is unread. [D:\a\MyCRMRecords\MyCRMRecords\src\MyCRMRecords.Core\MyCRMRecords.Core.csproj::TargetFramework=net8.0]
+D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\AccessTests.cs(46,40): warning CS8604: Possible null reference argument for parameter 'actual' in 'void Assert.Equal<long>(IEnumerable<long> expected, IEnumerable<long> actual)'. [D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\MyCRMRecords.Tests.csproj]
+D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\TerritoryTests.cs(98,9): warning xUnit2012: Do not use Assert.True() to check if a value exists in a collection. Use Assert.Contains instead. (https://xunit.net/xunit.analyzers/rules/xUnit2012) [D:\a\MyCRMRecords\MyCRMRecords\tests\MyCRMRecords.Tests\MyCRMRecords.Tests.csproj]
+    4 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.14

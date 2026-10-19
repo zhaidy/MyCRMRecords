@@ -1,0 +1,9 @@
+WARNING: Deployment failed; previous files restored. Backup: 
+C:\Users\runneradmin\AppData\Local\Temp\mycrmrecords-deploy-tests-f2761f9844134586a2ca86b50c17a234\backups\20261019-062
+030-aaaaaaaaaaaa-152aa9e5
+WARNING: Deployment failed; previous files restored. Backup: 
+C:\Users\runneradmin\AppData\Local\Temp\mycrmrecords-deploy-tests-f2761f9844134586a2ca86b50c17a234\backups\20261019-062
+030-aaaaaaaaaaaa-7254536f
+warning: in the working copy of 'Changelog/feature.md', LF will be replaced by CRLF the next time Git touches it
+fatal: bad object ffffffffffffffffffffffffffffffffffffffff
+130 deployment checks passed.
