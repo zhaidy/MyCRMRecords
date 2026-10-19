@@ -45,7 +45,12 @@ public sealed record ApiUser(string Login, string DisplayName, string Email = ""
     {
         var roles = people.RolesOf(Login).ToList();
         if (IsListedAdmin && !roles.Contains(Roles.Admin)) roles.Add(Roles.Admin);
-        return new Actor(Login, DisplayName.Length > 0 ? DisplayName : Login, Email.Trim().ToLowerInvariant(), roles, Impersonator?.DisplayName);
+        // Their MyCRM role comes from their CRM user records (the CRM users page).
+        return new Actor(Login, DisplayName.Length > 0 ? DisplayName : Login, Email.Trim().ToLowerInvariant(), roles, Impersonator?.DisplayName)
+        {
+            CrmRole = people.CrmRoleOf(Login),
+            CrmSalesAdmin = people.IsCrmSalesAdmin(Login),
+        };
     }
 }
 

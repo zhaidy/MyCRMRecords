@@ -24,7 +24,7 @@ public sealed class CrmSettings
 {
     public ConnectionSettings Connections { get; set; } = new();
     /// <summary>The two-way sync with MyCRM (off until an administrator turns it on).</summary>
-    public SyncSettings Sync { get; set; } = new();
+    public SyncSettings Sync { get; set; } = new() { IntervalMinutes = 10 };
     public EmailSettings Email { get; set; } = new();
     public JobSettings Jobs { get; set; } = new();
     public string? ChangedBy { get; set; }
@@ -37,7 +37,7 @@ public sealed class ConnectionSettings
     /// <summary>The OutSystems platform database: MyCRM's tables (import and sync), its users and roles.</summary>
     public ExternalDatabase OutSystems { get; set; } = new();
 
-    /// <summary>AdvanceConnector: the public holidays (read only).</summary>
+    /// <summary>AdvanceConnector: Advance's customers, for the customer numbers (read only).</summary>
     public ExternalDatabase AdvanceConnector { get; set; } = new();
 
     public string CrmModule { get; set; } = "MyCRM";
@@ -47,13 +47,13 @@ public sealed class ConnectionSettings
 
 /// <summary>
 /// The names of the tables MyCRMRecords reads in AdvanceConnector (MyCRM's AdvanceConnector extension entities). A table in
-/// another database on the same server is written with the database first (Advance.dbo.public_holiday); a table whose
+/// another database on the same server is written with the database first (Advance.dbo.Customer_Supp); a table whose
 /// own name has a dot, in brackets.
 /// </summary>
 public sealed class AdvanceTables
 {
-    /// <summary>MyCRM's entity public_holiday (date, name): the days left out of the working days.</summary>
-    public string PublicHolidays { get; set; } = "dbo.public_holiday";
+    /// <summary>MyCRM's entity Customer_Supp (Business_reg, Cust_no): Advance's customer number of each BRN.</summary>
+    public string CustomerSupp { get; set; } = "dbo.Customer_Supp";
 }
 
 public sealed class ExternalDatabase
@@ -77,19 +77,10 @@ public sealed class EmailSettings
     /// <summary>Every email goes to this address only (for trying it out); blank to send to the real people.</summary>
     public string RedirectTo { get; set; } = "";
 
-    /// <summary>Told of each new internal challenge (MyCRM's Notify: rsphrgroup@ricoh.sg, Mayu_Miyama@rapp.ricoh.com).</summary>
-    public string InternalChallengesNotify { get; set; } = "rsphrgroup@ricoh.sg, Mayu_Miyama@rapp.ricoh.com";
-    /// <summary>Told of each new customer complaint or area of improvement (MyCRM's Notify2).</summary>
-    public string ComplaintsNotify { get; set; } = "rspbe@ricoh.sg, rayeyeo@ricoh.sg, joannechen@ricoh.sg";
-    /// <summary>Told of each other new feedback: potential customer complaints (MyCRM's Notify3).</summary>
-    public string OthersNotify { get; set; } = "rayeyeo@ricoh.sg, joannechen@ricoh.sg";
-    /// <summary>BE: told when a feedback is resolved, to confirm the satisfaction (MyCRM: rspbe@ricoh.sg).</summary>
-    public string BeTo { get; set; } = "rspbe@ricoh.sg";
-
     public string LinkTo(string page) => SiteUrl.Trim().TrimEnd('/') + "/" + page;
 }
 
-/// <summary>The scheduled tasks: all off until an administrator turns them on. MyCRM had none (its timers ran once, when published).</summary>
+/// <summary>The scheduled tasks: all off until an administrator turns them on.</summary>
 public sealed class JobSettings
 {
     public bool Enabled { get; set; }
@@ -109,14 +100,25 @@ public sealed class JobSchedule
     public string Days { get; set; } = "";
 }
 
-/// <summary>MyCRMRecords's scheduled tasks: none yet (the sync with MyCRM keeps its own timing).</summary>
+/// <summary>MyCRMRecords's scheduled tasks (the sync with MyCRM keeps its own timing).</summary>
 public static class Jobs
 {
-    public static readonly string[] All = [];
+    /// <summary>MyCRM's timer UpdateCustomerNo: Advance's customer number of each company's BRN, daily at 02:45.</summary>
+    public const string CustomerNumbers = "customer-numbers";
 
-    public static JobSchedule Default(string job) => throw new ArgumentException("No job " + job);
+    public static readonly string[] All = [CustomerNumbers];
 
-    public static string Title(string job) => job;
+    public static JobSchedule Default(string job) => job switch
+    {
+        CustomerNumbers => new JobSchedule { Job = job, Enabled = false, DailyAt = "02:45" },
+        _ => throw new ArgumentException("No job " + job),
+    };
+
+    public static string Title(string job) => job switch
+    {
+        CustomerNumbers => "Customer numbers from Advance",
+        _ => job,
+    };
 }
 
 /// <summary>

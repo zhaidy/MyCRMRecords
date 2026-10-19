@@ -20,7 +20,7 @@ public static class ExternalNames
 
 /// <summary>
 /// The other databases MyCRMRecords works with, as set on the admin page: the OutSystems platform database (MyCRM's
-/// tables, for the import and the sync; its users and roles) and AdvanceConnector (the public holidays, read only). An
+/// tables, for the import and the sync; its users and roles) and AdvanceConnector (Advance's customers, read only). An
 /// OutSystems entity's table has a generated name (OSUSR_ab1_FEEDBACK): it is looked up in the platform's catalog
 /// (OSSYS_ESPACE, OSSYS_ENTITY) by module and entity name; its columns are the attribute names.
 /// </summary>
@@ -161,7 +161,7 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
                     Check("dbo.OSSYS_USER", "ID", "USERNAME", "NAME", "EMAIL", "IS_ACTIVE");
                     break;
                 case ExternalNames.AdvanceConnector:
-                    Check(c.AdvanceTables.PublicHolidays, ExternalColumns.PublicHolidays);
+                    Check(c.AdvanceTables.CustomerSupp, ExternalColumns.CustomerSupp);
                     break;
             }
         }
@@ -189,6 +189,6 @@ public static class OutSystemsValues
 /// </summary>
 public static class ExternalColumns
 {
-    /// <summary>AdvanceConnector's public_holiday (MyCRM's entity of the same name).</summary>
-    public static readonly string[] PublicHolidays = ["date", "name"];
+    /// <summary>AdvanceConnector's Customer_Supp (MyCRM's entity of the same name): a customer's BRN and number.</summary>
+    public static readonly string[] CustomerSupp = ["Business_reg", "Cust_no"];
 }

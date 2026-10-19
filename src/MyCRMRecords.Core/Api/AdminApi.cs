@@ -355,7 +355,7 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, OutSystemsImport
                     error = email.Port is < 1 or > 65535 ? "Enter the port: a number from 1 to 65535, usually 25."
                         : !Strings.IsEmail(email.From) ? "Enter the sender's email address."
                         : email.RedirectTo.Trim().Length > 0 && !Strings.IsEmail(email.RedirectTo) ? "Enter one email address to redirect to, or leave it blank."
-                        : BadList(email.InternalChallengesNotify) ?? BadList(email.ComplaintsNotify) ?? BadList(email.OthersNotify) ?? BadList(email.BeTo);
+                        : null;
                     if (error is null) s.Email = email;
                     break;
                 case "jobs": s.Jobs = input.ToObject<JobSettings>(serializer)!; break;

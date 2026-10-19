@@ -32,10 +32,11 @@ public sealed class CrmApp
     public Func<CrmSettings> Settings { get; init; } = null!;
     public SettingsFile<CrmSettings> SettingsFile { get; init; } = null!;
     public People People { get; init; } = null!;
-    public Feedbacks Feedbacks { get; init; } = null!;
-    public Setup Setup { get; init; } = null!;
-    public Statistics Statistics { get; init; } = null!;
-    public IHolidays Holidays { get; init; } = null!;
+    public Access Access { get; init; } = null!;
+    public CrmUsers Users { get; init; } = null!;
+    public Territories Territories { get; init; } = null!;
+    public Companies Companies { get; init; } = null!;
+    public CustomerNumbers CustomerNumbers { get; init; } = null!;
     public Mailer Mailer { get; init; } = null!;
     public ExternalDatabases Databases { get; init; } = null!;
     public Scheduler Scheduler { get; init; } = null!;
@@ -50,48 +51,43 @@ public sealed class CrmApp
 public static class CrmFactory
 {
     /// <param name="oldTables">MyCRM's tables (tests); else those of the OutSystems database.</param>
-    /// <param name="holidays">The public holidays (tests); else AdvanceConnector's.</param>
+    /// <param name="temporary">MyCRM's temporary territories (tests); else read from the OutSystems database.</param>
     public static CrmApp Create(IRecordStore store, SettingsFile<CrmSettings> settingsFile, Func<string, DbConnection> connectionFactory,
-        string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IOldTables? oldTables = null, IHolidays? holidays = null)
+        string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IOldTables? oldTables = null, ITemporaryTerritories? temporary = null)
     {
         Func<CrmSettings> settings = settingsFile.Load;
         var databases = new ExternalDatabases(settings, connectionFactory);
-        // The sync with MyCRM sees the records as they are; the app's own changes go through SyncedStore.
-        // An attachment's bytes are read only when a file is copied here, and SQL Server hashes only the files not kept here
-        // already (CrmTables).
+        // The sync with MyCRM sees the records as they are; the app's own changes go through SyncedStore. Of MyCRM's
+        // territories only the active permanent ones are read (CrmTables).
         Func<string> module = () => settings().Connections.CrmModule;
-        var own = store;
-        Func<IReadOnlyDictionary<long, string>> knownFiles = () =>
-        {
-            var known = new Dictionary<long, string>();
-            foreach (var a in own.Find<FeedbackFile>())
-                if (a.OutSystemsId is { } id && id != 0 && a.Content.Length > 0) known[id] = OldValues.Canonical(a.Content);
-            return known;
-        };
-        var myCms = oldTables ?? new CrmTables(databases, module, new OutSystemsTables(databases, module, "MyCRM", "RSP"), knownFiles);
-        Func<IOldTables?> tables = () => oldTables ?? (databases.IsConfigured(ExternalNames.OutSystems) ? myCms : null);
+        var myCrm = new CrmTables(databases, module, new OutSystemsTables(databases, module, "MyCRM", "RSP"));
+        Func<IOldTables?> tables = () => oldTables ?? (databases.IsConfigured(ExternalNames.OutSystems) ? myCrm : null);
+        Func<ITemporaryTerritories?> temporaryTerritories = () => temporary ?? (oldTables is null && databases.IsConfigured(ExternalNames.OutSystems) ? myCrm : null);
         var sync = new OldAppSync(store, tables,
-            CrmSync.Entities(clock, tables), () => settings().Sync, change => settingsFile.Change(s => change(s.Sync)),
+            CrmSync.Entities(clock), () => settings().Sync, change => settingsFile.Change(s => change(s.Sync)),
             Path.Combine(Path.GetDirectoryName(Path.GetFullPath(schedulerStateFile))!, "old-app-sync.lock"), clock);
         var records = store;
         store = new SyncedStore(store, sync);
         var mailer = new Mailer(store, settings, clock, emailSender);
         var people = new People(store, clock);
-        var publicHolidays = holidays ?? new SqlHolidays(databases, settings, clock);
-        var feedbacks = new Feedbacks(store, people, mailer, () => new BusinessDays(publicHolidays), settings, clock);
+        var access = new Access(store, temporaryTerritories);
+        var territories = new Territories(store, people, clock);
+        var customerNumbers = new CustomerNumbers(store, databases, settings);
         return new CrmApp
         {
             Store = store,
             Settings = settings,
             SettingsFile = settingsFile,
             People = people,
-            Feedbacks = feedbacks,
-            Setup = new Setup(store, feedbacks, clock),
-            Statistics = new Statistics(store, feedbacks, people, clock),
-            Holidays = publicHolidays,
+            Access = access,
+            Users = new CrmUsers(store, people, clock),
+            Territories = territories,
+            Companies = new Companies(store, access, territories, clock),
+            CustomerNumbers = customerNumbers,
             Mailer = mailer,
             Databases = databases,
-            Scheduler = new Scheduler(store, settings, schedulerStateFile, new Dictionary<string, Func<string, JobOutcome>>(), clock, sync.Tick),
+            Scheduler = new Scheduler(store, settings, schedulerStateFile,
+                new Dictionary<string, Func<string, JobOutcome>> { [Jobs.CustomerNumbers] = customerNumbers.Run }, clock, sync.Tick),
             Sync = sync,
             Import = new OutSystemsImport(records, databases, settings, clock, sync),
             Clock = clock,

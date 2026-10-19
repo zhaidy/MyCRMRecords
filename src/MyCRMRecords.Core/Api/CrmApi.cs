@@ -5,14 +5,12 @@ using MyCRMRecords.Domain;
 namespace MyCRMRecords.Api;
 
 /// <summary>
-/// The API behind MyCRMRecords's pages (api.ashx/...), as the signed-in person: the feedbacks with their tasks and files, the
-/// lists (divisions, categories, mediums, KPI dates) for Feedback Admins, the statistics, and the people to choose from.
-/// Every change is checked again in the domain.
+/// The API behind MyCRMRecords's pages (api.ashx/...), as the signed-in person: the companies with their addresses,
+/// contacts and relationships, the territories, the CRM users and teams, and the people to choose from. Every change is
+/// checked again in the domain.
 /// </summary>
 public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>>? findInDirectory = null)
 {
-    public sealed class CompleteInput { public bool Completed { get; set; } }
-
     public sealed class PersonInput
     {
         public string? Login { get; set; }
@@ -29,6 +27,8 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
         var actor = user.ToActor(w.People);
         string Q(string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
         long Id(int index) => parts.Length > index && long.TryParse(parts[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0;
+        int Skip() => int.TryParse(Q("skip"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var skip) ? Math.Max(0, skip) : 0;
+        bool Flag(string name) => Q(name) is "1" or "true" or "yes";
         try
         {
             switch (parts[0])
@@ -36,13 +36,17 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                 case "session" when get:
                     return ApiResponse.Of(new
                     {
-                        user = new { login = actor.Login, name = actor.DisplayName, email = actor.Email, roles = actor.Roles, changedBy = actor.ChangedBy },
+                        user = new
+                        {
+                            login = actor.Login, name = actor.DisplayName, email = actor.Email, roles = actor.Roles, changedBy = actor.ChangedBy,
+                            crmRole = actor.CrmRole, crmRoleLabel = CrmRoles.List.Label(actor.CrmRole),
+                        },
                         can = Can(actor),
                         roles = Roles.All,
                     });
 
                 case "lists" when get:
-                    return Lists();
+                    return Lists(actor);
 
                 // ---- People to choose from ----
                 case "people" when get && parts.Length == 1:
@@ -63,56 +67,85 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                     return ApiResponse.Ok($"{person.DisplayName} can be chosen now.", new { person = new { person.Login, name = person.DisplayName, person.Email } });
                 }
 
-                // ---- Feedbacks (every signed-in person, as in MyCRM) ----
-                case "feedbacks" when get && parts.Length == 1:
-                    return ListFeedbacks(actor, new Feedbacks.ListFilter(Q("q"), Q("status"), Q("division")));
-                case "feedbacks" when get && parts.Length == 2:
-                    return FeedbackDetail(actor, Id(1));
-                case "feedbacks" when post && parts.Length == 2:
-                    return ApiResponse.Result(w.Feedbacks.Save(actor, Id(1), Input.Read<Feedbacks.FeedbackInput>(body)));
-                case "feedbacks" when post && parts.Length == 3 && parts[2] == "delete":
-                    return ApiResponse.Result(w.Feedbacks.Delete(actor, Id(1)));
-                case "feedbacks" when post && parts.Length == 3 && parts[2] == "close":
-                    return ApiResponse.Result(w.Feedbacks.CloseCase(actor, Id(1)));
-                case "feedbacks" when post && parts.Length == 4 && parts[2] == "tasks":
-                    return ApiResponse.Result(w.Feedbacks.SaveTask(actor, Id(1), Id(3), Input.Read<Feedbacks.TaskInput>(body)));
-                case "tasks" when post && parts.Length == 3 && parts[2] == "complete":
-                    return ApiResponse.Result(w.Feedbacks.CompleteTask(actor, Id(1), Input.Read<CompleteInput>(body).Completed));
-                case "tasks" when post && parts.Length == 3 && parts[2] == "remove":
-                    return ApiResponse.Result(w.Feedbacks.RemoveTask(actor, Id(1)));
-                case "files" when post && parts.Length == 3 && parts[2] == "remove":
-                    return ApiResponse.Result(w.Feedbacks.RemoveFile(actor, Id(1)));
+                // ---- Companies ----
+                case "companies" when get && parts.Length == 1:
+                    return ListCompanies(actor, new Companies.ListFilter(Q("q"), Q("customerType"),
+                        long.TryParse(Q("groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q("postalCode"), Skip()));
+                case "companies" when get && parts.Length == 2:
+                    return CompanyDetail(actor, Id(1));
+                case "companies" when post && parts.Length == 2:
+                    return ApiResponse.Result(w.Companies.Save(actor, Id(1), Input.Read<Companies.CompanyInput>(body)));
+                case "companies" when post && parts.Length == 3 && parts[2] == "employees":
+                    return ApiResponse.Result(w.Companies.SaveEmployees(actor, Id(1), Input.Read<Companies.EmployeesInput>(body)));
+                case "companies" when post && parts.Length == 3 && parts[2] == "remarks":
+                    return ApiResponse.Result(w.Companies.SaveSalesRemarks(actor, Id(1), Input.Read<Companies.RemarksInput>(body)));
+                case "companies" when post && parts.Length == 3 && parts[2] == "relationships":
+                    return ApiResponse.Result(w.Companies.AddRelationship(actor, Id(1), Input.Read<Companies.RelationshipInput>(body)));
+                case "companies" when post && parts.Length == 5 && parts[2] == "relationships" && parts[4] == "remove":
+                    return ApiResponse.Result(w.Companies.RemoveRelationship(actor, Id(1), Id(3)));
+                case "companies" when post && parts.Length == 4 && parts[2] == "addresses":
+                    return ApiResponse.Result(w.Companies.SaveAddress(actor, Id(1), Id(3), Input.Read<Companies.AddressInput>(body)));
+                case "companies" when post && parts.Length == 5 && parts[2] == "addresses" && parts[4] == "type":
+                    return ApiResponse.Result(w.Companies.SetAddressType(actor, Id(1), Id(3), Input.Read<Companies.AddressTypeInput>(body)));
+                case "companies" when post && parts.Length == 5 && parts[2] == "addresses" && parts[4] == "remove":
+                    return ApiResponse.Result(w.Companies.RemoveAddress(actor, Id(1), Id(3)));
+                case "companies" when get && parts.Length == 4 && parts[2] == "contacts":
+                    return ContactEditor(actor, Id(1), Id(3));
+                case "companies" when post && parts.Length == 4 && parts[2] == "contacts":
+                    return ApiResponse.Result(w.Companies.SaveContact(actor, Id(1), Id(3), Input.Read<Companies.ContactInput>(body)));
+                case "companies" when post && parts.Length == 5 && parts[2] == "contacts" && parts[4] == "remove":
+                    return ApiResponse.Result(w.Companies.RemoveContact(actor, Id(1), Id(3)));
 
-                // ---- The lists (Feedback Admins: MyCRM's Admin screen) ----
-                case "setup" when !actor.IsFeedbackAdmin:
-                    return ApiResponse.Forbidden("The lists are kept by Feedback Admins.");
-                case "setup" when get && parts.Length == 1:
-                    return SetupLists();
-                case "setup" when get && parts.Length == 2 && parts[1] == "kpi":
-                    return KpiRows(Q("q"), int.TryParse(Q("skip"), out var skip) ? Math.Max(0, skip) : 0);
-                case "setup" when post && parts.Length == 3 && parts[1] == "divisions":
-                    return ApiResponse.Result(w.Setup.SaveDivision(actor, Id(2), Input.Read<Setup.DivisionInput>(body)));
-                case "setup" when post && parts.Length == 4 && parts[1] == "divisions" && parts[3] == "remove":
-                    return ApiResponse.Result(w.Setup.RemoveDivision(actor, Id(2)));
-                case "setup" when post && parts.Length == 3 && parts[1] == "categories":
-                    return ApiResponse.Result(w.Setup.SaveCategory(actor, Id(2), Input.Read<Setup.ChoiceInput>(body)));
-                case "setup" when post && parts.Length == 4 && parts[1] == "categories" && parts[3] == "remove":
-                    return ApiResponse.Result(w.Setup.RemoveCategory(actor, Id(2)));
-                case "setup" when post && parts.Length == 3 && parts[1] == "mediums":
-                    return ApiResponse.Result(w.Setup.SaveMedium(actor, Id(2), Input.Read<Setup.ChoiceInput>(body)));
-                case "setup" when post && parts.Length == 4 && parts[1] == "mediums" && parts[3] == "remove":
-                    return ApiResponse.Result(w.Setup.RemoveMedium(actor, Id(2)));
-                case "setup" when post && parts.Length == 3 && parts[1] == "kpi":
-                    return ApiResponse.Result(w.Setup.SaveKpiDates(actor, Id(2), Input.Read<Setup.KpiInput>(body)));
+                // ---- Group names (Sales Admins, from the company form) ----
+                case "groupnames" when get && parts.Length == 1:
+                    return ApiResponse.Of(new { groupNames = w.Companies.GroupNames().Select(g => new { g.Id, g.GroupName }) });
+                case "groupnames" when post && parts.Length == 2:
+                    return ApiResponse.Result(w.Companies.SaveGroupName(actor, Id(1), Input.Read<Companies.GroupNameInput>(body)));
+                case "groupnames" when post && parts.Length == 3 && parts[2] == "remove":
+                    return ApiResponse.Result(w.Companies.RemoveGroupName(actor, Id(1)));
 
-                // ---- Statistics (everyone, as in MyCRM) ----
-                case "statistics" when get && parts.Length == 1:
-                    return StatisticsOf(int.TryParse(Q("year"), out var year) ? year : FinancialYears.Of(w.Clock()));
-                case "statistics" when get && parts.Length == 2 && parts[1] == "report":
+                // ---- Territories (Sales Admins and MD) ----
+                case "territories" when !actor.CanManageTerritories:
+                    return ApiResponse.Forbidden("Territories are kept by Sales Admins.");
+                case "territories" when get && parts.Length == 1:
+                    return ListTerritories(Flag("inactive"));
+                case "territories" when get && parts.Length == 2 && parts[1] == "search":
                 {
-                    var rows = w.Statistics.Report(Months(Q("months")));
-                    return ApiResponse.Of(new { count = rows.Count, rows });
+                    var (total, rows) = w.Territories.Search(Q("q"), Flag("unassigned"), Skip());
+                    return ApiResponse.Of(new { total, skip = Skip(), take = Territories.PageSize, rows });
                 }
+                case "territories" when get && parts.Length == 2:
+                    return TerritoryDetail(Id(1), Q("q"), Skip());
+                case "territories" when post && parts.Length == 2:
+                    return ApiResponse.Result(w.Territories.Save(actor, Id(1), Input.Read<Territories.TerritoryInput>(body)));
+                case "territories" when post && parts.Length == 3 && parts[2] == "remove":
+                    return ApiResponse.Result(w.Territories.Remove(actor, Id(1)));
+                case "territories" when post && parts.Length == 3 && parts[2] == "add":
+                    return ApiResponse.Result(w.Territories.AddCompanies(actor, Id(1), Input.Read<Territories.CompaniesInput>(body).Companies ?? new List<long>()));
+                case "territories" when post && parts.Length == 3 && parts[2] == "takeout":
+                    return ApiResponse.Result(w.Territories.RemoveCompanies(actor, Id(1), Input.Read<Territories.CompaniesInput>(body).Companies ?? new List<long>()));
+                case "territories" when post && parts.Length == 3 && parts[2] == "match":
+                    return ApiResponse.Of(new { matches = w.Territories.MatchList(Id(1), Input.Read<Territories.TextInput>(body).Text) });
+
+                // ---- CRM users and teams (Sales Admins) ----
+                case "crmusers" or "teams" when !actor.IsSalesAdmin:
+                    return ApiResponse.Forbidden("The CRM users are kept by Sales Admins.");
+                case "crmusers" when get && parts.Length == 1:
+                    return ListCrmUsers(Q("q"), Flag("all"));
+                case "crmusers" when get && parts.Length == 2 && parts[1] == "person":
+                    return CrmPerson(Q("login"));
+                case "crmusers" when post && parts.Length == 2 && parts[1] == "person":
+                    return ApiResponse.Result(w.Users.Save(actor, Q("login"), Input.Read<CrmUsers.ProfileInput>(body)));
+                case "crmusers" when post && parts.Length == 3 && parts[1] == "person" && parts[2] == "remove":
+                    return ApiResponse.Result(w.Users.RemoveUserAndTerritories(actor, Q("login")));
+                case "crmusers" when post && parts.Length == 3 && parts[1] == "person" && parts[2] == "team":
+                    return ApiResponse.Result(w.Users.CreateTeamFor(actor, Q("login")));
+                case "teams" when get && parts.Length == 1:
+                    return ListTeams();
+                case "teams" when get && parts.Length == 2:
+                    return ApiResponse.Of(new { members = w.Users.Members(Id(1)).Select(m => new { m.Login, m.Name, role = CrmRoles.List.Label(m.Role) }) });
+                case "teams" when post && parts.Length == 2:
+                    return ApiResponse.Result(w.Users.SaveTeam(actor, Id(1), Input.Read<CrmUsers.TeamInput>(body)));
             }
             return ApiResponse.NotFound();
         }
@@ -128,34 +161,29 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
 
     public static object Can(Actor actor) => new
     {
-        admin = actor.IsAdmin, feedbackAdmin = actor.IsFeedbackAdmin, be = actor.IsBe, hr = actor.IsHr,
-        // MyCRM's Admin could act as anyone (its user switch): Sign in as, recorded in the audit log.
-        actAs = actor.IsFeedbackAdmin,
+        admin = actor.IsAdmin, salesAdmin = actor.IsSalesAdmin, territories = actor.CanManageTerritories, editContacts = actor.CanEditContacts,
+        seesAll = actor.SeesAllCompanies, uploadEmployees = actor.IsAdmin || actor.CrmRole == CrmRoles.Admin,
+        // Signing in as someone else (recorded in the audit log): administrators only.
+        actAs = actor.IsAdmin,
     };
 
-    /// <summary>"2026-10-01,2026-11-01" → those months (the report's choice).</summary>
-    public static IReadOnlyList<DateTime> Months(string text) =>
-        (text ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(t => DateTime.TryParseExact(t.Trim(), new[] { "yyyy-MM-dd", "yyyy-MM" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? new DateTime(d.Year, d.Month, 1) : (DateTime?)null)
-            .Where(d => d is not null).Select(d => d!.Value).Distinct().OrderBy(d => d).ToList();
+    private static object Choices(ChoiceList list, params string[] inactive) =>
+        list.All.Select(c => new { code = c.Code, label = c.Label, active = !inactive.Contains(c.Code) });
 
-    private static object Choices(ChoiceList list) => list.All.Select(c => new { code = c.Code, label = c.Label });
-
-    private ApiResponse Lists() => ApiResponse.Of(new
+    private ApiResponse Lists(Actor actor) => ApiResponse.Of(new
     {
-        groups = Choices(FeedbackGroups.List),
-        statuses = Choices(FeedbackStatuses.List),
-        types = Choices(FeedbackTypes.List),
-        typeHelp = FeedbackTypes.Help,
-        satisfaction = Choices(SatisfactionLevels.List),
-        taskTypes = Choices(TaskTypes.List),
-        hrAnswers = HrAnswers.All,
-        criteria = EssChoices.Criteria.Select(c => new { c.Label, c.Value }),
-        ricohWay = EssChoices.RicohWayValues.Select(c => new { c.Label, c.Value }),
-        categories = w.Feedbacks.Categories().Select(c => new { c.Id, c.Label, c.IsActive }),
-        mediums = w.Feedbacks.Mediums().Select(c => new { c.Id, c.Label, c.IsActive }),
-        divisions = w.Feedbacks.Divisions().Select(d => new { d.Id, d.Name, d.PersonInCharge, personName = w.People.NameOf(d.PersonInCharge) }),
-        people = w.People.Everyone().Select(u => new { u.Login, name = u.DisplayName, u.Email }),
+        roles = Choices(CrmRoles.List),
+        oneTeamRoles = CrmRoles.OneTeam,
+        managerRoles = CrmRoles.Managers,
+        companyGroups = Choices(CompanyGroups.List, CompanyGroups.Inactive),
+        compAccountTypes = Choices(CompAccountTypes.List),
+        compOwnerships = Choices(CompOwnerships.List),
+        advanceCustomerTypes = Choices(AdvanceCustomerTypes.List),
+        addressTypes = Choices(AddressTypes.List),
+        phoneTypes = Choices(PhoneTypes.List),
+        groupNames = w.Companies.GroupNames().Select(g => new { g.Id, g.GroupName }),
+        teams = w.Users.Teams(includeInactive: false).Select(t => new { t.Id, t.Name }),
+        salespeople = actor.CanManageTerritories ? w.Territories.Salespeople().Select(p => (object)new { login = p.Login, name = p.Name }).ToList() : new List<object>(),
         directory = findInDirectory is not null,
     });
 
@@ -163,118 +191,158 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
 
     private object Person(string login) => new { login, name = Name(login) };
 
-    private ApiResponse ListFeedbacks(Actor actor, Feedbacks.ListFilter filter)
+    private static string Date(DateTime? date) => date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+
+    /// <summary>MyCRM's GetCUserTeamName: the team of the person's first CRM user record.</summary>
+    private string TeamOf(string login, Dictionary<string, string> cache)
     {
-        var list = w.Feedbacks.List(actor, filter);
-        var all = w.Feedbacks.List(actor, new Feedbacks.ListFilter());
-        var divisions = w.Feedbacks.DivisionNames();
+        if (login.Length == 0) return "";
+        if (cache.TryGetValue(login, out var known)) return known;
+        var first = w.Store.Find<CrmUser>(Query.Where("Login", login)).OrderBy(u => u.Id).FirstOrDefault();
+        var team = first?.TeamId is { } id ? w.Store.Get<CrmTeam>(id)?.Name ?? "" : "";
+        cache[login] = team;
+        return team;
+    }
+
+    private ApiResponse ListCompanies(Actor actor, Companies.ListFilter filter)
+    {
+        var (total, rows) = w.Companies.List(actor, filter);
         return ApiResponse.Of(new
         {
-            rows = list.Rows.Select(f => new
-            {
-                f.Id, group = FeedbackGroups.List.Label(f.FeedbackGroup), f.CompanyName, f.ContactName, f.Status, statusLabel = FeedbackStatuses.List.Label(f.Status),
-                createdBy = f.CreatedByUserName.Length > 0 ? f.CreatedByUserName : Name(f.CreatedBy), f.CreatedOn, inCharge = Name(f.PersonResponsible),
-                division = Feedbacks.DivisionOf(f, divisions), f.DateReceived, type = FeedbackTypes.List.Label(f.FeedbackType),
-            }),
-            counts = list.Counts,
-            all = list.All,
-            divisions = w.Feedbacks.DivisionChoices(all.Rows),
-            statuses = Choices(FeedbackStatuses.List),
-            can = new { create = true, seesAll = actor.IsFeedbackAdmin },
+            total, skip = filter.Skip, take = Companies.PageSize,
+            rows = rows.Select(r => new { r.Id, r.Name, r.Brn, r.PostalCode, salesperson = Name(r.Owner), createdBy = Name(r.CreatedBy) }),
+            can = new { create = actor.IsSalesAdmin, uploadEmployees = actor.IsAdmin || actor.CrmRole == CrmRoles.Admin },
         });
     }
 
-    private ApiResponse FeedbackDetail(Actor actor, long id)
+    private ApiResponse CompanyDetail(Actor actor, long id)
     {
-        var f = id == 0 ? new Feedback { CreatedBy = actor.Login, CreatedByUserName = actor.DisplayName } : w.Feedbacks.Get(id);
-        if (f is null) return ApiResponse.NotFound();
-        var rights = w.Feedbacks.Rights(actor, f);
-        var sla = id == 0 ? null : w.Feedbacks.SlaExpectedCompletion(f);
-        var tasks = id == 0 ? new List<FeedbackTask>() : w.Feedbacks.Tasks(f.Id).ToList();
-        var divisions = w.Feedbacks.DivisionNames();
+        var c = w.Companies.Get(id);
+        if (c is null) return ApiResponse.NotFound();
+        if (!w.Companies.CanOpen(actor, c))
+            return ApiResponse.Forbidden("You don't have permissions to view this company: it is not in your or your team's territories.");
+        var owners = w.Territories.Owners([c.Id]);
+        var owner = owners.TryGetValue(c.Id, out var o) ? o : ((string Owner, Territory Territory)?)null;
+        var addresses = w.Companies.Addresses(c.Id);
+        var (parent, siblings, subsidiaries) = w.Companies.Relationships(c.Id);
+        string CompanyName(long companyId) => w.Store.Get<Company>(companyId)?.Name.Trim() ?? "#" + companyId.ToString(CultureInfo.InvariantCulture);
+        var teams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         return ApiResponse.Of(new
         {
-            feedback = new
+            company = new
             {
-                f.Id, f.FeedbackGroup, groupLabel = FeedbackGroups.List.Label(f.FeedbackGroup), f.Status, statusLabel = FeedbackStatuses.List.Label(f.Status),
-                f.DivisionId, division = Feedbacks.DivisionOf(f, divisions), personResponsible = Person(f.PersonResponsible), f.CompanyName, f.CompanyAddress, f.PostalCode,
-                f.CompanyPhone, f.CompanyFax, f.CompanyEmail, f.ContactName, f.MediumId, medium = f.MediumId is { } m ? w.Store.Get<FeedbackMedium>(m)?.Label ?? "" : "",
-                f.DateReceived, timeReceived = TimesOfDay.Short(f.TimeReceived), f.FeedbackType, typeLabel = FeedbackTypes.List.Label(f.FeedbackType), f.CategoryId,
-                category = f.CategoryId is { } c ? w.Store.Get<FeedbackCategory>(c)?.Label ?? "" : "", f.Description, cc = Strings.Emails(f.Cc),
-                f.MightCauseCustomerComplaint, f.CreatorHasSolution, f.SolutionDetail, f.ExpectedOutcome,
-                suggestionMeetCriteria = EssChoices.Parse(EssChoices.Criteria, f.SuggestionMeetCriteria), ricohWayValue = EssChoices.Parse(EssChoices.RicohWayValues, f.RicohWayValue),
-                f.HrAccepted, f.HrRemarks, f.HrUpdatedOn, hrUpdatedBy = Name(f.HrUpdatedBy), f.IsAcknowledged, f.AcknowledgedDate,
-                acknowledgedTime = TimesOfDay.Short(f.AcknowledgedTime), signOff = Name(f.SignOff), f.FirstLookAtFeedback, f.RootCause,
-                staffResponsible = Name(f.StaffResponsibleForSolution), f.SatisfactionLevel, satisfactionLabel = SatisfactionLevels.List.Label(f.SatisfactionLevel),
-                f.CreatedOn, createdBy = Person(f.CreatedBy), createdByName = f.CreatedByUserName.Length > 0 ? f.CreatedByUserName : Name(f.CreatedBy), f.UpdatedOn,
-                updatedBy = f.UpdatedByUserName, f.AcknowledgedHours, f.StartResolutionDays, f.CloseCaseDays, f.StartedResolutionOn, f.CompletedResolutionOn, f.IsCompleted,
-                f.CorrectiveAction, f.PreventiveAction,
+                c.Id, name = c.Name.Trim(), c.Brn, c.Website, c.IsActive, c.IncCertNo, c.NoOfEmployees, c.PaidUpCapital, c.CompanyGroup,
+                companyGroupLabel = CompanyGroups.List.Label(c.CompanyGroup), c.CompanyGroupNameId,
+                groupName = c.CompanyGroupNameId is { } g ? w.Store.Get<CompanyGroupName>(g)?.GroupName ?? "" : "", c.CrmCompanyId,
+                createdDate = Date(c.CreatedDate), updatedDate = Date(c.UpdatedDate), c.CompAccountType, compAccountTypeLabel = CompAccountTypes.List.Label(c.CompAccountType),
+                c.CompOwnership, compOwnershipLabel = CompOwnerships.List.Label(c.CompOwnership), c.IsCaretake, createdBy = Person(c.CreatedBy), updatedBy = Person(c.UpdatedBy),
+                c.Remarks, c.IsChannelPartner, c.Phone, c.Fax, c.IsCreatedByMsd, c.MifPotential, c.Revenue, industry = CompanyIndustries.List.Label(c.CompanyIndustry),
+                customerType = CustomerTypes.List.Label(c.CustomerType), c.CustomerNo, c.CreditTerms, c.SalesRemarks, c.AdvanceCustomerType,
+                advanceCustomerTypeLabel = AdvanceCustomerTypes.List.Label(c.AdvanceCustomerType),
             },
-            rights,
-            kpi = new { acknowledgeTarget = Domain.Statistics.AcknowledgeTarget, startTarget = Domain.Statistics.StartTarget, closeTarget = Domain.Statistics.CloseTarget },
-            sla,
-            tasks = tasks.Select(t => new
+            owner = owner is { } ow ? new { login = ow.Owner, name = Name(ow.Owner), territoryId = ow.Territory.Id, territory = Territories.Title(ow.Territory) } : null,
+            billingAddresses = addresses.Where(a => a.AddressType == AddressTypes.Billing).Select(Companies.AddressText),
+            addresses = addresses.Select(a => new
             {
-                t.Id, t.TaskType, t.ActionPlan, t.Remarks, personInCharge = Person(t.PersonInCharge), t.DueDate, t.IsCompleted, t.CreatedOn, createdBy = Name(t.CreatedBy),
-                mine = actor.IsLogin(t.PersonInCharge),
-                canEdit = rights.NotClosed && (rights.InCharge || actor.IsLogin(t.PersonInCharge)),
-                canRemove = rights.NotClosed && rights.InCharge,
+                a.Id, type = a.AddressType, typeLabel = AddressTypes.List.Label(a.AddressType), a.IsDefault, text = Companies.AddressText(a), a.UnitNumber, a.Block,
+                a.Street, a.BuildingName, a.PostalCode, a.City, a.StateProvince, a.Country,
             }),
-            files = id == 0 ? new List<object>() : w.Feedbacks.Files(f.Id).Select(x => (object)new { x.Id, x.FileName, x.Kind, size = x.Content.Length, x.UploadedOn, uploadedBy = Name(x.UploadedBy) }).ToList(),
-            holidays = w.Holidays.Available,
+            contacts = w.Companies.Contacts(c.Id).Select(v => new
+            {
+                v.Contact.Id, name = Companies.ContactName(v.Contact), v.IsDefault, v.Contact.Department, v.Contact.Designation, v.Contact.IsEqList, v.Contact.IsLinkedIn,
+                phones = v.Phones.Select(p => new { typeLabel = PhoneTypes.List.Label(p.PhoneType), number = p.Number }),
+                emails = v.Emails.Select(e => new { address = e.Address, consent = e.ConsentToMarketingInfo }),
+            }),
+            relationships = new
+            {
+                parent = parent is null ? null : new { relationshipId = parent.Id, id = parent.CompanyId, name = CompanyName(parent.CompanyId) },
+                siblings = siblings.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId) }),
+                subsidiaries = subsidiaries.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId) }),
+            },
+            movements = actor.SeesMovements
+                ? w.Territories.Movements(c.Id).Select(m => (object)new
+                {
+                    from = Name(m.FromUser), fromTeam = TeamOf(m.FromUser, teams), to = Name(m.ToUser), toTeam = TeamOf(m.ToUser, teams), by = Name(m.UpdatedBy),
+                    at = m.UpdatedAt,
+                }).ToList()
+                : null,
+            caretakes = w.Companies.Caretakes(c.Id).Select(r => r.CaretakeAccountRemarks),
+            can = new { edit = actor.IsSalesAdmin, editContacts = actor.CanEditContacts, editRemarks = true, territories = actor.CanManageTerritories },
         });
     }
 
-    private ApiResponse SetupLists() => ApiResponse.Of(new
+    private ApiResponse ContactEditor(Actor actor, long companyId, long contactId)
     {
-        divisions = w.Feedbacks.Divisions().Select(d => new { d.Id, d.Name, d.PersonInCharge, personName = w.People.NameOf(d.PersonInCharge) }),
-        categories = w.Feedbacks.Categories().Select(c => new { c.Id, c.Label, c.SortOrder, c.IsActive }),
-        mediums = w.Feedbacks.Mediums().Select(c => new { c.Id, c.Label, c.SortOrder, c.IsActive }),
-        people = w.People.Everyone().Select(u => new { u.Login, name = u.DisplayName, u.Email }),
-    });
-
-    /// <summary>MyCRM's BackOffice: every active feedback, newest first, with its KPI dates (50 at a time).</summary>
-    private ApiResponse KpiRows(string q, int skip)
-    {
-        var search = (q ?? "").Trim().TrimStart('#');
-        var all = w.Store.Find<Feedback>(Query.Where("IsActive", true))
-            .Where(f => search.Length == 0 || f.Id.ToString(CultureInfo.InvariantCulture) == search || f.CompanyName.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0)
-            .OrderByDescending(f => f.Id).ToList();
+        if (w.Companies.Get(companyId) is not { } company) return ApiResponse.NotFound();
+        if (!w.Companies.CanOpen(actor, company)) return ApiResponse.Forbidden("You don't have permissions to view this company.");
+        if (contactId == 0) return ApiResponse.Of(new { contact = (object?)null, emails = Array.Empty<object>(), phones = Array.Empty<object>() });
+        if (w.Companies.ContactForEdit(companyId, contactId) is not { } edit) return ApiResponse.NotFound();
+        var c = edit.Contact;
         return ApiResponse.Of(new
         {
-            total = all.Count, skip, take = 50,
-            rows = all.Skip(skip).Take(50).Select(f => new
+            contact = new { c.Id, c.Salutation, c.FirstName, c.MiddleName, c.LastName, c.Department, c.Designation, c.IsLinkedIn, c.IsEqList, isDefault = edit.IsDefault },
+            emails = edit.Emails.Select(e => new { e.Id, address = e.Address, consentToMarketingInfo = e.ConsentToMarketingInfo }),
+            phones = edit.Phones.Select(p => new { p.Id, number = p.Number, phoneType = p.PhoneType }),
+        });
+    }
+
+    private ApiResponse ListTerritories(bool includeInactive)
+    {
+        var counts = w.Territories.CompanyCounts();
+        return ApiResponse.Of(new
+        {
+            territories = w.Territories.All(includeInactive).Select(t => new
             {
-                f.Id, f.CompanyName, statusLabel = FeedbackStatuses.List.Label(f.Status), f.CreatedOn, f.DateReceived, timeReceived = TimesOfDay.Short(f.TimeReceived),
-                f.AcknowledgedDate, acknowledgedTime = TimesOfDay.Short(f.AcknowledgedTime), f.AcknowledgedHours, f.StartedResolutionOn, f.StartResolutionDays,
-                f.IsCompleted, f.CompletedResolutionOn, f.CloseCaseDays,
+                t.Id, title = Territories.Title(t), t.Name, t.Number, owner = Person(t.Owner), t.IsActive, companies = counts.TryGetValue(t.Id, out var n) ? n : 0,
             }),
         });
     }
 
-    private ApiResponse StatisticsOf(int year)
+    private ApiResponse TerritoryDetail(long id, string q, int skip)
     {
-        var figures = w.Statistics.Year(year);
-        var divisions = w.Feedbacks.DivisionNames();
+        if (w.Territories.Get(id) is not { } t) return ApiResponse.NotFound();
+        var (total, rows) = w.Territories.Companies(t.Id, q, skip);
         return ApiResponse.Of(new
         {
-            year, label = FinancialYears.Label(year),
-            years = w.Statistics.Years().Select(y => new { year = y, label = FinancialYears.Label(y) }),
-            targets = new { acknowledge = Domain.Statistics.AcknowledgeTarget, start = Domain.Statistics.StartTarget, close = Domain.Statistics.CloseTarget, within = 95 },
-            months = figures.Months.Select(m => new
+            territory = new { t.Id, title = Territories.Title(t), t.Name, t.Number, owner = Person(t.Owner), t.IsActive, createdBy = Name(t.CreatedBy), t.CreatedOn },
+            companies = new { total, skip, take = Territories.PageSize, rows = rows.Select(c => new { c.Id, name = c.Name.Trim(), c.Brn }) },
+        });
+    }
+
+    private ApiResponse ListCrmUsers(string q, bool all)
+    {
+        var teams = w.Users.Teams().ToDictionary(t => t.Id, t => t.Name);
+        return ApiResponse.Of(new
+        {
+            people = w.Users.List(q, all).Select(p => new
             {
-                month = m.Month, label = m.Month.ToString("MMM yyyy", CultureInfo.InvariantCulture), ids = m.Ids, acknowledgedHours = m.AcknowledgedHours,
-                startResolutionDays = m.StartResolutionDays, closeCaseDays = m.CloseCaseDays, within = m.WithinTarget, over = m.OverTarget,
+                p.Login, p.Name, p.Email, p.Role, roleLabel = CrmRoles.List.Label(p.Role), teams = p.Teams.Select(t => teams.TryGetValue(t, out var n) ? n : "#" + t.ToString(CultureInfo.InvariantCulture)),
+                p.SalesmanCode, p.TerritoryCode, p.IsCrmUser, p.Territories,
             }),
-            categories = figures.Categories.Select(s => new { label = s.Label, ids = s.Ids }),
-            divisions = figures.Divisions.Select(s => new { label = s.Label, ids = s.Ids }),
-            feedbacks = figures.Feedbacks.Select(f => new
-            {
-                f.Id, f.CompanyName, statusLabel = FeedbackStatuses.List.Label(f.Status), inCharge = Name(f.PersonResponsible), division = Feedbacks.DivisionOf(f, divisions),
-                f.DateReceived, f.AcknowledgedHours, f.StartResolutionDays, f.CloseCaseDays,
-            }),
-            reportMonths = FinancialYears.Months(year).Select(m => new { month = m.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), label = m.ToString("MMMM yyyy", CultureInfo.InvariantCulture) }),
-            thisMonth = new DateTime(w.Clock().Year, w.Clock().Month, 1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        });
+    }
+
+    private ApiResponse CrmPerson(string login)
+    {
+        login = (login ?? "").Trim();
+        if (login.Length == 0) return ApiResponse.NotFound();
+        var p = w.Users.PersonOf(login);
+        var name = w.People.NameOf(login);
+        return ApiResponse.Of(new
+        {
+            person = new { p.Login, p.Name, p.Email, p.Role, roleLabel = CrmRoles.List.Label(p.Role), p.Teams, p.Designation, p.PhoneNumber, p.SalesmanCode, p.TerritoryCode, p.IsCrmUser },
+            teams = w.Users.Teams(includeInactive: false).Select(t => new { t.Id, t.Name, namedAfter = Strings.SameText(t.Name, name) }),
+            territories = w.Territories.All().Where(t => Strings.SameText(t.Owner, login)).Select(t => new { t.Id, title = Territories.Title(t) }),
+        });
+    }
+
+    private ApiResponse ListTeams()
+    {
+        var members = w.Store.Find<CrmUser>(Query.Where("IsActive", true)).Where(u => u.TeamId is not null).GroupBy(u => u.TeamId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(u => u.Login).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        return ApiResponse.Of(new
+        {
+            teams = w.Users.Teams().Select(t => new { t.Id, t.Name, t.ShortName, t.IsActive, members = members.TryGetValue(t.Id, out var n) ? n : 0 }),
         });
     }
 }

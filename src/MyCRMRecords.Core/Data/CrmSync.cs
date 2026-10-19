@@ -7,55 +7,39 @@ using OldRow = System.Collections.Generic.Dictionary<string, object?>;
 namespace MyCRMRecords.Data;
 
 /// <summary>
-/// What the sync with MyCRM copies, both ways (OldAppSync): its feedback categories, mediums and divisions, the
-/// feedbacks, their tasks and their attachments, in the OutSystems database. People are written as their OutSystems
-/// user (found by login, name or email), never added to OutSystems; MyCRM's static entities are matched by label.
+/// What the sync with MyCRM copies, both ways (OldAppSync): the Users, Territory and Company part of MyCRM, in the
+/// OutSystems database. People are written as their OutSystems user (found by login, name or email), never added to
+/// OutSystems; MyCRM's static entities are matched by label.
 /// <list type="bullet">
-/// <item>Nothing is deleted on either side. A feedback or a division removed here is inactive there (MyCRM's own
-/// mark). A category or a medium removed here gets ISACTIVE 0 there. A task or an attachment removed here is
-/// detached from its feedback there (FEEDBACKID emptied, SESSIONID "X:&lt;feedback&gt;:&lt;session&gt;", so MyCRM no
-/// longer shows it, and the feedback stays known); an attachment's FILENAME also gets "(removed) " before it. A row
-/// MyCRM deleted is marked removed here.</item>
-/// <item>A task or an attachment MyCRM keeps for a feedback never saved (no FEEDBACKID, a session no feedback has) is
-/// left there.</item>
-/// <item>An attachment's bytes are not read at every sync: the rows give their length and SHA-256 (<see cref="CrmTables"/>:
-/// SQL Server hashes only the files not kept here), and the bytes are read only to copy a new or changed file here.</item>
+/// <item>Nothing is deleted on either side. What is taken away here is inactive there (MyCRM's own IsActive) or, for a
+/// company's address link and a group name (no such column in MyCRM), left there as it is. A row MyCRM deleted is marked
+/// here.</item>
+/// <item>Only MyCRM's permanent territories are synced (<see cref="CrmTables"/> reads the active permanent territories
+/// and their active companies): the temporary ones of MyCRM's Projects and CSST parts stay MyCRM's, and the millions of
+/// inactive rows are never read. A territory or a company link that leaves that set in MyCRM is marked inactive here.</item>
+/// <item>A territory's name is kept here only. Territory movements are synced for the last 60 days.</item>
 /// </list>
 /// </summary>
 public static class CrmSync
 {
-    public const string Categories = "FeedbackCategory";
-    public const string Mediums = "FeedbackMedium";
-    public const string Divisions = "FeedbackDivision";
-    public const string Feedbacks = "Feedback";
-    public const string Tasks = "Task";
-    public const string Attachments = "FeedbackAttachment";
+    public const string GroupNames = "CompanyGroupName";
+    public const string Teams = "Team";
+    public const string Users = "CUser";
+    public const string Companies = "Company";
+    public const string Caretakes = "CompanyCaretake";
+    public const string Relationships = "CompanyRelationship";
+    public const string Addresses = "Address";
+    public const string AddressLinks = "CompanyAddressLink";
+    public const string Contacts = "Contacts";
+    public const string ContactLinks = "CompanyContactLink";
+    public const string Phones = "Phone";
+    public const string Emails = "Email";
+    public const string Territories = "Territory";
+    public const string CompanyTerritories = "CompanyTerritory";
+    public const string Movements = "TerritoryMovement";
 
-    /// <summary>Before the file name of an attachment removed here, in MyCRM.</summary>
-    public const string RemovedFile = "(removed) ";
-
-    /// <summary>Before the SESSIONID of a task or attachment removed here (detached from its feedback), in MyCRM.</summary>
-    public const string Detached = "X:";
-
-    /// <summary>"X:&lt;MyCRM's feedback Id&gt;:&lt;session&gt;", at most 50 characters (MyCRM's SessionId).</summary>
-    public static string DetachedSession(long? oldFeedbackId, string session)
-    {
-        var text = Detached + (oldFeedbackId ?? 0).ToString(CultureInfo.InvariantCulture) + ":" + session;
-        return text.Length <= 50 ? text : text.Substring(0, 50);
-    }
-
-    /// <summary>The feedback and session of a row detached by MyCRMRecords (no FEEDBACKID, SESSIONID "X:12:..."); false for any other row.</summary>
-    public static bool IsDetached(OldRow row, out long oldFeedbackId, out string session)
-    {
-        oldFeedbackId = 0;
-        session = OldValues.Text(row, "SESSIONID");
-        if (Long(row, "FEEDBACKID") != 0 || !session.StartsWith(Detached, StringComparison.Ordinal)) return false;
-        var rest = session.Substring(Detached.Length);
-        var colon = rest.IndexOf(':');
-        if (colon <= 0 || !long.TryParse(rest.Substring(0, colon), NumberStyles.Integer, CultureInfo.InvariantCulture, out oldFeedbackId)) return false;
-        session = rest.Substring(colon + 1);
-        return true;
-    }
+    /// <summary>How many days of territory movements are synced (older ones are left as they are on both sides).</summary>
+    public const int MovementDays = 60;
 
     /// <summary>A login of an OutSystems user's Id, or the record's own when the user is not known.</summary>
     private static string LoginOf(SyncContext c, OldRow row, string column, string? existing) =>
@@ -73,9 +57,12 @@ public static class CrmSync
     private static string Code(SyncContext c, ChoiceList list, OldRow row, string column) =>
         list.FromLabel(c.Label(list.OldEntity, row.TryGetValue(column, out var v) ? v : null));
 
-    private static string Time(OldRow row, string column) => TimesOfDay.FromOutSystems(row.TryGetValue(column, out var v) ? v : null);
+    /// <summary>A reference to another synced record: its Id here, the existing one when the row's is not here yet.</summary>
+    private static long? Ref(SyncContext c, string entity, OldRow row, string column) => c.LocalId(entity, Long(row, column));
 
-    public static IReadOnlyList<ISyncEntity> Entities(Func<DateTime> clock, Func<IOldTables?>? tables = null)
+    private static Dictionary<string, object?> Values() => new(StringComparer.OrdinalIgnoreCase);
+
+    public static IReadOnlyList<ISyncEntity> Entities(Func<DateTime> clock)
     {
         // A record found inactive in MyCRM: when and by whom, kept from here when it was taken away here.
         (DateTime? On, string By) Removal(bool active, DateTime? on, string? by, bool wasActive) =>
@@ -83,195 +70,407 @@ public static class CrmSync
 
         return
         [
-            new SyncEntity<FeedbackCategory>
+            new SyncEntity<CompanyGroupName>
             {
-                Name = Categories, Label = "feedback category", OldTable = Categories, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
-                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
-                MarkRemovedHere = r => { r.Removed = true; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
-                Describe = r => r.Label,
-                // Removed here: inactive there (MyCRM deleted it; its own Is Active is the nearest mark).
-                ToOld = (r, _, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["LABEL"] = r.Label, ["ORDER"] = r.SortOrder, ["ISACTIVE"] = r.IsActive && !r.Removed,
-                },
-                FromOld = (row, _, x) => new FeedbackCategory
-                {
-                    Label = Text(row, "LABEL", 50), SortOrder = Int(row, "ORDER"), IsActive = x is { Removed: true } ? x.IsActive : Bool(row, "ISACTIVE"),
-                    Removed = x?.Removed ?? false, RemovedOn = x?.RemovedOn, RemovedBy = x?.RemovedBy ?? "", OutSystemsId = Long(row, "ID"),
-                },
-            },
-            new SyncEntity<FeedbackMedium>
-            {
-                Name = Mediums, Label = "feedback medium", OldTable = Mediums, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
-                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
-                MarkRemovedHere = r => { r.Removed = true; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
-                Describe = r => r.Label,
-                ToOld = (r, _, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["LABEL"] = r.Label, ["ORDER"] = r.SortOrder, ["ISACTIVE"] = r.IsActive && !r.Removed,
-                },
-                FromOld = (row, _, x) => new FeedbackMedium
-                {
-                    Label = Text(row, "LABEL", 50), SortOrder = Int(row, "ORDER"), IsActive = x is { Removed: true } ? x.IsActive : Bool(row, "ISACTIVE"),
-                    Removed = x?.Removed ?? false, RemovedOn = x?.RemovedOn, RemovedBy = x?.RemovedBy ?? "", OutSystemsId = Long(row, "ID"),
-                },
-            },
-            new SyncEntity<FeedbackDivision>
-            {
-                Name = Divisions, Label = "division", OldTable = Divisions, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                Name = GroupNames, Label = "company group name", OldTable = GroupNames, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
                 OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
                 MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
+                Describe = r => r.GroupName,
+                // Removed here: MyCRM has no mark for it, so it keeps it (as a choice nobody uses).
+                ToOld = (r, _, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase) { ["GROUPNAME"] = r.GroupName },
+                FromOld = (row, _, x) => new CompanyGroupName
+                {
+                    GroupName = Text(row, "GROUPNAME", 255), IsActive = x?.IsActive ?? true, RemovedOn = x?.RemovedOn, RemovedBy = x?.RemovedBy ?? "",
+                    OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CrmTeam>
+            {
+                Name = Teams, Label = "team", OldTable = Teams, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                MarkRemovedHere = r => r.IsActive = false,
                 Describe = r => r.Name,
-                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                ToOld = (r, _, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["DIVISION"] = r.Name, ["PERSONINCHARGE"] = c.OldUser(r.PersonInCharge), ["ISACTIVE"] = r.IsActive,
+                    ["NAME"] = r.Name, ["SHORTNAME"] = r.ShortName, ["ISACTIVE"] = r.IsActive,
                 },
-                FromOld = (row, c, x) =>
+                FromOld = (row, _, _) => new CrmTeam
                 {
-                    var active = Bool(row, "ISACTIVE");
-                    var removal = Removal(active, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
-                    return new FeedbackDivision
-                    {
-                        Name = Text(row, "DIVISION", 50), PersonInCharge = LoginOf(c, row, "PERSONINCHARGE", x?.PersonInCharge), IsActive = active,
-                        RemovedOn = removal.On, RemovedBy = removal.By, OutSystemsId = Long(row, "ID"),
-                    };
+                    Name = Text(row, "NAME", 255), ShortName = Text(row, "SHORTNAME", 50), IsActive = Bool(row, "ISACTIVE"), OutSystemsId = Long(row, "ID"),
                 },
             },
-            new SyncEntity<Feedback>
+            new SyncEntity<CrmUser>
             {
-                // The feedback's number is the same in both while the sync is on.
-                Name = Feedbacks, Label = "feedback", OldTable = Feedbacks, TakesOldNumbers = true,
-                OldCreatedOnColumn = "CREATEDON", OldUpdatedOnColumn = "UPDATEDON", UpdatedOn = r => r.UpdatedOn ?? r.CreatedOn,
+                Name = Users, Label = "CRM user", OldTable = Users, OldCreatedOnColumn = "CREATEDAT", OldUpdatedOnColumn = "UPDATEDAT",
+                UpdatedOn = r => r.UpdatedAt ?? r.CreatedAt,
                 OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
-                Parents = [(Categories, r => r.CategoryId), (Mediums, r => r.MediumId), (Divisions, r => r.DivisionId)],
-                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
-                Describe = r => $"#{r.Id.ToString(CultureInfo.InvariantCulture)} ({r.CompanyName})",
+                Parents = [(Teams, r => r.TeamId)],
+                // A profile is written for a person MyCRM knows (an OutSystems user), never with no person.
+                CanWrite = (r, c) => c.OldUser(r.Login) is not null,
+                // Deleted in MyCRM (its user page deletes a person's profiles at every save): inactive here, without its team.
+                MarkRemovedHere = r =>
+                {
+                    if (r.TeamId is not null) r.FormerTeamId = r.TeamId;
+                    r.TeamId = null;
+                    r.IsActive = false;
+                    r.RemovedOn ??= clock();
+                    if (r.RemovedBy.Length == 0) r.RemovedBy = "MyCRM";
+                },
+                Describe = r => $"{r.Login} ({CrmRoles.List.Label(r.Role)})",
                 ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["FEEDBACKGROUPID"] = Static(c, FeedbackGroups.List, r.FeedbackGroup), ["PERSONRESPONSIBLE"] = c.OldUser(r.PersonResponsible),
-                    ["PERSONRESPONSIBLEDIVISION"] = r.PersonResponsibleDivision, ["FEEDBACKSTATUSID"] = Static(c, FeedbackStatuses.List, r.Status),
-                    ["COMPANYNAME"] = r.CompanyName, ["COMPANYADDRESS"] = r.CompanyAddress, ["POSTALCODE"] = r.PostalCode, ["COMPANYPHONE"] = r.CompanyPhone,
-                    ["COMPANYFAX"] = r.CompanyFax, ["COMPANYEMAIL"] = r.CompanyEmail, ["CONTACTNAME"] = r.ContactName, ["FEEDBACKMEDIUMID"] = c.OldId(Mediums, r.MediumId),
-                    ["DATERECEIVED"] = Day(r.DateReceived), ["TIMERECEIVED"] = TimesOfDay.ToOutSystems(r.TimeReceived),
-                    ["FEEDBACKTYPEID"] = Static(c, FeedbackTypes.List, r.FeedbackType), ["FEEDBACKCATEGORYID"] = c.OldId(Categories, r.CategoryId),
-                    ["FEEDBACKDESCRIPTION"] = r.Description, ["STAFFRESPONSIBLEFORPROBLEM"] = c.OldUser(r.StaffResponsibleForProblem), ["CC"] = r.Cc,
-                    ["ISACKNOWLEDGED"] = r.IsAcknowledged, ["ACKNOWLEDGEDTYPEID"] = Static(c, AcknowledgedTypes.List, r.AcknowledgedType),
-                    ["ACKNOWLEDGEDDATE"] = Day(r.AcknowledgedDate), ["ACKNOWLEDGEDTIME"] = TimesOfDay.ToOutSystems(r.AcknowledgedTime), ["SIGNOFF"] = c.OldUser(r.SignOff),
-                    ["FIRSTLOOKATFEEDBACK"] = r.FirstLookAtFeedback, ["ROOTCAUSE"] = r.RootCause, ["CORRECTIVEACTION"] = r.CorrectiveAction,
-                    ["STAFFRESPONSIBLEFORSOLUTION"] = c.OldUser(r.StaffResponsibleForSolution),
-                    ["CUSTOMERSATISFACTIONLEVELID"] = Static(c, SatisfactionLevels.List, r.SatisfactionLevel),
-                    ["CREATEDON"] = r.CreatedOn, ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["CREATEDBYUSERNAME"] = r.CreatedByUserName, ["UPDATEDON"] = r.UpdatedOn,
-                    ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["UPDATEDBYUSERNAME"] = r.UpdatedByUserName, ["ISACTIVE"] = r.IsActive, ["SESSIONID"] = r.SessionId,
-                    ["ACKNOWLEGEDHOURS"] = r.AcknowledgedHours, ["STARTRESOLUTIONDAYS"] = r.StartResolutionDays, ["CLOSECASEDAYS"] = r.CloseCaseDays,
-                    ["STARTEDRESOLUTIONON"] = r.StartedResolutionOn, ["COMPLETEDRESOLUTIONON"] = r.CompletedResolutionOn, ["ISCOMPLETED"] = r.IsCompleted,
-                    ["CREATORHASSOLUTION"] = r.CreatorHasSolution, ["ESS_CREATORSOLUTIONDETAIL"] = r.SolutionDetail, ["ESS_EXPECTEDOUTCOME"] = r.ExpectedOutcome,
-                    ["ESS_SUGGESTIONMEETCRITERIA"] = r.SuggestionMeetCriteria, ["ESS_RICOHWAYVALUE"] = r.RicohWayValue, ["HRACCEPTED"] = r.HrAccepted,
-                    ["HRREMARKS"] = r.HrRemarks, ["HRUPDATEDON"] = r.HrUpdatedOn, ["HRUPDATEDBY"] = c.OldUser(r.HrUpdatedBy), ["PREVENTIVEACTION"] = r.PreventiveAction,
-                    ["MIGHTCAUSECUSTOMERCOMPLAINT"] = r.MightCauseCustomerComplaint, ["FEEDBACKDIVISIONID"] = c.OldId(Divisions, r.DivisionId),
+                    ["USERID"] = c.OldUser(r.Login), ["ROLEID"] = Static(c, CrmRoles.List, r.Role), ["TEAMID"] = c.OldId(Teams, r.TeamId), ["ISACTIVE"] = r.IsActive,
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["CREATEDAT"] = r.CreatedAt, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["UPDATEDAT"] = r.UpdatedAt,
+                    ["DESIGNATION"] = r.Designation, ["PHONENUMBER"] = r.PhoneNumber, ["SALESMANCODE"] = r.SalesmanCode, ["CID"] = r.CId,
+                    ["PROFILEID"] = r.ProfileId is { } p && p != 0 ? p : null, ["TERRITORYCODE"] = r.TerritoryCode,
                 },
                 FromOld = (row, c, x) =>
                 {
+                    var login = LoginOf(c, row, "USERID", x?.Login);
+                    if (login.Length == 0) return null;
                     var active = Bool(row, "ISACTIVE");
                     var removal = Removal(active, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
-                    var status = Code(c, FeedbackStatuses.List, row, "FEEDBACKSTATUSID");
-                    var hr = OldValues.Text(row, "HRACCEPTED");
-                    return new Feedback
+                    var profile = Long(row, "PROFILEID");
+                    return new CrmUser
                     {
-                        FeedbackGroup = Code(c, FeedbackGroups.List, row, "FEEDBACKGROUPID"), Status = status.Length > 0 ? status : x?.Status ?? FeedbackStatuses.New,
-                        PersonResponsible = LoginOf(c, row, "PERSONRESPONSIBLE", x?.PersonResponsible), PersonResponsibleDivision = Text(row, "PERSONRESPONSIBLEDIVISION", 50),
-                        DivisionId = c.LocalId(Divisions, Long(row, "FEEDBACKDIVISIONID")), CompanyName = Text(row, "COMPANYNAME", 500),
-                        CompanyAddress = Text(row, "COMPANYADDRESS", 5000), PostalCode = Text(row, "POSTALCODE", 50), CompanyPhone = Text(row, "COMPANYPHONE", 20),
-                        CompanyFax = Text(row, "COMPANYFAX", 20), CompanyEmail = Text(row, "COMPANYEMAIL", 250), ContactName = Text(row, "CONTACTNAME", 50),
-                        MediumId = c.LocalId(Mediums, Long(row, "FEEDBACKMEDIUMID")), DateReceived = Date(row, "DATERECEIVED")?.Date, TimeReceived = Time(row, "TIMERECEIVED"),
-                        FeedbackType = Code(c, FeedbackTypes.List, row, "FEEDBACKTYPEID"), CategoryId = c.LocalId(Categories, Long(row, "FEEDBACKCATEGORYID")),
-                        Description = OldValues.Text(row, "FEEDBACKDESCRIPTION"), StaffResponsibleForProblem = LoginOf(c, row, "STAFFRESPONSIBLEFORPROBLEM", x?.StaffResponsibleForProblem),
-                        Cc = OldValues.Text(row, "CC"), IsAcknowledged = Bool(row, "ISACKNOWLEDGED"), AcknowledgedType = Code(c, AcknowledgedTypes.List, row, "ACKNOWLEDGEDTYPEID"),
-                        AcknowledgedDate = Date(row, "ACKNOWLEDGEDDATE")?.Date, AcknowledgedTime = Time(row, "ACKNOWLEDGEDTIME"),
-                        SignOff = LoginOf(c, row, "SIGNOFF", x?.SignOff), FirstLookAtFeedback = OldValues.Text(row, "FIRSTLOOKATFEEDBACK"),
-                        RootCause = OldValues.Text(row, "ROOTCAUSE"), CorrectiveAction = OldValues.Text(row, "CORRECTIVEACTION"),
-                        StaffResponsibleForSolution = LoginOf(c, row, "STAFFRESPONSIBLEFORSOLUTION", x?.StaffResponsibleForSolution),
-                        SatisfactionLevel = Code(c, SatisfactionLevels.List, row, "CUSTOMERSATISFACTIONLEVELID"), CreatedOn = Date(row, "CREATEDON"),
-                        CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), CreatedByUserName = Text(row, "CREATEDBYUSERNAME", 500), UpdatedOn = Date(row, "UPDATEDON"),
-                        UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy), UpdatedByUserName = Text(row, "UPDATEDBYUSERNAME", 500), IsActive = active,
-                        RemovedOn = removal.On, RemovedBy = removal.By, SessionId = Text(row, "SESSIONID", 50), AcknowledgedHours = Int(row, "ACKNOWLEGEDHOURS"),
-                        StartResolutionDays = Int(row, "STARTRESOLUTIONDAYS"), CloseCaseDays = Int(row, "CLOSECASEDAYS"), StartedResolutionOn = Date(row, "STARTEDRESOLUTIONON"),
-                        CompletedResolutionOn = Date(row, "COMPLETEDRESOLUTIONON"), IsCompleted = Bool(row, "ISCOMPLETED"), CreatorHasSolution = Bool(row, "CREATORHASSOLUTION"),
-                        SolutionDetail = OldValues.Text(row, "ESS_CREATORSOLUTIONDETAIL"), ExpectedOutcome = OldValues.Text(row, "ESS_EXPECTEDOUTCOME"),
-                        SuggestionMeetCriteria = Text(row, "ESS_SUGGESTIONMEETCRITERIA", 500), RicohWayValue = Text(row, "ESS_RICOHWAYVALUE", 500),
-                        HrAccepted = hr.Length > 0 ? Strings.Shorten(hr, 50) : HrAnswers.None, HrRemarks = OldValues.Text(row, "HRREMARKS"), HrUpdatedOn = Date(row, "HRUPDATEDON"),
-                        HrUpdatedBy = LoginOf(c, row, "HRUPDATEDBY", x?.HrUpdatedBy), PreventiveAction = OldValues.Text(row, "PREVENTIVEACTION"),
-                        MightCauseCustomerComplaint = Bool(row, "MIGHTCAUSECUSTOMERCOMPLAINT"), OutSystemsId = Long(row, "ID"),
-                    };
-                },
-            },
-            new SyncEntity<FeedbackTask>
-            {
-                Name = Tasks, Label = "task", OldTable = Tasks, OldCreatedOnColumn = "CREATEDON", OldUpdatedOnColumn = null,
-                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
-                Parents = [(Feedbacks, r => r.FeedbackId)],
-                OldParent = (Feedbacks, "feedback", "FEEDBACKID"),
-                CanWrite = (r, c) => c.OldId(Feedbacks, r.FeedbackId) is not null,
-                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
-                Describe = r => $"{Strings.Shorten(r.ActionPlan, 60)} of feedback #{r.FeedbackId.ToString(CultureInfo.InvariantCulture)}",
-                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    // Removed here: detached from its feedback there (never deleted), the feedback kept in its session.
-                    ["FEEDBACKID"] = r.IsActive ? c.OldId(Feedbacks, r.FeedbackId) : null, ["ACTIONPLAN"] = r.ActionPlan, ["REMARKS"] = r.Remarks,
-                    ["PERSONINCHARGE"] = c.OldUser(r.PersonInCharge), ["DUEDATE"] = Day(r.DueDate), ["SLAEXPECTEDCOMPLETIONDATE"] = Day(r.SlaExpectedCompletionDate),
-                    ["ISCOMPLETED"] = r.IsCompleted, ["CREATEDON"] = r.CreatedOn, ["CREATEDBY"] = c.OldUser(r.CreatedBy),
-                    ["SESSIONID"] = r.IsActive ? r.SessionId : DetachedSession(c.OldId(Feedbacks, r.FeedbackId), r.SessionId),
-                    ["TASKTYPEID"] = Static(c, TaskTypes.List, r.TaskType),
-                },
-                FromOld = (row, c, x) =>
-                {
-                    var removed = IsDetached(row, out var oldFeedback, out var session);
-                    if (c.LocalId(Feedbacks, removed ? oldFeedback : Long(row, "FEEDBACKID")) is not { } feedback) return null;
-                    var removal = Removal(!removed, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
-                    var type = Code(c, TaskTypes.List, row, "TASKTYPEID");
-                    return new FeedbackTask
-                    {
-                        FeedbackId = feedback, ActionPlan = OldValues.Text(row, "ACTIONPLAN"), Remarks = Text(row, "REMARKS", 5000),
-                        PersonInCharge = LoginOf(c, row, "PERSONINCHARGE", x?.PersonInCharge), DueDate = Date(row, "DUEDATE")?.Date,
-                        SlaExpectedCompletionDate = Date(row, "SLAEXPECTEDCOMPLETIONDATE")?.Date, IsCompleted = Bool(row, "ISCOMPLETED"), CreatedOn = Date(row, "CREATEDON"),
-                        CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), SessionId = Strings.Shorten(session, 50),
-                        TaskType = type.Length > 0 ? type : x?.TaskType ?? TaskTypes.Corrective, IsActive = !removed, RemovedOn = removal.On, RemovedBy = removal.By,
+                        Login = login, Role = Code(c, CrmRoles.List, row, "ROLEID"), TeamId = Ref(c, Teams, row, "TEAMID"), IsActive = active,
+                        CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), CreatedAt = Date(row, "CREATEDAT"), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy),
+                        UpdatedAt = Date(row, "UPDATEDAT"), Designation = Text(row, "DESIGNATION", 50), PhoneNumber = Text(row, "PHONENUMBER", 20),
+                        SalesmanCode = Text(row, "SALESMANCODE", 50), CId = Int(row, "CID"), ProfileId = profile == 0 ? null : profile,
+                        TerritoryCode = Text(row, "TERRITORYCODE", 50), FormerTeamId = x?.FormerTeamId, RemovedOn = removal.On, RemovedBy = removal.By,
                         OutSystemsId = Long(row, "ID"),
                     };
                 },
             },
-            new SyncEntity<FeedbackFile>
+            new SyncEntity<Company>
             {
-                Name = Attachments, Label = "attachment", OldTable = Attachments, OldCreatedOnColumn = "UPLOADEDON", OldUpdatedOnColumn = null,
+                // The company's number is the same in both while the sync is on (other parts of MyCRM and Advance refer to it).
+                Name = Companies, Label = "company", OldTable = Companies, TakesOldNumbers = true,
+                OldCreatedOnColumn = "CREATEDDATE", OldUpdatedOnColumn = "UPDATEDDATE", UpdatedOn = r => r.UpdatedDate ?? r.CreatedDate,
                 OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
-                Parents = [(Feedbacks, r => r.FeedbackId)],
-                OldParent = (Feedbacks, "feedback", "FEEDBACKID"),
-                CanWrite = (r, c) => c.OldId(Feedbacks, r.FeedbackId) is not null,
-                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn = clock(); r.RemovedBy = "MyCRM"; },
-                Describe = r => $"{r.FileName} of feedback #{r.FeedbackId.ToString(CultureInfo.InvariantCulture)}",
+                Parents = [(GroupNames, r => r.CompanyGroupNameId), (GroupNames, r => r.PreCompanyGroupNameId)],
+                MarkRemovedHere = r => r.IsActive = false,
+                Describe = r => $"#{r.Id.ToString(CultureInfo.InvariantCulture)} ({r.Name})",
                 ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["FEEDBACKID"] = r.IsActive ? c.OldId(Feedbacks, r.FeedbackId) : null,
-                    ["FILENAME"] = Strings.Shorten((r.IsActive ? "" : RemovedFile) + r.FileName, 500), ["FILEBINARY"] = r.Content, ["TYPE"] = r.Kind,
-                    ["UPLOADEDBY"] = c.OldUser(r.UploadedBy), ["UPLOADEDON"] = r.UploadedOn,
-                    ["SESSIONID"] = r.IsActive ? r.SessionId : DetachedSession(c.OldId(Feedbacks, r.FeedbackId), r.SessionId),
+                    ["COMPANY"] = r.Name, ["BRN"] = r.Brn, ["WEBSITE"] = r.Website, ["ISACTIVE"] = r.IsActive, ["INCCERTNO"] = r.IncCertNo,
+                    ["NOOFEMPLOYEES"] = r.NoOfEmployees, ["PAIDUPCAPITAL"] = r.PaidUpCapital, ["COMPANYGROUPID"] = Static(c, CompanyGroups.List, r.CompanyGroup),
+                    ["COMPANYGROUPNAMEID"] = c.OldId(GroupNames, r.CompanyGroupNameId), ["CRMCOMPANYID"] = r.CrmCompanyId, ["CREATEDDATE"] = Day(r.CreatedDate),
+                    ["UPDATEDDATE"] = Day(r.UpdatedDate), ["COMPACCOUNTTYPEID"] = Static(c, CompAccountTypes.List, r.CompAccountType),
+                    ["COMPOWNERSHIPID"] = Static(c, CompOwnerships.List, r.CompOwnership), ["ISCARETAKE"] = r.IsCaretake, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy),
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["REMARKS"] = r.Remarks, ["ISCHANNELPARTNER"] = r.IsChannelPartner, ["PHONE"] = r.Phone, ["FAX"] = r.Fax,
+                    ["ISCREATEDBYMSD"] = r.IsCreatedByMsd, ["MIFPOTENTIAL"] = r.MifPotential, ["REVENUE"] = r.Revenue,
+                    ["COMPANYINDUSTRYID"] = Static(c, CompanyIndustries.List, r.CompanyIndustry), ["PRECOMPANYNAME"] = r.PreName, ["PREBRN"] = r.PreBrn,
+                    ["PREWEBSITE"] = r.PreWebsite, ["PREISACTIVE"] = r.PreIsActive, ["PREINCCERTNO"] = r.PreIncCertNo, ["PRENOOFEMPLOYEES"] = r.PreNoOfEmployees,
+                    ["PREPAIDUPCAPITAL"] = r.PrePaidUpCapital, ["PRECOMPANYGROUPID"] = Static(c, CompanyGroups.List, r.PreCompanyGroup),
+                    ["PRECOMPANYGROUPNAMEID"] = c.OldId(GroupNames, r.PreCompanyGroupNameId), ["PRECOMPACCOUNTTYPEID"] = Static(c, CompAccountTypes.List, r.PreCompAccountType),
+                    ["PRECOMPOWNERSHIPID"] = Static(c, CompOwnerships.List, r.PreCompOwnership), ["PREISCARETAKE"] = r.PreIsCaretake, ["PREREMARKS"] = r.PreRemarks,
+                    ["PREISCHANNELPARTNER"] = r.PreIsChannelPartner, ["PREPHONE"] = r.PrePhone, ["PREFAX"] = r.PreFax, ["PREMIFPOTENTIAL"] = r.PreMifPotential,
+                    ["PREREVENUE"] = r.PreRevenue, ["PRECOMPANYINDUSTRYID"] = Static(c, CompanyIndustries.List, r.PreCompanyIndustry),
+                    ["CUSTOMERTYPEID"] = Static(c, CustomerTypes.List, r.CustomerType), ["ISCHANNELPARTNERFORVSS"] = r.IsChannelPartnerForVss,
+                    ["ISCHANNELPARTNERFORCS"] = r.IsChannelPartnerForCs, ["CUSTOMERNO"] = r.CustomerNo, ["CREDITTERMS"] = r.CreditTerms,
+                    ["SALESREMARKS"] = r.SalesRemarks, ["ADVANCECUSTOMERTYPEID"] = Static(c, AdvanceCustomerTypes.List, r.AdvanceCustomerType),
+                },
+                FromOld = (row, c, x) => new Company
+                {
+                    Name = Text(row, "COMPANY", 250), Brn = Text(row, "BRN", 50), Website = Text(row, "WEBSITE", 100), IsActive = Bool(row, "ISACTIVE"),
+                    IncCertNo = Text(row, "INCCERTNO", 50), NoOfEmployees = Int(row, "NOOFEMPLOYEES"), PaidUpCapital = Int(row, "PAIDUPCAPITAL"),
+                    CompanyGroup = Code(c, CompanyGroups.List, row, "COMPANYGROUPID"), CompanyGroupNameId = Ref(c, GroupNames, row, "COMPANYGROUPNAMEID"),
+                    CrmCompanyId = Long(row, "CRMCOMPANYID"), CreatedDate = Date(row, "CREATEDDATE")?.Date, UpdatedDate = Date(row, "UPDATEDDATE")?.Date,
+                    CompAccountType = Code(c, CompAccountTypes.List, row, "COMPACCOUNTTYPEID"), CompOwnership = Code(c, CompOwnerships.List, row, "COMPOWNERSHIPID"),
+                    IsCaretake = Bool(row, "ISCARETAKE"), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy), CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy),
+                    Remarks = Text(row, "REMARKS", 10000), IsChannelPartner = Bool(row, "ISCHANNELPARTNER"), Phone = Text(row, "PHONE", 20), Fax = Text(row, "FAX", 20),
+                    IsCreatedByMsd = Bool(row, "ISCREATEDBYMSD"), MifPotential = Int(row, "MIFPOTENTIAL"), Revenue = Decimal(row, "REVENUE"),
+                    CompanyIndustry = Code(c, CompanyIndustries.List, row, "COMPANYINDUSTRYID"), PreName = Text(row, "PRECOMPANYNAME", 250),
+                    PreBrn = Text(row, "PREBRN", 50), PreWebsite = Text(row, "PREWEBSITE", 100), PreIsActive = Bool(row, "PREISACTIVE"),
+                    PreIncCertNo = Text(row, "PREINCCERTNO", 50), PreNoOfEmployees = Int(row, "PRENOOFEMPLOYEES"), PrePaidUpCapital = Int(row, "PREPAIDUPCAPITAL"),
+                    PreCompanyGroup = Code(c, CompanyGroups.List, row, "PRECOMPANYGROUPID"), PreCompanyGroupNameId = Ref(c, GroupNames, row, "PRECOMPANYGROUPNAMEID"),
+                    PreCompAccountType = Code(c, CompAccountTypes.List, row, "PRECOMPACCOUNTTYPEID"), PreCompOwnership = Code(c, CompOwnerships.List, row, "PRECOMPOWNERSHIPID"),
+                    PreIsCaretake = Bool(row, "PREISCARETAKE"), PreRemarks = Text(row, "PREREMARKS", 10000), PreIsChannelPartner = Bool(row, "PREISCHANNELPARTNER"),
+                    PrePhone = Text(row, "PREPHONE", 20), PreFax = Text(row, "PREFAX", 20), PreMifPotential = Int(row, "PREMIFPOTENTIAL"),
+                    PreRevenue = Decimal(row, "PREREVENUE"), PreCompanyIndustry = Code(c, CompanyIndustries.List, row, "PRECOMPANYINDUSTRYID"),
+                    CustomerType = Code(c, CustomerTypes.List, row, "CUSTOMERTYPEID"), IsChannelPartnerForVss = Bool(row, "ISCHANNELPARTNERFORVSS"),
+                    IsChannelPartnerForCs = Bool(row, "ISCHANNELPARTNERFORCS"), CustomerNo = Text(row, "CUSTOMERNO", 50), CreditTerms = Text(row, "CREDITTERMS", 50),
+                    SalesRemarks = Text(row, "SALESREMARKS", 50000), AdvanceCustomerType = Code(c, AdvanceCustomerTypes.List, row, "ADVANCECUSTOMERTYPEID"),
+                    OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CompanyCaretake>
+            {
+                Name = Caretakes, Label = "caretake remark", OldTable = Caretakes, OldCreatedOnColumn = "DATECREATED", OldUpdatedOnColumn = "UPDATEDDATE",
+                UpdatedOn = r => r.UpdatedDate ?? r.DateCreated,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId)],
+                OldParent = (Companies, "company", "COMPANYID"),
+                CanWrite = (r, c) => c.OldId(Companies, r.CompanyId) is not null,
+                Describe = r => $"of company #{r.CompanyId.ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["CARETAKEACCOUNTREMARKS"] = r.CaretakeAccountRemarks, ["UPDATEDDATE"] = Day(r.UpdatedDate),
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["DATECREATED"] = Day(r.DateCreated),
+                },
+                FromOld = (row, c, x) => Ref(c, Companies, row, "COMPANYID") is not { } company ? null : new CompanyCaretake
+                {
+                    CompanyId = company, CaretakeAccountRemarks = Text(row, "CARETAKEACCOUNTREMARKS", 10000), UpdatedDate = Date(row, "UPDATEDDATE")?.Date,
+                    CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy),
+                    DateCreated = Date(row, "DATECREATED")?.Date, OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CompanyRelationship>
+            {
+                Name = Relationships, Label = "company relationship", OldTable = Relationships, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId), (Companies, r => r.RelatedCompanyId)],
+                OldParent = (Companies, "company", "COMPANYID"),
+                CanWrite = (r, c) => c.OldId(Companies, r.CompanyId) is not null && c.OldId(Companies, r.RelatedCompanyId) is not null,
+                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn ??= clock(); if (r.RemovedBy.Length == 0) r.RemovedBy = "MyCRM"; },
+                Describe = r => $"#{r.CompanyId.ToString(CultureInfo.InvariantCulture)} → #{r.RelatedCompanyId.ToString(CultureInfo.InvariantCulture)}",
+                // Removed here: inactive there (MyCRM deleted it; its screens read only active ones).
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["COMPANYRELATIONSHIPTYPEID"] = Static(c, RelationshipTypes.List, r.RelationshipType),
+                    ["RELATEDCOMPANYID"] = c.OldId(Companies, r.RelatedCompanyId), ["ISACTIVE"] = r.IsActive,
                 },
                 FromOld = (row, c, x) =>
                 {
-                    var removed = IsDetached(row, out var oldFeedback, out var session);
-                    if (c.LocalId(Feedbacks, removed ? oldFeedback : Long(row, "FEEDBACKID")) is not { } feedback) return null;
-                    var removal = Removal(!removed, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
-                    var name = OldValues.Text(row, "FILENAME");
-                    if (removed && name.StartsWith(RemovedFile, StringComparison.Ordinal)) name = name.Substring(RemovedFile.Length);
-                    // The rows of the sync hold the file's fingerprint: its bytes are read when they are not here yet, or changed.
-                    var content = row.TryGetValue("FILEBINARY", out var value) && value is byte[] bytes ? bytes
-                        : x is not null && Canonical(x.Content) == OldValues.Text(row, "FILEBINARY") ? x.Content
-                        : CrmTables.Bytes(tables?.Invoke(), Long(row, "ID"));
-                    return new FeedbackFile
+                    if (Ref(c, Companies, row, "COMPANYID") is not { } parent || Ref(c, Companies, row, "RELATEDCOMPANYID") is not { } child) return null;
+                    var active = Bool(row, "ISACTIVE");
+                    var removal = Removal(active, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
+                    var type = Code(c, RelationshipTypes.List, row, "COMPANYRELATIONSHIPTYPEID");
+                    return new CompanyRelationship
                     {
-                        FeedbackId = feedback, FileName = Strings.Shorten(name, 500), Content = content, Kind = Text(row, "TYPE", 50),
-                        UploadedBy = LoginOf(c, row, "UPLOADEDBY", x?.UploadedBy), UploadedOn = Date(row, "UPLOADEDON"), SessionId = Strings.Shorten(session, 50),
-                        IsActive = !removed, RemovedOn = removal.On, RemovedBy = removal.By, OutSystemsId = Long(row, "ID"),
+                        CompanyId = parent, RelatedCompanyId = child, RelationshipType = type.Length > 0 ? type : RelationshipTypes.Parent, IsActive = active,
+                        RemovedOn = removal.On, RemovedBy = removal.By, OutSystemsId = Long(row, "ID"),
                     };
+                },
+            },
+            new SyncEntity<Address>
+            {
+                Name = Addresses, Label = "address", OldTable = Addresses, TakesOldNumbers = true, OldCreatedOnColumn = "CREATEDAT", OldUpdatedOnColumn = "UPDATEDAT",
+                UpdatedOn = r => r.UpdatedAt ?? r.CreatedAt,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                MarkRemovedHere = r => r.IsActive = false,
+                Describe = r => $"#{r.Id.ToString(CultureInfo.InvariantCulture)} ({Domain.Companies.AddressText(r)})",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["ADDRESSTYPEID"] = Static(c, AddressTypes.List, r.AddressType), ["UNITNUMBER"] = r.UnitNumber, ["BLOCK"] = r.Block, ["STREET"] = r.Street,
+                    ["BUILDINGNAME"] = r.BuildingName, ["POSTALCODE"] = r.PostalCode, ["ISACTIVE"] = r.IsActive, ["CRMADDRESSID"] = r.CrmAddressId,
+                    ["ISDEFAULT"] = r.IsDefault, ["COUNTRY"] = r.Country, ["CITY"] = r.City, ["STATEPROVINCE"] = r.StateProvince,
+                    ["PREADDRESSTYPEID"] = Static(c, AddressTypes.List, r.PreAddressType), ["PREUNITNUMBER"] = r.PreUnitNumber, ["PREBLOCK"] = r.PreBlock,
+                    ["PRESTREET"] = r.PreStreet, ["PREBUILDINGNAME"] = r.PreBuildingName, ["PREPOSTALCODE"] = r.PrePostalCode, ["PRECOUNTRY"] = r.PreCountry,
+                    ["PRECITY"] = r.PreCity, ["PRESTATEPROVINCE"] = r.PreStateProvince, ["PREISACTIVE"] = r.PreIsActive, ["CREATEDAT"] = r.CreatedAt,
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["UPDATEDAT"] = r.UpdatedAt, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy),
+                },
+                FromOld = (row, c, x) => new Address
+                {
+                    AddressType = Code(c, AddressTypes.List, row, "ADDRESSTYPEID"), UnitNumber = Text(row, "UNITNUMBER", 2000), Block = Text(row, "BLOCK", 2000),
+                    Street = Text(row, "STREET", 2000), BuildingName = Text(row, "BUILDINGNAME", 2000), PostalCode = Text(row, "POSTALCODE", 50),
+                    IsActive = Bool(row, "ISACTIVE"), CrmAddressId = Long(row, "CRMADDRESSID"), IsDefault = Bool(row, "ISDEFAULT"), Country = Text(row, "COUNTRY", 255),
+                    City = Text(row, "CITY", 255), StateProvince = Text(row, "STATEPROVINCE", 255), PreAddressType = Code(c, AddressTypes.List, row, "PREADDRESSTYPEID"),
+                    PreUnitNumber = Text(row, "PREUNITNUMBER", 2000), PreBlock = Text(row, "PREBLOCK", 2000), PreStreet = Text(row, "PRESTREET", 2000),
+                    PreBuildingName = Text(row, "PREBUILDINGNAME", 2000), PrePostalCode = Text(row, "PREPOSTALCODE", 50), PreCountry = Text(row, "PRECOUNTRY", 255),
+                    PreCity = Text(row, "PRECITY", 255), PreStateProvince = Text(row, "PRESTATEPROVINCE", 255), PreIsActive = Bool(row, "PREISACTIVE"),
+                    CreatedAt = Date(row, "CREATEDAT"), CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), UpdatedAt = Date(row, "UPDATEDAT"),
+                    UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy), OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CompanyAddressLink>
+            {
+                Name = AddressLinks, Label = "company address", OldTable = AddressLinks, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId), (Addresses, r => r.AddressId)],
+                OldParent = (Companies, "company", "COMPANYID"),
+                CanWrite = (r, c) => c.OldId(Companies, r.CompanyId) is not null && c.OldId(Addresses, r.AddressId) is not null,
+                // Deleted in MyCRM (with its address): inactive here. Taken away here: MyCRM has no mark, its address is inactive.
+                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn ??= clock(); if (r.RemovedBy.Length == 0) r.RemovedBy = "MyCRM"; },
+                Describe = r => $"address #{r.AddressId.ToString(CultureInfo.InvariantCulture)} of company #{r.CompanyId.ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["ADDRESSID"] = c.OldId(Addresses, r.AddressId), ["CRMADDRESSLINK"] = r.CrmAddressLink,
+                },
+                FromOld = (row, c, x) =>
+                {
+                    if (Ref(c, Companies, row, "COMPANYID") is not { } company || Ref(c, Addresses, row, "ADDRESSID") is not { } address) return null;
+                    return new CompanyAddressLink
+                    {
+                        CompanyId = company, AddressId = address, CrmAddressLink = Long(row, "CRMADDRESSLINK"), IsActive = x?.IsActive ?? true,
+                        RemovedOn = x?.RemovedOn, RemovedBy = x?.RemovedBy ?? "", OutSystemsId = Long(row, "ID"),
+                    };
+                },
+            },
+            new SyncEntity<Contact>
+            {
+                Name = Contacts, Label = "contact", OldTable = Contacts, TakesOldNumbers = true, OldCreatedOnColumn = "CREATEDAT", OldUpdatedOnColumn = "UPDATEDAT",
+                UpdatedOn = r => r.UpdatedAt ?? r.CreatedAt,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                MarkRemovedHere = r => r.IsActive = false,
+                Describe = r => $"#{r.Id.ToString(CultureInfo.InvariantCulture)} ({(r.FirstName + " " + r.LastName).Trim()})",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["FIRSTNAME"] = r.FirstName, ["LASTNAME"] = r.LastName, ["ISACTIVE"] = r.IsActive, ["DEPARTMENT"] = r.Department, ["CID"] = r.CId,
+                    ["MIDDLENAME"] = r.MiddleName, ["CRMCONTACTLINKID"] = r.CrmContactLinkId, ["DESIGNATION"] = r.Designation, ["SALUTATION"] = r.Salutation,
+                    ["CREATEDAT"] = r.CreatedAt, ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["UPDATEDAT"] = r.UpdatedAt, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy),
+                    ["PREFIRSTNAME"] = r.PreFirstName, ["PRELASTNAME"] = r.PreLastName, ["PREISACTIVE"] = r.PreIsActive, ["PREDEPARTMENT"] = r.PreDepartment,
+                    ["PREMIDDLENAME"] = r.PreMiddleName, ["PREDESIGNATION"] = r.PreDesignation, ["PRESALUTATION"] = r.PreSalutation, ["ISLINKEDIN"] = r.IsLinkedIn,
+                    ["ISEQLIST"] = r.IsEqList,
+                },
+                FromOld = (row, c, x) => new Contact
+                {
+                    FirstName = Text(row, "FIRSTNAME", 250), LastName = Text(row, "LASTNAME", 250), IsActive = Bool(row, "ISACTIVE"), Department = Text(row, "DEPARTMENT", 50),
+                    CId = Long(row, "CID"), MiddleName = Text(row, "MIDDLENAME", 250), CrmContactLinkId = Long(row, "CRMCONTACTLINKID"),
+                    Designation = Text(row, "DESIGNATION", 250), Salutation = Text(row, "SALUTATION", 250), CreatedAt = Date(row, "CREATEDAT"),
+                    CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), UpdatedAt = Date(row, "UPDATEDAT"), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy),
+                    PreFirstName = Text(row, "PREFIRSTNAME", 250), PreLastName = Text(row, "PRELASTNAME", 250), PreIsActive = Bool(row, "PREISACTIVE"),
+                    PreDepartment = Text(row, "PREDEPARTMENT", 50), PreMiddleName = Text(row, "PREMIDDLENAME", 250), PreDesignation = Text(row, "PREDESIGNATION", 250),
+                    PreSalutation = Text(row, "PRESALUTATION", 250), IsLinkedIn = Bool(row, "ISLINKEDIN"), IsEqList = Bool(row, "ISEQLIST"), OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CompanyContactLink>
+            {
+                Name = ContactLinks, Label = "company contact", OldTable = ContactLinks, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId), (Contacts, r => r.ContactId)],
+                OldParent = (Contacts, "contact", "CONTACTID"),
+                CanWrite = (r, c) => c.OldId(Companies, r.CompanyId) is not null && c.OldId(Contacts, r.ContactId) is not null,
+                Describe = r => $"contact #{r.ContactId.ToString(CultureInfo.InvariantCulture)} of company #{r.CompanyId.ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["CONTACTID"] = c.OldId(Contacts, r.ContactId), ["CID"] = r.CId, ["ISDEFAULT"] = r.IsDefault,
+                },
+                FromOld = (row, c, _) =>
+                {
+                    if (Ref(c, Companies, row, "COMPANYID") is not { } company || Ref(c, Contacts, row, "CONTACTID") is not { } contact) return null;
+                    return new CompanyContactLink { CompanyId = company, ContactId = contact, CId = Long(row, "CID"), IsDefault = Bool(row, "ISDEFAULT"), OutSystemsId = Long(row, "ID") };
+                },
+            },
+            new SyncEntity<Phone>
+            {
+                Name = Phones, Label = "phone number", OldTable = Phones, OldCreatedOnColumn = "CREATEDAT", OldUpdatedOnColumn = "UPDATEDAT",
+                UpdatedOn = r => r.UpdatedAt ?? r.CreatedAt,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId), (Contacts, r => r.ContactId)],
+                OldParent = (Contacts, "contact", "CONTACTID"),
+                CanWrite = (r, c) => (r.CompanyId is null || c.OldId(Companies, r.CompanyId) is not null) && (r.ContactId is null || c.OldId(Contacts, r.ContactId) is not null),
+                MarkRemovedHere = r => r.IsActive = false,
+                Describe = r => $"{r.Number} of contact #{(r.ContactId ?? 0).ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["CONTACTID"] = c.OldId(Contacts, r.ContactId), ["PHONETYPEID"] = Static(c, PhoneTypes.List, r.PhoneType),
+                    ["PHONE"] = r.Number, ["ISACTIVE"] = r.IsActive, ["CRMPHONEID"] = r.CrmPhoneId, ["CRMPHONELINKID"] = r.CrmPhoneLinkId, ["CREATEDAT"] = r.CreatedAt,
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy), ["UPDATEDAT"] = r.UpdatedAt, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["PREPHONE"] = r.PrePhone,
+                    ["PREPHONETYPEID"] = Static(c, PhoneTypes.List, r.PrePhoneType), ["PREISACTIVE"] = r.PreIsActive,
+                },
+                FromOld = (row, c, x) =>
+                {
+                    // A phone of a company or contact that is not here (yet) waits; one with none is kept as it is.
+                    var company = Long(row, "COMPANYID") == 0 ? null : Ref(c, Companies, row, "COMPANYID");
+                    var contact = Long(row, "CONTACTID") == 0 ? null : Ref(c, Contacts, row, "CONTACTID");
+                    if ((Long(row, "COMPANYID") != 0 && company is null) || (Long(row, "CONTACTID") != 0 && contact is null)) return null;
+                    return new Phone
+                    {
+                        CompanyId = company, ContactId = contact, PhoneType = Code(c, PhoneTypes.List, row, "PHONETYPEID"), Number = Text(row, "PHONE", 20),
+                        IsActive = Bool(row, "ISACTIVE"), CrmPhoneId = Long(row, "CRMPHONEID"), CrmPhoneLinkId = Long(row, "CRMPHONELINKID"), CreatedAt = Date(row, "CREATEDAT"),
+                        CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), UpdatedAt = Date(row, "UPDATEDAT"), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy),
+                        PrePhone = Text(row, "PREPHONE", 20), PrePhoneType = Code(c, PhoneTypes.List, row, "PREPHONETYPEID"), PreIsActive = Bool(row, "PREISACTIVE"),
+                        OutSystemsId = Long(row, "ID"),
+                    };
+                },
+            },
+            new SyncEntity<ContactEmail>
+            {
+                Name = Emails, Label = "email address", OldTable = Emails, OldCreatedOnColumn = "CREATEDAT", OldUpdatedOnColumn = "UPDATEDAT",
+                UpdatedOn = r => r.UpdatedAt ?? r.CreatedAt,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId), (Contacts, r => r.ContactId)],
+                OldParent = (Contacts, "contact", "CONTACTID"),
+                CanWrite = (r, c) => (r.CompanyId is null || c.OldId(Companies, r.CompanyId) is not null) && (r.ContactId is null || c.OldId(Contacts, r.ContactId) is not null),
+                MarkRemovedHere = r => r.IsActive = false,
+                Describe = r => $"{r.Address} of contact #{(r.ContactId ?? 0).ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["EMAIL"] = r.Address, ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["CONTACTID"] = c.OldId(Contacts, r.ContactId), ["ISACTIVE"] = r.IsActive,
+                    ["CID"] = r.Cid, ["CRMEMAILLINKID"] = r.CrmEmailLinkId, ["CREATEDAT"] = r.CreatedAt, ["CREATEDBY"] = c.OldUser(r.CreatedBy),
+                    ["UPDATEDAT"] = r.UpdatedAt, ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["PREEMAIL"] = r.PreEmail, ["PREISACTIVE"] = r.PreIsActive,
+                    ["CONSENTTOMARKETINGINFO"] = r.ConsentToMarketingInfo,
+                },
+                FromOld = (row, c, x) =>
+                {
+                    var company = Long(row, "COMPANYID") == 0 ? null : Ref(c, Companies, row, "COMPANYID");
+                    var contact = Long(row, "CONTACTID") == 0 ? null : Ref(c, Contacts, row, "CONTACTID");
+                    if ((Long(row, "COMPANYID") != 0 && company is null) || (Long(row, "CONTACTID") != 0 && contact is null)) return null;
+                    return new ContactEmail
+                    {
+                        Address = Text(row, "EMAIL", 200), CompanyId = company, ContactId = contact, IsActive = Bool(row, "ISACTIVE"), Cid = Long(row, "CID"),
+                        CrmEmailLinkId = Long(row, "CRMEMAILLINKID"), CreatedAt = Date(row, "CREATEDAT"), CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy),
+                        UpdatedAt = Date(row, "UPDATEDAT"), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy), PreEmail = Text(row, "PREEMAIL", 250),
+                        PreIsActive = Bool(row, "PREISACTIVE"), ConsentToMarketingInfo = Bool(row, "CONSENTTOMARKETINGINFO"), OutSystemsId = Long(row, "ID"),
+                    };
+                },
+            },
+            new SyncEntity<Territory>
+            {
+                // Only active permanent rows are read (CrmTables): one that MyCRM turns off, or makes temporary, is inactive here.
+                Name = Territories, Label = "territory", OldTable = Territories, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn ??= clock(); if (r.RemovedBy.Length == 0) r.RemovedBy = "MyCRM"; },
+                Describe = r => Domain.Territories.Title(r),
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["TERRITORY"] = r.Number, ["OWNERID"] = c.OldUser(r.Owner), ["ISACTIVE"] = r.IsActive, ["ISTEMPORARY"] = false, ["ISOWNER"] = r.IsOwner,
+                },
+                FromOld = (row, c, x) => new Territory
+                {
+                    Name = x?.Name ?? "", Number = Long(row, "TERRITORY"), Owner = LoginOf(c, row, "OWNERID", Long(row, "OWNERID") == 0 ? "" : x?.Owner),
+                    IsActive = Bool(row, "ISACTIVE") && !Bool(row, "ISTEMPORARY"), IsOwner = Bool(row, "ISOWNER"), CreatedOn = x?.CreatedOn, CreatedBy = x?.CreatedBy ?? "",
+                    RemovedOn = x?.RemovedOn, RemovedBy = x?.RemovedBy ?? "", OutSystemsId = Long(row, "ID"),
+                },
+            },
+            new SyncEntity<CompanyTerritory>
+            {
+                // Only the active links of active permanent territories are read (CrmTables): one MyCRM turns off is inactive here.
+                Name = CompanyTerritories, Label = "company of a territory", OldTable = CompanyTerritories, OldCreatedOnColumn = null, OldUpdatedOnColumn = null,
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Territories, r => r.TerritoryId), (Companies, r => r.CompanyId)],
+                OldParent = (Territories, "territory", "TERRITORYID"),
+                CanWrite = (r, c) => c.OldId(Territories, r.TerritoryId) is not null && c.OldId(Companies, r.CompanyId) is not null,
+                MarkRemovedHere = r => { r.IsActive = false; r.RemovedOn ??= clock(); if (r.RemovedBy.Length == 0) r.RemovedBy = "MyCRM"; },
+                Describe = r => $"company #{r.CompanyId.ToString(CultureInfo.InvariantCulture)} in territory #{r.TerritoryId.ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["TERRITORYID"] = c.OldId(Territories, r.TerritoryId), ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["ISACTIVE"] = r.IsActive,
+                    ["CREATEDBY"] = c.OldUser(r.CreatedBy),
+                },
+                FromOld = (row, c, x) =>
+                {
+                    if (Ref(c, Territories, row, "TERRITORYID") is not { } territory || Ref(c, Companies, row, "COMPANYID") is not { } company) return null;
+                    var active = Bool(row, "ISACTIVE");
+                    var removal = Removal(active, x?.RemovedOn, x?.RemovedBy, x?.IsActive ?? true);
+                    return new CompanyTerritory
+                    {
+                        TerritoryId = territory, CompanyId = company, IsActive = active, CreatedBy = LoginOf(c, row, "CREATEDBY", x?.CreatedBy), CreatedOn = x?.CreatedOn,
+                        RemovedOn = removal.On, RemovedBy = removal.By, OutSystemsId = Long(row, "ID"),
+                    };
+                },
+            },
+            new SyncEntity<TerritoryMovement>
+            {
+                Name = Movements, Label = "territory movement", OldTable = Movements, OldCreatedOnColumn = "UPDATEDAT", OldUpdatedOnColumn = null,
+                RecentDays = MovementDays, CreatedOnColumn = "UpdatedAt",
+                OldIdOf = r => r.OutSystemsId, SetOldId = (r, id) => r.OutSystemsId = id,
+                Parents = [(Companies, r => r.CompanyId)],
+                OldParent = (Companies, "company", "COMPANYID"),
+                CanWrite = (r, c) => c.OldId(Companies, r.CompanyId) is not null,
+                Describe = r => $"of company #{r.CompanyId.ToString(CultureInfo.InvariantCulture)}",
+                ToOld = (r, c, _) => new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["COMPANYID"] = c.OldId(Companies, r.CompanyId), ["FROMUSERID"] = c.OldUser(r.FromUser), ["TOUSERID"] = c.OldUser(r.ToUser),
+                    ["UPDATEDBY"] = c.OldUser(r.UpdatedBy), ["UPDATEDAT"] = r.UpdatedAt,
+                },
+                FromOld = (row, c, x) => Ref(c, Companies, row, "COMPANYID") is not { } company ? null : new TerritoryMovement
+                {
+                    CompanyId = company, FromUser = LoginOf(c, row, "FROMUSERID", Long(row, "FROMUSERID") == 0 ? "" : x?.FromUser),
+                    ToUser = LoginOf(c, row, "TOUSERID", Long(row, "TOUSERID") == 0 ? "" : x?.ToUser), UpdatedBy = LoginOf(c, row, "UPDATEDBY", x?.UpdatedBy),
+                    UpdatedAt = Date(row, "UPDATEDAT"), OutSystemsId = Long(row, "ID"),
                 },
             },
         ];
@@ -281,124 +480,112 @@ public static class CrmSync
 /// <summary>The columns of MyCRM's tables that MyCRMRecords reads and writes, for the connection test (Connections tab).</summary>
 public static class OldTableColumns
 {
-    public static readonly string[] Choice = ["ID", "LABEL", "ORDER", "ISACTIVE"];
-    public static readonly string[] Division = ["ID", "DIVISION", "PERSONINCHARGE", "ISACTIVE"];
-    public static readonly string[] Feedback =
+    public static readonly string[] GroupName = ["ID", "GROUPNAME"];
+    public static readonly string[] Team = ["ID", "NAME", "SHORTNAME", "ISACTIVE"];
+    public static readonly string[] User =
+        ["ID", "USERID", "ROLEID", "TEAMID", "ISACTIVE", "CREATEDBY", "CREATEDAT", "UPDATEDBY", "UPDATEDAT", "DESIGNATION", "PHONENUMBER", "SALESMANCODE", "CID", "PROFILEID", "TERRITORYCODE"];
+    public static readonly string[] Company =
     [
-        "ID", "FEEDBACKGROUPID", "PERSONRESPONSIBLE", "PERSONRESPONSIBLEDIVISION", "FEEDBACKSTATUSID", "COMPANYNAME", "COMPANYADDRESS", "POSTALCODE", "COMPANYPHONE",
-        "COMPANYFAX", "COMPANYEMAIL", "CONTACTNAME", "FEEDBACKMEDIUMID", "DATERECEIVED", "TIMERECEIVED", "FEEDBACKTYPEID", "FEEDBACKCATEGORYID", "FEEDBACKDESCRIPTION",
-        "STAFFRESPONSIBLEFORPROBLEM", "CC", "ISACKNOWLEDGED", "ACKNOWLEDGEDTYPEID", "ACKNOWLEDGEDDATE", "ACKNOWLEDGEDTIME", "SIGNOFF", "FIRSTLOOKATFEEDBACK", "ROOTCAUSE",
-        "CORRECTIVEACTION", "STAFFRESPONSIBLEFORSOLUTION", "CUSTOMERSATISFACTIONLEVELID", "CREATEDON", "CREATEDBY", "CREATEDBYUSERNAME", "UPDATEDON", "UPDATEDBY",
-        "UPDATEDBYUSERNAME", "ISACTIVE", "SESSIONID", "ACKNOWLEGEDHOURS", "STARTRESOLUTIONDAYS", "CLOSECASEDAYS", "STARTEDRESOLUTIONON", "COMPLETEDRESOLUTIONON",
-        "ISCOMPLETED", "CREATORHASSOLUTION", "ESS_CREATORSOLUTIONDETAIL", "ESS_EXPECTEDOUTCOME", "ESS_SUGGESTIONMEETCRITERIA", "ESS_RICOHWAYVALUE", "HRACCEPTED", "HRREMARKS",
-        "HRUPDATEDON", "HRUPDATEDBY", "PREVENTIVEACTION", "MIGHTCAUSECUSTOMERCOMPLAINT", "FEEDBACKDIVISIONID",
+        "ID", "COMPANY", "BRN", "WEBSITE", "ISACTIVE", "INCCERTNO", "NOOFEMPLOYEES", "PAIDUPCAPITAL", "COMPANYGROUPID", "COMPANYGROUPNAMEID", "CRMCOMPANYID", "CREATEDDATE",
+        "UPDATEDDATE", "COMPACCOUNTTYPEID", "COMPOWNERSHIPID", "ISCARETAKE", "UPDATEDBY", "CREATEDBY", "REMARKS", "ISCHANNELPARTNER", "PHONE", "FAX", "ISCREATEDBYMSD",
+        "MIFPOTENTIAL", "REVENUE", "COMPANYINDUSTRYID", "PRECOMPANYNAME", "PREBRN", "PREWEBSITE", "PREISACTIVE", "PREINCCERTNO", "PRENOOFEMPLOYEES", "PREPAIDUPCAPITAL",
+        "PRECOMPANYGROUPID", "PRECOMPANYGROUPNAMEID", "PRECOMPACCOUNTTYPEID", "PRECOMPOWNERSHIPID", "PREISCARETAKE", "PREREMARKS", "PREISCHANNELPARTNER", "PREPHONE",
+        "PREFAX", "PREMIFPOTENTIAL", "PREREVENUE", "PRECOMPANYINDUSTRYID", "CUSTOMERTYPEID", "ISCHANNELPARTNERFORVSS", "ISCHANNELPARTNERFORCS", "CUSTOMERNO",
+        "CREDITTERMS", "SALESREMARKS", "ADVANCECUSTOMERTYPEID",
     ];
-    public static readonly string[] Task =
-        ["ID", "FEEDBACKID", "ACTIONPLAN", "REMARKS", "PERSONINCHARGE", "DUEDATE", "SLAEXPECTEDCOMPLETIONDATE", "ISCOMPLETED", "CREATEDON", "CREATEDBY", "SESSIONID", "TASKTYPEID"];
-    public static readonly string[] Attachment = ["ID", "FEEDBACKID", "FILENAME", "FILEBINARY", "TYPE", "UPLOADEDBY", "UPLOADEDON", "SESSIONID"];
+    public static readonly string[] Caretake = ["ID", "COMPANYID", "CARETAKEACCOUNTREMARKS", "UPDATEDDATE", "CREATEDBY", "UPDATEDBY", "DATECREATED"];
+    public static readonly string[] Relationship = ["ID", "COMPANYID", "COMPANYRELATIONSHIPTYPEID", "RELATEDCOMPANYID", "ISACTIVE"];
+    public static readonly string[] Address =
+    [
+        "ID", "ADDRESSTYPEID", "UNITNUMBER", "BLOCK", "STREET", "BUILDINGNAME", "POSTALCODE", "ISACTIVE", "CRMADDRESSID", "ISDEFAULT", "COUNTRY", "CITY", "STATEPROVINCE",
+        "PREADDRESSTYPEID", "PREUNITNUMBER", "PREBLOCK", "PRESTREET", "PREBUILDINGNAME", "PREPOSTALCODE", "PRECOUNTRY", "PRECITY", "PRESTATEPROVINCE", "PREISACTIVE",
+        "CREATEDAT", "CREATEDBY", "UPDATEDAT", "UPDATEDBY",
+    ];
+    public static readonly string[] AddressLink = ["ID", "COMPANYID", "ADDRESSID", "CRMADDRESSLINK"];
+    public static readonly string[] Contact =
+    [
+        "ID", "FIRSTNAME", "LASTNAME", "ISACTIVE", "DEPARTMENT", "CID", "MIDDLENAME", "CRMCONTACTLINKID", "DESIGNATION", "SALUTATION", "CREATEDAT", "CREATEDBY", "UPDATEDAT",
+        "UPDATEDBY", "PREFIRSTNAME", "PRELASTNAME", "PREISACTIVE", "PREDEPARTMENT", "PREMIDDLENAME", "PREDESIGNATION", "PRESALUTATION", "ISLINKEDIN", "ISEQLIST",
+    ];
+    public static readonly string[] ContactLink = ["ID", "COMPANYID", "CONTACTID", "CID", "ISDEFAULT"];
+    public static readonly string[] Phone =
+        ["ID", "COMPANYID", "CONTACTID", "PHONETYPEID", "PHONE", "ISACTIVE", "CRMPHONEID", "CRMPHONELINKID", "CREATEDAT", "CREATEDBY", "UPDATEDAT", "UPDATEDBY", "PREPHONE", "PREPHONETYPEID", "PREISACTIVE"];
+    public static readonly string[] Email =
+        ["ID", "EMAIL", "COMPANYID", "CONTACTID", "ISACTIVE", "CID", "CRMEMAILLINKID", "CREATEDAT", "CREATEDBY", "UPDATEDAT", "UPDATEDBY", "PREEMAIL", "PREISACTIVE", "CONSENTTOMARKETINGINFO"];
+    public static readonly string[] Territory = ["ID", "TERRITORY", "OWNERID", "ISACTIVE", "ISTEMPORARY", "ISOWNER"];
+    public static readonly string[] CompanyTerritory = ["ID", "TERRITORYID", "COMPANYID", "ISACTIVE", "CREATEDBY"];
+    public static readonly string[] Movement = ["ID", "COMPANYID", "FROMUSERID", "TOUSERID", "UPDATEDBY", "UPDATEDAT"];
     public static readonly string[] Static = ["ID", "LABEL"];
 
-    public static readonly IReadOnlyList<(string Entity, string[] Columns)> Checked =
+    /// <summary>MyCRM's static entities MyCRMRecords matches by label.</summary>
+    public static readonly ChoiceList[] StaticLists =
     [
-        (CrmSync.Categories, Choice), (CrmSync.Mediums, Choice), (CrmSync.Divisions, Division), (CrmSync.Feedbacks, Feedback), (CrmSync.Tasks, Task),
-        (CrmSync.Attachments, Attachment), (FeedbackGroups.List.OldEntity, Static), (FeedbackStatuses.List.OldEntity, Static), (FeedbackTypes.List.OldEntity, Static),
-        (AcknowledgedTypes.List.OldEntity, Static), (SatisfactionLevels.List.OldEntity, Static), (TaskTypes.List.OldEntity, Static),
+        CrmRoles.List, CompanyGroups.List, CompAccountTypes.List, CompOwnerships.List, CompanyIndustries.List, CustomerTypes.List, AdvanceCustomerTypes.List,
+        AddressTypes.List, PhoneTypes.List, RelationshipTypes.List,
     ];
+
+    public static readonly IReadOnlyList<(string Entity, string[] Columns)> Checked =
+        new (string, string[])[]
+        {
+            (CrmSync.GroupNames, GroupName), (CrmSync.Teams, Team), (CrmSync.Users, User), (CrmSync.Companies, Company), (CrmSync.Caretakes, Caretake),
+            (CrmSync.Relationships, Relationship), (CrmSync.Addresses, Address), (CrmSync.AddressLinks, AddressLink), (CrmSync.Contacts, Contact),
+            (CrmSync.ContactLinks, ContactLink), (CrmSync.Phones, Phone), (CrmSync.Emails, Email), (CrmSync.Territories, Territory),
+            (CrmSync.CompanyTerritories, CompanyTerritory), (CrmSync.Movements, Movement),
+        }.Concat(StaticLists.Select(l => (l.OldEntity, Static))).ToList();
 }
 
 /// <summary>
-/// MyCRM's tables in the OutSystems database (<see cref="OutSystemsTables"/>), but an attachment's row gives its file's
-/// fingerprint ("bytes:&lt;length&gt;:&lt;sha-256&gt;") rather than its bytes.
-/// <para>The fingerprint is not worked out by SQL Server for every row at every sync (HASHBYTES over every file reads
-/// the whole file store): the rows give each file's length (DATALENGTH, which does not read the file), and a file MyCRMRecords
-/// keeps for that row with that length (<paramref name="knownFiles"/>: MyCRM's Id → fingerprint) is taken as it is (a
-/// file replaced there by one of exactly the same length would not be seen). Only the others are hashed, a few at a time.</para>
+/// MyCRM's tables in the OutSystems database (<see cref="OutSystemsTables"/>), but of its territories only the active
+/// permanent ones, and of its companies' territory links only the active ones of those territories: MyCRM's Projects and
+/// CSST parts keep tens of thousands of temporary territories with a million links, and the Advance rebuild left millions
+/// of inactive rows; none of them is MyCRMRecords'. Also reads, for the access rule, which companies people reach through
+/// MyCRM's temporary territories (<see cref="ITemporaryTerritories"/>).
 /// </summary>
-public sealed class CrmTables(ExternalDatabases databases, Func<string> module, IOldTables outSystems,
-    Func<IReadOnlyDictionary<long, string>>? knownFiles = null) : IOldTables
+public sealed class CrmTables(ExternalDatabases databases, Func<string> module, IOldTables outSystems) : IOldTables, ITemporaryTerritories
 {
-    public string Title => "MyCRM";
+    public string Title => outSystems.Title;
 
-    private static readonly string Fingerprint =
-        "CASE WHEN [FILEBINARY] IS NULL OR DATALENGTH([FILEBINARY]) = 0 THEN N'' ELSE CONCAT(N'bytes:', DATALENGTH([FILEBINARY]), N':', " +
-        "LOWER(CONVERT(varchar(64), HASHBYTES('SHA2_256', [FILEBINARY]), 2))) END AS [FILEBINARY]";
+    private string TableOf(DbConnection connection, string entity) => databases.EntityTable(connection, module(), entity);
 
-    private const string AttachmentColumns = "[ID], [FEEDBACKID], [FILENAME], [TYPE], [UPLOADEDBY], [UPLOADEDON], [SESSIONID], CAST(DATALENGTH([FILEBINARY]) AS bigint) AS [FILEBINARY]";
-
-    /// <summary>How many files SQL Server was asked to hash (the tests check a sync does not hash the files it knows).</summary>
-    public int FilesHashed { get; private set; }
-
-    /// <summary>The length a fingerprint ("bytes:&lt;length&gt;:&lt;sha-256&gt;") names, or -1.</summary>
-    private static long LengthOf(string fingerprint)
-    {
-        var parts = fingerprint.Split(':');
-        return parts.Length == 3 && parts[0] == "bytes" && long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var length) ? length : -1;
-    }
-
-    /// <summary>Turns each row's file length into the file's fingerprint: the one kept here when the length is the same, else SQL Server's.</summary>
-    private IReadOnlyList<OldRow> Fingerprints(DbConnection connection, List<OldRow> rows)
-    {
-        var known = knownFiles?.Invoke() ?? new Dictionary<long, string>();
-        var unknown = new List<OldRow>();
-        foreach (var row in rows)
-        {
-            var length = row.TryGetValue("FILEBINARY", out var v) && v is not null and not DBNull ? Convert.ToInt64(v, CultureInfo.InvariantCulture) : 0;
-            if (length == 0) row["FILEBINARY"] = "";
-            else if (known.TryGetValue(Long(row, "ID"), out var mine) && LengthOf(mine) == length) row["FILEBINARY"] = mine;
-            else unknown.Add(row);
-        }
-        // The others, 20 files a query.
-        foreach (var chunk in unknown.Select((r, i) => (r, i)).GroupBy(x => x.i / 20, x => x.r))
-        {
-            var byId = chunk.ToDictionary(r => Long(r, "ID"));
-            foreach (var hashed in Sql.Rows(connection, null,
-                         $"SELECT [ID], {Fingerprint} FROM {TableOf(connection)} WHERE [ID] IN ({string.Join(", ", byId.Keys.Select(id => id.ToString(CultureInfo.InvariantCulture)))})"))
-                if (byId.TryGetValue(Long(hashed, "ID"), out var row)) row["FILEBINARY"] = OldValues.Text(hashed, "FILEBINARY");
-            FilesHashed += byId.Count;
-        }
-        return rows;
-    }
-
-    /// <summary>How many rows the table has; MyCRM's attachments are counted without reading them (the import's "Read MyCRM's data").</summary>
-    public int Count(string table) => !IsAttachments(table) ? Rows(table).Count
-        : databases.Use(ExternalNames.OutSystems, connection =>
-            Convert.ToInt32(Sql.Rows(connection, null, $"SELECT COUNT(*) AS N FROM {TableOf(connection)}")[0]["N"], CultureInfo.InvariantCulture));
+    private static bool Is(string table, string entity) => string.Equals(table, entity, StringComparison.OrdinalIgnoreCase);
 
     public IReadOnlyList<OldRow> Rows(string table, string? sinceColumn = null, DateTime? since = null)
     {
-        if (!IsAttachments(table)) return outSystems.Rows(table, sinceColumn, since);
-        return databases.Use(ExternalNames.OutSystems, connection => Fingerprints(connection, sinceColumn is null || since is null
-            ? Sql.Rows(connection, null, $"SELECT {AttachmentColumns} FROM {TableOf(connection)} ORDER BY [ID]")
-            : Sql.Rows(connection, null, $"SELECT {AttachmentColumns} FROM {TableOf(connection)} WHERE {Sql.Name(sinceColumn)} >= @since ORDER BY [ID]", ("@since", since.Value))));
+        if (Is(table, CrmSync.Territories))
+            return databases.Use(ExternalNames.OutSystems, connection => (IReadOnlyList<OldRow>)Sql.Rows(connection, null,
+                $"SELECT * FROM {TableOf(connection, CrmSync.Territories)} WHERE [ISACTIVE] = 1 AND [ISTEMPORARY] = 0 ORDER BY [ID]"));
+        if (Is(table, CrmSync.CompanyTerritories))
+            return databases.Use(ExternalNames.OutSystems, connection => (IReadOnlyList<OldRow>)Sql.Rows(connection, null,
+                $"SELECT ct.* FROM {TableOf(connection, CrmSync.CompanyTerritories)} ct JOIN {TableOf(connection, CrmSync.Territories)} t ON t.[ID] = ct.[TERRITORYID] " +
+                "WHERE ct.[ISACTIVE] = 1 AND t.[ISACTIVE] = 1 AND t.[ISTEMPORARY] = 0 ORDER BY ct.[ID]"));
+        return outSystems.Rows(table, sinceColumn, since);
     }
 
-    public IReadOnlyList<OldRow> Rows(string table, string column, IReadOnlyCollection<long> values)
-    {
-        if (!IsAttachments(table)) return outSystems.Rows(table, column, values);
-        return databases.Use(ExternalNames.OutSystems, connection =>
-        {
-            var rows = new List<OldRow>();
-            foreach (var chunk in values.Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => x.v))
-                rows.AddRange(Sql.Rows(connection, null,
-                    $"SELECT {AttachmentColumns} FROM {TableOf(connection)} WHERE {Sql.Name(column)} IN ({string.Join(", ", chunk.Select(v => v.ToString(CultureInfo.InvariantCulture)))}) ORDER BY [ID]"));
-            return Fingerprints(connection, rows);
-        });
-    }
-
+    public IReadOnlyList<OldRow> Rows(string table, string column, IReadOnlyCollection<long> values) => outSystems.Rows(table, column, values);
     public OldRow? Find(string table, IReadOnlyDictionary<string, object?> key) => outSystems.Find(table, key);
     public IReadOnlyDictionary<string, OldColumn> Columns(string table) => outSystems.Columns(table);
     public IReadOnlyDictionary<long, string> Labels(string table) => outSystems.Labels(table);
     public IReadOnlyList<OldUser> Users() => outSystems.Users();
     public IOldTablesWriter BeginWrite() => outSystems.BeginWrite();
 
-    private static bool IsAttachments(string table) => string.Equals(table, CrmSync.Attachments, StringComparison.OrdinalIgnoreCase);
+    /// <summary>How many rows the import would read (the territories as filtered above).</summary>
+    public int Count(string table) => Rows(table).Count;
 
-    private string TableOf(DbConnection connection) => databases.EntityTable(connection, module(), CrmSync.Attachments);
-
-    /// <summary>The bytes of MyCRM's attachment <paramref name="id"/> (empty when it has none, or cannot be read).</summary>
-    public static byte[] Bytes(IOldTables? tables, long id)
+    /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
+    public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins)
     {
-        var row = tables?.Find(CrmSync.Attachments, new Dictionary<string, object?> { ["ID"] = id });
-        return row is not null && row.TryGetValue("FILEBINARY", out var value) && value is byte[] bytes ? bytes : [];
+        var users = outSystems.Users();
+        var ids = logins.SelectMany(l => users.Where(u => Strings.SameText(u.Login, l)).Select(u => u.Id)).Distinct().ToList();
+        if (ids.Count == 0) return Array.Empty<long>();
+        return databases.Use(ExternalNames.OutSystems, connection =>
+        {
+            var companies = new HashSet<long>();
+            foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => x.v))
+                foreach (var row in Sql.Rows(connection, null,
+                             $"SELECT DISTINCT ct.[COMPANYID] FROM {TableOf(connection, CrmSync.CompanyTerritories)} ct JOIN {TableOf(connection, CrmSync.Territories)} t ON t.[ID] = ct.[TERRITORYID] " +
+                             $"WHERE ct.[ISACTIVE] = 1 AND t.[ISACTIVE] = 1 AND t.[ISTEMPORARY] = 1 AND t.[OWNERID] IN ({string.Join(", ", chunk.Select(v => v.ToString(CultureInfo.InvariantCulture)))})"))
+                    companies.Add(Long(row, "COMPANYID"));
+            return (IReadOnlyCollection<long>)companies;
+        });
     }
 }

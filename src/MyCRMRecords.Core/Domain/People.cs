@@ -33,40 +33,48 @@ public static class ResultCodes
     public const string Failed = "FAILED";
 }
 
-/// <summary>MyCRM's roles (Admin, BE, HR) and MyCRMRecords's administrators.</summary>
+/// <summary>
+/// MyCRMRecords's own role: its administrators. What people may do in the CRM comes from their MyCRM role (their CRM
+/// user record, kept on the CRM users page), as in MyCRM.
+/// </summary>
 public static class Roles
 {
-    /// <summary>MyCRMRecords's administrator (the admin pages); not MyCRM's Admin, which is <see cref="FeedbackAdmin"/>.</summary>
+    /// <summary>MyCRMRecords's administrator: the admin pages, user roles and the audit log, and everything a Sales Admin does.</summary>
     public const string Admin = "Admin";
-    /// <summary>MyCRM's Admin role.</summary>
-    public const string FeedbackAdmin = "FeedbackAdmin";
-    public const string Be = "BE";
-    public const string Hr = "HR";
 
     public sealed record RoleInfo(string Name, string Label, string Description);
 
     public static readonly IReadOnlyList<RoleInfo> All =
     [
-        new(Admin, "Administrator", "Everything a Feedback Admin does, and the admin pages, user roles and the audit log."),
-        new(FeedbackAdmin, "Feedback Admin", "MyCRM's Admin: sees every feedback, keeps the lists (divisions, categories, mediums, KPI dates), adds the customer details files, sets the satisfaction level and signs in as someone else."),
-        new(Be, "BE", "Closes a feedback once the satisfaction is confirmed, and deletes feedbacks."),
-        new(Hr, "HR", "Accepts or turns down the suggestions of internal challenges (HR - ESS), and sees the feedbacks waiting for HR."),
+        new(Admin, "Administrator", "The admin pages, user roles and the audit log; also everything a Sales Admin does (CRM users, territories, company changes) and signing in as someone else."),
     ];
 
     public static bool IsKnown(string role) => All.Any(r => r.Name == role);
 }
 
-/// <summary>The person making a change: their login, name, email (lower case), roles, and who acts for them.</summary>
+/// <summary>
+/// The person making a change: their login, name, email (lower case), MyCRMRecords roles, who acts for them, and their
+/// MyCRM role (<see cref="CrmRole"/>, the role of their first CRM user record, as MyCRM's Role()).
+/// </summary>
 public sealed record Actor(string Login, string DisplayName, string Email, IReadOnlyList<string> Roles, string? OnBehalfOf = null)
 {
+    /// <summary>The person's MyCRM role (<see cref="CrmRoles"/>), "" when they are not a CRM user.</summary>
+    public string CrmRole { get; init; } = "";
+    /// <summary>MyCRM's IsSalesAdmin: one of their CRM user records has the role Admin or SalesAdmin.</summary>
+    public bool CrmSalesAdmin { get; init; }
+
     public bool Has(string role) => Roles.Any(r => string.Equals(r, role, StringComparison.OrdinalIgnoreCase));
     public bool IsAdmin => Has(Domain.Roles.Admin);
-    /// <summary>MyCRM's Admin: every feedback, the lists, the customer details files, the satisfaction level.</summary>
-    public bool IsFeedbackAdmin => IsAdmin || Has(Domain.Roles.FeedbackAdmin);
-    /// <summary>MyCRM's CheckBERole: Close Case and Delete.</summary>
-    public bool IsBe => Has(Domain.Roles.Be);
-    /// <summary>MyCRM's CheckHRRole: the HR - ESS section while a feedback is Pending HR.</summary>
-    public bool IsHr => Has(Domain.Roles.Hr);
+    /// <summary>MyCRM's Users screens, the company form and the territories: Admin or SalesAdmin in MyCRM, or an administrator here.</summary>
+    public bool IsSalesAdmin => IsAdmin || CrmSalesAdmin;
+    /// <summary>The territories: Sales Admins, and MD (MyCRM's bulk transfer screen let MD move companies).</summary>
+    public bool CanManageTerritories => IsSalesAdmin || CrmRole == CrmRoles.Md;
+    /// <summary>MyCRM shows the address and contact buttons to every role but Marketing.</summary>
+    public bool CanEditContacts => IsAdmin || CrmRole != CrmRoles.Marketing;
+    /// <summary>MyCRM's UserCanAccessCompany: these roles open every company.</summary>
+    public bool SeesAllCompanies => IsAdmin || CrmRoles.Is(CrmRole, CrmRoles.SeeAllCompanies);
+    /// <summary>MyCRM hides a company's territory movements from Sales and Telemarketers.</summary>
+    public bool SeesMovements => IsAdmin || (CrmRole != CrmRoles.Sales && CrmRole != CrmRoles.Telemarketer);
 
     /// <summary>"Jamie Lee", or "Alex Tan on behalf of Jamie Lee".</summary>
     public string ChangedBy => OnBehalfOf is null ? DisplayName : $"{OnBehalfOf} on behalf of {DisplayName}";
@@ -78,7 +86,7 @@ public sealed record Actor(string Login, string DisplayName, string Email, IRead
     public bool Is(string? email) => Email.Length > 0 && string.Equals((email ?? "").Trim(), Email, StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>People: who has signed in (or came from MyCRM's users), and their roles (dbo.CrUser, dbo.CrUserRole).</summary>
+/// <summary>People: who has signed in (or came from MyCRM's users), their MyCRMRecords roles (dbo.CrUser, dbo.CrUserRole) and MyCRM role.</summary>
 public sealed class People(IRecordStore store, Func<DateTime> clock)
 {
     public AppUser? User(string login) => store.FindFirst<AppUser>(Query.Where("Login", login));
@@ -86,6 +94,14 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     public IReadOnlyList<string> RolesOf(string login) =>
         store.Find<UserRole>(Query.Where("Login", login).And("IsActive", true)).Select(r => r.Role).Where(Roles.IsKnown).Distinct()
             .OrderBy(r => Roles.All.Select(k => k.Name).ToList().IndexOf(r)).ToList();
+
+    /// <summary>MyCRM's Role(): the role of the person's first CRM user record (active or not); "" for none.</summary>
+    public string CrmRoleOf(string login) =>
+        store.Find<CrmUser>(Query.Where("Login", login)).OrderBy(u => u.Id).FirstOrDefault()?.Role ?? "";
+
+    /// <summary>MyCRM's IsSalesAdmin: any of the person's CRM user records (active or not) has the role Admin or SalesAdmin.</summary>
+    public bool IsCrmSalesAdmin(string login) =>
+        store.Find<CrmUser>(Query.Where("Login", login)).Any(u => CrmRoles.Is(u.Role, CrmRoles.SalesAdmins));
 
     /// <summary>Records that the person opened MyCRMRecords (at most once an hour, so reading rarely writes).</summary>
     public void Touch(string login, string displayName, string email)
@@ -160,8 +176,8 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     public string EmailOf(string login) => User(login)?.Email.Trim() ?? "";
 
     /// <summary>
-    /// The people offered in the people choices (in charge, a task's person, Copy To): everyone MyCRMRecords knows with an
-    /// email address (MyCRM's list of users came with the import, and everyone who opened MyCRMRecords), by name.
+    /// The people offered in the people choices: everyone MyCRMRecords knows with an email address (MyCRM's users came
+    /// with the import, and everyone who opened MyCRMRecords), by name.
     /// </summary>
     public IReadOnlyList<AppUser> Everyone() =>
         store.Find<AppUser>().Where(u => u.Login.Length > 0 && Strings.IsEmail(u.Email))

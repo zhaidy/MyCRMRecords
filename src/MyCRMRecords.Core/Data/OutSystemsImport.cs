@@ -8,11 +8,12 @@ namespace MyCRMRecords.Data;
 public sealed record ImportCounts(Dictionary<string, int> Found, Dictionary<string, int> Copied, IReadOnlyList<string> Notes);
 
 /// <summary>
-/// Copies MyCRM's data into MyCRMRecords: its divisions, feedback categories and mediums, the feedbacks with their tasks and
-/// attachments (the files themselves), the people with MyCRM's roles, and the people MyCRM offered in its people
-/// choices. Each record is made from MyCRM's row the way the sync makes it (<see cref="CrmSync"/>); records keep their
-/// Id and remember MyCRM's (OutSystemsId), so the sync pairs them without copying. Nothing is changed in OutSystems.
-/// Records imported before are skipped, so the import can run again just before switching over.
+/// Copies MyCRM's Users, Territory and Company part into MyCRMRecords: the teams and CRM user records, the group names,
+/// the companies with their caretake remarks, relationships, addresses, contacts, phones and emails, the permanent
+/// territories with their companies, the territory movements, and every OutSystems user (so names show). Each record is
+/// made from MyCRM's row the way the sync makes it (<see cref="CrmSync"/>); records keep their Id and remember MyCRM's
+/// (OutSystemsId), so the sync pairs them without copying. Nothing is changed in OutSystems. Records imported before are
+/// skipped, so the import can run again just before switching over.
 /// </summary>
 public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases databases, Func<CrmSettings> settings, Func<DateTime> clock, OldAppSync sync)
 {
@@ -26,12 +27,21 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
     /// <summary>How the import names each kind of record.</summary>
     private static string Title(string entity) => entity switch
     {
-        CrmSync.Categories => "Feedback categories",
-        CrmSync.Mediums => "Feedback mediums",
-        CrmSync.Divisions => "Divisions",
-        CrmSync.Feedbacks => "Feedbacks",
-        CrmSync.Tasks => "Tasks",
-        CrmSync.Attachments => "Attachments",
+        CrmSync.GroupNames => "Company group names",
+        CrmSync.Teams => "Teams",
+        CrmSync.Users => "CRM user records",
+        CrmSync.Companies => "Companies",
+        CrmSync.Caretakes => "Caretake remarks",
+        CrmSync.Relationships => "Company relationships",
+        CrmSync.Addresses => "Addresses",
+        CrmSync.AddressLinks => "Company addresses",
+        CrmSync.Contacts => "Contacts",
+        CrmSync.ContactLinks => "Company contacts",
+        CrmSync.Phones => "Phone numbers",
+        CrmSync.Emails => "Email addresses",
+        CrmSync.Territories => "Territories (active, permanent)",
+        CrmSync.CompanyTerritories => "Companies of territories",
+        CrmSync.Movements => "Territory movements",
         _ => entity,
     };
 
@@ -54,41 +64,25 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
         }
         if (!copy) return new ImportCounts(found, copied, notes);
         progress("People…");
-        copied["People with a role"] = databases.Use(ExternalNames.OutSystems, connection => ImportRoles(connection, settings().Connections.CrmModule));
-        copied["People to choose from"] = databases.Use(ExternalNames.OutSystems, ImportPeople);
+        copied["People"] = databases.Use(ExternalNames.OutSystems, ImportPeople);
         progress("Done.");
         return new ImportCounts(found, copied, notes);
     }
 
     /// <summary>
-    /// The people MyCRM offered in its people choices (GetUsers): active OutSystems users with a ricoh.sg or
-    /// rapp.ricoh.com email and a RSP\…@ricoh.sg or RSP\…@rapp.ricoh.com username, and three named ones.
+    /// Every OutSystems user with a username, as people MyCRMRecords knows (their name and email), so the salespeople,
+    /// CRM users and the people who changed records show by name. People already known are left as they are.
     /// </summary>
-    public static bool IsOffered(string username, string email, bool active)
-    {
-        if (!active) return false;
-        var mail = (email ?? "").Trim();
-        if (!mail.EndsWith("@ricoh.sg", StringComparison.OrdinalIgnoreCase) && !mail.EndsWith("@rapp.ricoh.com", StringComparison.OrdinalIgnoreCase)) return false;
-        var name = (username ?? "").Trim();
-        return (name.StartsWith(Domain + "\\", StringComparison.OrdinalIgnoreCase)
-                && (name.EndsWith("@ricoh.sg", StringComparison.OrdinalIgnoreCase) || name.EndsWith("@rapp.ricoh.com", StringComparison.OrdinalIgnoreCase)))
-               || Named.Contains(name, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static readonly string[] Named = [Domain + "\\zhaidy", Domain + "\\adrianlim", Domain + "\\ralphp"];
-
     private int ImportPeople(DbConnection connection)
     {
+        var known = new HashSet<string>(store.Find<AppUser>().Select(u => u.Login), StringComparer.OrdinalIgnoreCase);
         var added = 0;
-        foreach (var row in Sql.Rows(connection, null, "SELECT [USERNAME], [NAME], [EMAIL], [IS_ACTIVE] FROM dbo.OSSYS_USER"))
+        foreach (var row in Sql.Rows(connection, null, "SELECT [USERNAME], [NAME], [EMAIL] FROM dbo.OSSYS_USER"))
         {
-            var username = OutSystemsValues.Text(row["USERNAME"]);
-            var email = OutSystemsValues.Text(row["EMAIL"]);
-            if (!IsOffered(username, email, row["IS_ACTIVE"] is bool b ? b : Convert.ToBoolean(row["IS_ACTIVE"], CultureInfo.InvariantCulture))) continue;
-            var login = LoginOf(username, Domain);
-            if (login.Length == 0 || store.FindFirst<AppUser>(Query.Where("Login", login)) is not null) continue;
+            var login = LoginOf(OutSystemsValues.Text(row["USERNAME"]), Domain);
+            if (login.Length == 0 || !known.Add(login)) continue;
             var name = OutSystemsValues.Text(row["NAME"]);
-            store.Insert(new AppUser { Login = Strings.Shorten(login, 256), DisplayName = Strings.Shorten(name.Length > 0 ? name : login, 256), Email = Strings.Shorten(email, 256) });
+            store.Insert(new AppUser { Login = Strings.Shorten(login, 256), DisplayName = Strings.Shorten(name.Length > 0 ? name : login, 256), Email = Strings.Shorten(OutSystemsValues.Text(row["EMAIL"]), 256) });
             added++;
         }
         return added;
@@ -104,7 +98,6 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
             var title = Title(entity.Name);
             if (!copy)
             {
-                // Counted, not read: reading every attachment's fingerprint made the files be read.
                 found[title] = tables is CrmTables counted ? counted.Count(entity.OldTable) : tables.Rows(entity.OldTable).Count;
                 return;
             }
@@ -120,7 +113,7 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
                 context.Add(new SyncLink { Entity = entity.Name, LocalId = pair.Value.Id, OldKey = pair.Key.ToString(CultureInfo.InvariantCulture) });
             var keys = entity.OldIdOf is null ? new HashSet<string>(existing.Select(r => Key(entity, entity.ToOld(r, context, null))), StringComparer.OrdinalIgnoreCase) : null;
             var page = new List<T>();
-            var pageSize = typeof(T) == typeof(FeedbackFile) ? 20 : 500;
+            const int pageSize = 500;
             var count = 0;
             var skipped = 0;
             var notPlaced = 0;
@@ -167,50 +160,6 @@ public sealed class OutSystemsImport(IRecordStore store, ExternalDatabases datab
 
         private static string Key<T>(SyncEntity<T> entity, IReadOnlyDictionary<string, object?> values) where T : class, IRecord, new() =>
             string.Join("|", entity.KeyColumns.Select(c => OldValues.Canonical(values.TryGetValue(c, out var v) ? v : null)));
-    }
-
-    /// <summary>MyCRM's role names; its Admin is a Feedback Admin here (an administrator of MyCRMRecords is another role).</summary>
-    public static string? RoleOf(string oldRole) => oldRole.Trim().ToUpperInvariant() switch
-    {
-        "ADMIN" => Roles.FeedbackAdmin,
-        "BE" => Roles.Be,
-        "HR" => Roles.Hr,
-        _ => null,
-    };
-
-    /// <summary>Everyone with one of MyCRM's roles (given to them or to a group of theirs), as MyCRMRecords users with those roles.</summary>
-    private int ImportRoles(DbConnection connection, string module)
-    {
-        var espace = Sql.Rows(connection, null, "SELECT TOP 1 [ID] FROM dbo.OSSYS_ESPACE WHERE [NAME] = @m AND [IS_ACTIVE] = 1 ORDER BY [ID] DESC", ("@m", module));
-        if (espace.Count == 0) return 0;
-        var id = espace[0]["ID"];
-        var grants = new List<Dictionary<string, object?>>();
-        if (Sql.TableExists(connection, null, "dbo.OSSYS_USER_ROLE"))
-            grants.AddRange(Sql.Rows(connection, null,
-                "SELECT u.[USERNAME], u.[NAME], u.[EMAIL], r.[NAME] AS ROLE FROM dbo.OSSYS_USER_ROLE ur JOIN dbo.OSSYS_ROLE r ON r.[ID] = ur.[ROLE_ID] " +
-                "JOIN dbo.OSSYS_USER u ON u.[ID] = ur.[USER_ID] WHERE r.[ESPACE_ID] = @e AND u.[IS_ACTIVE] = 1", ("@e", id)));
-        if (Sql.TableExists(connection, null, "dbo.OSSYS_GROUP_ROLE") && Sql.TableExists(connection, null, "dbo.OSSYS_USER_GROUP"))
-            grants.AddRange(Sql.Rows(connection, null,
-                "SELECT u.[USERNAME], u.[NAME], u.[EMAIL], r.[NAME] AS ROLE FROM dbo.OSSYS_USER_GROUP ug JOIN dbo.OSSYS_GROUP_ROLE gr ON gr.[GROUP_ID] = ug.[GROUP_ID] " +
-                "JOIN dbo.OSSYS_ROLE r ON r.[ID] = gr.[ROLE_ID] JOIN dbo.OSSYS_USER u ON u.[ID] = ug.[USER_ID] WHERE r.[ESPACE_ID] = @e AND u.[IS_ACTIVE] = 1", ("@e", id)));
-        var people = 0;
-        foreach (var person in grants.GroupBy(g => LoginOf(OutSystemsValues.Text(g["USERNAME"]), Domain), StringComparer.OrdinalIgnoreCase))
-        {
-            if (person.Key.Length == 0) continue;
-            var roles = person.Select(g => RoleOf(OutSystemsValues.Text(g["ROLE"]))).Where(r => r is not null).Select(r => r!).Distinct().ToList();
-            if (roles.Count == 0) continue;
-            var first = person.First();
-            if (store.FindFirst<AppUser>(Query.Where("Login", person.Key)) is null)
-                store.Insert(new AppUser
-                {
-                    Login = person.Key, DisplayName = Strings.Shorten(OutSystemsValues.Text(first["NAME"]), 256), Email = Strings.Shorten(OutSystemsValues.Text(first["EMAIL"]), 256),
-                });
-            var have = store.Find<UserRole>(Query.Where("Login", person.Key).And("IsActive", true)).Select(r => r.Role).ToList();
-            foreach (var role in roles.Where(r => !have.Contains(r, StringComparer.OrdinalIgnoreCase)))
-                store.Insert(new UserRole { Login = person.Key, Role = role });
-            people++;
-        }
-        return people;
     }
 
     /// <summary>"jsmith", "RSP\jsmith", "jsmith@ricoh.sg" or "RSP\jsmith@ricoh.sg" (MyCRM's users) → "RSP\jsmith".</summary>

@@ -4,9 +4,9 @@ using MyCRMRecords.Data;
 namespace MyCRMRecords.Domain;
 
 /// <summary>
-/// Sample records for trying MyCRMRecords out (demo tools on): a division, feedback categories and mediums when there are
-/// none, and three feedbacks in charge of the person adding them: a new customer complaint, an acknowledged one with a
-/// corrective task, and an internal challenge waiting for HR. Nothing is written to another database.
+/// Sample records for trying MyCRMRecords out (demo tools on): a team, a group name, two companies (a parent and its
+/// subsidiary) with a billing address and a primary contact with a phone and an email, and a sample territory of the
+/// person adding them holding the parent company. Nothing is written to another database.
 /// </summary>
 public static class SeedData
 {
@@ -14,48 +14,32 @@ public static class SeedData
 
     public static string Add(IRecordStore store, DateTime now, Actor actor)
     {
-        if (store.Count<Feedback>(Query.Where("CompanyName", SampleCompany)) > 0) return "The sample records are there already.";
+        if (store.Count<Company>(Query.Where("Name", SampleCompany)) > 0) return "The sample records are there already.";
         var login = Strings.Shorten(actor.Login, 256);
-        if (store.Count<FeedbackCategory>() == 0)
-            foreach (var (label, i) in new[] { "Service", "Billing", "Delivery", "Product", "Others" }.Select((l, i) => (l, i)))
-                store.Insert(new FeedbackCategory { Label = label, SortOrder = i + 1 });
-        if (store.Count<FeedbackMedium>() == 0)
-            foreach (var (label, i) in new[] { "Email", "Phone", "Face to face", "Letter" }.Select((l, i) => (l, i)))
-                store.Insert(new FeedbackMedium { Label = label, SortOrder = i + 1 });
-        var division = store.FindFirst<FeedbackDivision>(Query.Where("IsActive", true))
-                       ?? store.Insert(new FeedbackDivision { Name = "Sample Service Division", PersonInCharge = login });
-        var category = store.Find<FeedbackCategory>(Query.Where("Removed", false)).OrderBy(c => c.SortOrder).First();
-        var medium = store.Find<FeedbackMedium>(Query.Where("Removed", false)).OrderBy(c => c.SortOrder).First();
-        Feedback Make(string group, string status, int daysAgo, string description) => store.Insert(new Feedback
+        if (store.Find<CrmTeam>(Query.Where("Name", "Sample Team")).Count == 0) store.Insert(new CrmTeam { Name = "Sample Team", IsActive = true });
+        var group = store.Insert(new CompanyGroupName { GroupName = "Sample Group" });
+        Company Make(string name, string brn) => store.Insert(new Company
         {
-            FeedbackGroup = group, Status = status, PersonResponsible = login, DivisionId = division.Id, CompanyName = SampleCompany, ContactName = "Casey Customer",
-            CompanyEmail = "casey@example.com", MediumId = medium.Id, DateReceived = now.Date.AddDays(-daysAgo), TimeReceived = "09:15:00",
-            FeedbackType = FeedbackTypes.Normal, CategoryId = category.Id, Description = description, CreatedOn = now.AddDays(-daysAgo), CreatedBy = login,
-            CreatedByUserName = actor.DisplayName, UpdatedOn = now, UpdatedBy = login, UpdatedByUserName = actor.DisplayName,
-            SessionId = now.AddDays(-daysAgo).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            Name = name, Brn = brn, Website = "www.example.com", IsActive = true, CompanyGroup = "SME", CompanyGroupNameId = group.Id, CreatedBy = login,
+            CreatedDate = now.Date, CompAccountType = "User", NoOfEmployees = 25,
         });
-        var fresh = Make(FeedbackGroups.CustomerComplaint, FeedbackStatuses.New, 0, "The copier on level 3 jams every morning (sample).");
-        var acknowledged = Make(FeedbackGroups.CustomerComplaint, FeedbackStatuses.Acknowledged, 3, "The invoice was sent to the wrong department (sample).");
-        acknowledged.IsAcknowledged = true;
-        acknowledged.AcknowledgedDate = now.Date.AddDays(-2);
-        acknowledged.AcknowledgedTime = "10:00:00";
-        acknowledged.SignOff = login;
-        acknowledged.AcknowledgedHours = 24;
-        acknowledged.FirstLookAtFeedback = "The billing contact changed last month (sample).";
-        store.Update(acknowledged);
-        store.Insert(new FeedbackTask
+        var parent = Make(SampleCompany, "SAMPLE0001X");
+        var child = Make("Sample Services Pte Ltd", "SAMPLE0002X");
+        store.Insert(new CompanyRelationship { CompanyId = parent.Id, RelatedCompanyId = child.Id, RelationshipType = RelationshipTypes.Parent, IsActive = true });
+        var address = store.Insert(new Address
         {
-            FeedbackId = acknowledged.Id, ActionPlan = "Update the billing contact and send the invoice again (sample).", PersonInCharge = login,
-            DueDate = now.Date.AddDays(2), CreatedOn = now.AddDays(-1), CreatedBy = login, SessionId = acknowledged.SessionId, TaskType = TaskTypes.Corrective,
+            AddressType = AddressTypes.Billing, Block = "1", Street = "Sample Road", UnitNumber = "#01-01", BuildingName = "Sample Building", PostalCode = "000001",
+            Country = "Singapore", IsDefault = true, IsActive = true, CreatedAt = now, CreatedBy = login,
         });
-        var internalOne = Make(FeedbackGroups.InternalChallenges, FeedbackStatuses.PendingHr, 1, "Service reports are typed twice (sample).");
-        internalOne.CompanyName = "";
-        internalOne.CreatorHasSolution = true;
-        internalOne.SolutionDetail = "Send the service report from the tablet straight to the system (sample).";
-        internalOne.ExpectedOutcome = "Half an hour saved for each engineer every day (sample).";
-        internalOne.SuggestionMeetCriteria = "|Cost Saving||Process Improvement|";
-        internalOne.RicohWayValue = "|Customer-Centric||Innovation|";
-        store.Update(internalOne);
-        return $"Sample records added by {actor.ChangedBy}: feedbacks #{fresh.Id.ToString(CultureInfo.InvariantCulture)}, #{acknowledged.Id.ToString(CultureInfo.InvariantCulture)} and #{internalOne.Id.ToString(CultureInfo.InvariantCulture)}.";
+        store.Insert(new CompanyAddressLink { CompanyId = parent.Id, AddressId = address.Id, IsActive = true });
+        var contact = store.Insert(new Contact { Salutation = "Ms", FirstName = "Casey", LastName = "Customer", Designation = "Office Manager", IsActive = true, CreatedAt = now, CreatedBy = login });
+        store.Insert(new CompanyContactLink { CompanyId = parent.Id, ContactId = contact.Id, IsDefault = true });
+        store.Insert(new Phone { CompanyId = parent.Id, ContactId = contact.Id, PhoneType = "Office", Number = "60000001", IsActive = true, CreatedAt = now, CreatedBy = login });
+        store.Insert(new ContactEmail { CompanyId = parent.Id, ContactId = contact.Id, Address = "casey@example.com", IsActive = true, ConsentToMarketingInfo = true, CreatedAt = now, CreatedBy = login });
+        var number = Math.Max(9000, store.Find<Territory>().Select(t => t.Number).DefaultIfEmpty(0).Max() + 1);
+        var territory = store.Insert(new Territory { Name = "Sample territory", Number = number, Owner = login, IsActive = true, IsOwner = true, CreatedOn = now, CreatedBy = login });
+        store.Insert(new CompanyTerritory { TerritoryId = territory.Id, CompanyId = parent.Id, IsActive = true, CreatedBy = login, CreatedOn = now });
+        store.Insert(new TerritoryMovement { CompanyId = parent.Id, FromUser = "", ToUser = login, UpdatedBy = login, UpdatedAt = now });
+        return $"Sample records added by {actor.ChangedBy}: companies #{parent.Id.ToString(CultureInfo.InvariantCulture)} and #{child.Id.ToString(CultureInfo.InvariantCulture)}, and territory {Territories.Title(territory)}.";
     }
 }
