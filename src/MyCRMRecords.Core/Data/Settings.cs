@@ -23,15 +23,22 @@ public static class Environments
 public sealed class CrmSettings
 {
     public ConnectionSettings Connections { get; set; } = new();
-    /// <summary>The two-way sync with MyCRM (off until an administrator turns it on).</summary>
-    public SyncSettings Sync { get; set; } = new() { IntervalMinutes = 10 };
+    /// <summary>Whether MyCRMRecords may change MyCRM's data (off until an administrator turns it on).</summary>
+    public MyCrmSettings MyCrm { get; set; } = new();
     public EmailSettings Email { get; set; } = new();
     public JobSettings Jobs { get; set; } = new();
     public string? ChangedBy { get; set; }
     public DateTimeOffset? ChangedAt { get; set; }
 }
 
-/// <summary>The other databases MyCRMRecords reads and (the sync, when switched on) writes.</summary>
+/// <summary>MyCRM's data, which MyCRMRecords reads and writes in MyCRM's own tables.</summary>
+public sealed class MyCrmSettings
+{
+    /// <summary>MyCRMRecords may change MyCRM's data (off until an administrator turns it on): until then it only reads.</summary>
+    public bool WritesEnabled { get; set; }
+}
+
+/// <summary>The other databases MyCRMRecords reads and (MyCRM's tables, when switched on) writes.</summary>
 public sealed class ConnectionSettings
 {
     /// <summary>The OutSystems platform database: MyCRM's tables (import and sync), its users and roles.</summary>

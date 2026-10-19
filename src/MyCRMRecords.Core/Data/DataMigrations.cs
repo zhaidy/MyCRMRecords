@@ -31,9 +31,111 @@ public static class DataMigrations
         new("2026-10-19-create-tables", "Create the tables",
             "Creates MyCRMRecords's tables: the teams and CRM users; the companies with their group names, caretake remarks, relationships, addresses, contacts, phones and emails; the territories with their companies and movements; the emails sent and the scheduled task runs; people, roles and the audit log; and the tables of the two-way sync with MyCRM (which record here is which row there, every sync, and every value the sync wrote in MyCRM with the value it replaced). Nothing is changed in MyCRM.",
             CreateTables),
+        new(MyCrmTablesDirectly, "MyCRM's data stays in MyCRM",
+            "MyCRMRecords now reads and writes the CRM users and teams, the companies with their addresses, contacts, phones, emails, relationships and group names, the territories with their companies, and the territory movements in MyCRM's own tables in the OutSystems database, so it keeps no copy and no longer syncs. This keeps what MyCRM has no column for (each territory's name, when and by whom something was made or taken away here, a CRM user's former team, a group name or company address taken away) in dbo.CrRecordNote, by MyCRM's Id; adds dbo.CrChange, where every value MyCRMRecords writes in MyCRM is recorded with the value it replaced; then drops MyCRMRecords' copies (dbo.CrTeam, CrCrmUser, CrCompanyGroupName, CrCompany, CrCompanyCaretake, CrCompanyRelationship, CrAddress, CrCompanyAddressLink, CrContact, CrCompanyContactLink, CrPhone, CrContactEmail, CrTerritory, CrCompanyTerritory, CrTerritoryMovement) and the sync's tables (dbo.CrSyncLink, CrSyncRun, CrSyncChange). People, roles, the audit log, the emails, the task runs and the settings stay. It does nothing while an import is still recorded as running, when a record exists only in MyCRMRecords (it has no MyCRM number), or when the sync wrote something in MyCRM it never confirmed: any of these would be lost. Nothing is changed in MyCRM. Afterwards, an administrator ticks Let MyCRMRecords change MyCRM's data (MyCRM tab).",
+            MyCrmTablesDirectlySql),
     ];
 
     public static DataMigration? Find(string id) => All.FirstOrDefault(m => m.Id == id);
+
+    public const string MyCrmTablesDirectly = "2026-10-19-mycrm-tables-directly";
+
+    /// <summary>
+    /// The copy of MyCRM's data and the sync's tables dropped, what MyCRM has no column for kept as notes by MyCRM's Id,
+    /// and dbo.CrChange made. Only when nothing would be lost: no import running, every record has its MyCRM Id, and no
+    /// write to MyCRM waits to be confirmed.
+    /// </summary>
+    private const string MyCrmTablesDirectlySql = """
+        IF EXISTS (SELECT 1 FROM dbo.CrJobRun WHERE [Job] = N'outsystems-import' AND [Outcome] = N'Running')
+            THROW 50001, N'An import from MyCRM is still recorded as running: open the Scheduled tasks tab, wait for it to be marked Stopped, then run this migration again.', 1;
+        IF EXISTS (SELECT 1 FROM dbo.CrTeam WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCrmUser WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyGroupName WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompany WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyCaretake WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyRelationship WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrAddress WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyAddressLink WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrContact WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyContactLink WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrPhone WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrContactEmail WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrTerritory WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+           OR EXISTS (SELECT 1 FROM dbo.CrCompanyTerritory WHERE [OutSystemsId] IS NULL OR [OutSystemsId] = 0)
+            THROW 50002, N'MyCRMRecords has records that are not in MyCRM (made here and never synced): dropping them would lose them, so nothing was dropped. Enter them in MyCRM first.', 1;
+        IF EXISTS (SELECT 1 FROM dbo.CrSyncLink WHERE [Pending] = 1 AND [Unpaired] = 0)
+            THROW 50003, N'The last sync wrote something in MyCRM that it never confirmed (dbo.CrSyncLink rows with Pending = 1): check those records in MyCRM first. Nothing was dropped.', 1;
+        GO
+        CREATE TABLE dbo.CrRecordNote (
+            [Id] bigint IDENTITY(1,1) NOT NULL,
+            [Entity] nvarchar(50) NOT NULL,
+            [RecordId] bigint NOT NULL,
+            [Name] nvarchar(100) NOT NULL,
+            [Inactive] bit NOT NULL,
+            [CreatedOn] datetime2(3) NULL,
+            [CreatedBy] nvarchar(256) NOT NULL,
+            [RemovedOn] datetime2(3) NULL,
+            [RemovedBy] nvarchar(600) NOT NULL,
+            [FormerTeamId] bigint NULL,
+            CONSTRAINT PK_CrRecordNote PRIMARY KEY ([Id])
+        );
+        CREATE INDEX IX_CrRecordNote_Entity ON dbo.CrRecordNote ([Entity]);
+        CREATE INDEX IX_CrRecordNote_RecordId ON dbo.CrRecordNote ([RecordId]);
+        GO
+        CREATE TABLE dbo.CrChange (
+            [Id] bigint IDENTITY(1,1) NOT NULL,
+            [ChangedOn] datetime2(3) NOT NULL,
+            [ChangedBy] nvarchar(600) NOT NULL,
+            [TableName] nvarchar(50) NOT NULL,
+            [RowId] bigint NOT NULL,
+            [Column] nvarchar(50) NOT NULL,
+            [Before] nvarchar(max) NOT NULL,
+            [After] nvarchar(max) NOT NULL,
+            CONSTRAINT PK_CrChange PRIMARY KEY ([Id])
+        );
+        CREATE INDEX IX_CrChange_ChangedOn ON dbo.CrChange ([ChangedOn]);
+        CREATE INDEX IX_CrChange_TableName ON dbo.CrChange ([TableName]);
+        CREATE INDEX IX_CrChange_RowId ON dbo.CrChange ([RowId]);
+        GO
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'Territory', [OutSystemsId], [Name], 0, [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], NULL FROM dbo.CrTerritory
+        WHERE [Name] <> N'' OR [CreatedOn] IS NOT NULL OR [CreatedBy] <> N'' OR [RemovedOn] IS NOT NULL OR [RemovedBy] <> N'';
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'CompanyGroupName', [OutSystemsId], N'', CASE WHEN [IsActive] = 0 THEN 1 ELSE 0 END, NULL, N'', [RemovedOn], [RemovedBy], NULL FROM dbo.CrCompanyGroupName
+        WHERE [IsActive] = 0 OR [RemovedOn] IS NOT NULL OR [RemovedBy] <> N'';
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'CUser', u.[OutSystemsId], N'', 0, NULL, N'', u.[RemovedOn], u.[RemovedBy], t.[OutSystemsId]
+        FROM dbo.CrCrmUser u LEFT JOIN dbo.CrTeam t ON t.[Id] = u.[FormerTeamId]
+        WHERE u.[FormerTeamId] IS NOT NULL OR u.[RemovedOn] IS NOT NULL OR u.[RemovedBy] <> N'';
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'CompanyRelationship', [OutSystemsId], N'', 0, NULL, N'', [RemovedOn], [RemovedBy], NULL FROM dbo.CrCompanyRelationship
+        WHERE [RemovedOn] IS NOT NULL OR [RemovedBy] <> N'';
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'CompanyAddressLink', [OutSystemsId], N'', CASE WHEN [IsActive] = 0 THEN 1 ELSE 0 END, NULL, N'', [RemovedOn], [RemovedBy], NULL FROM dbo.CrCompanyAddressLink
+        WHERE [IsActive] = 0 OR [RemovedOn] IS NOT NULL OR [RemovedBy] <> N'';
+        INSERT INTO dbo.CrRecordNote ([Entity], [RecordId], [Name], [Inactive], [CreatedOn], [CreatedBy], [RemovedOn], [RemovedBy], [FormerTeamId])
+        SELECT N'CompanyTerritory', [OutSystemsId], N'', 0, [CreatedOn], N'', [RemovedOn], [RemovedBy], NULL FROM dbo.CrCompanyTerritory
+        WHERE [CreatedOn] IS NOT NULL OR [RemovedOn] IS NOT NULL OR [RemovedBy] <> N'';
+        GO
+        DROP TABLE dbo.CrTerritoryMovement;
+        DROP TABLE dbo.CrCompanyTerritory;
+        DROP TABLE dbo.CrTerritory;
+        DROP TABLE dbo.CrContactEmail;
+        DROP TABLE dbo.CrPhone;
+        DROP TABLE dbo.CrCompanyContactLink;
+        DROP TABLE dbo.CrContact;
+        DROP TABLE dbo.CrCompanyAddressLink;
+        DROP TABLE dbo.CrAddress;
+        DROP TABLE dbo.CrCompanyRelationship;
+        DROP TABLE dbo.CrCompanyCaretake;
+        DROP TABLE dbo.CrCompany;
+        DROP TABLE dbo.CrCompanyGroupName;
+        DROP TABLE dbo.CrCrmUser;
+        DROP TABLE dbo.CrTeam;
+        DROP TABLE dbo.CrSyncLink;
+        DROP TABLE dbo.CrSyncRun;
+        DROP TABLE dbo.CrSyncChange;
+        """;
 
     private const string CreateTables = """
         CREATE TABLE dbo.CrEmail (

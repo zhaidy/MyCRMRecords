@@ -70,13 +70,8 @@ public sealed class Access(IRecordStore store, Func<ITemporaryTerritories?> temp
         var ids = new HashSet<long>();
         if (territories.Count > 0)
             ids.UnionWith(store.Find<CompanyTerritory>(Query.Where("IsActive", true).In("TerritoryId", territories)).Select(ct => ct.CompanyId));
-        if (temporary() is { } more)
-        {
-            var old = more.CompanyIds(people.ToList());
-            if (old.Count > 0)
-                foreach (var chunk in old.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
-                    ids.UnionWith(store.Find<Company>(Query.All().In("OutSystemsId", chunk)).Select(c => c.Id));
-        }
+        // MyCRM's temporary territories give MyCRM's company Ids, which are the companies' Ids.
+        if (temporary() is { } more) ids.UnionWith(more.CompanyIds(people.ToList()));
         // Only active companies, as MyCRM.
         if (ids.Count > 0)
         {
@@ -100,6 +95,6 @@ public sealed class Access(IRecordStore store, Func<ITemporaryTerritories?> temp
             var territories = store.Find<Territory>(Query.Where("IsActive", true).In("Id", links.Select(l => (object)l.TerritoryId)));
             if (territories.Any(t => people.Contains(t.Owner))) return true;
         }
-        return company.OutSystemsId is { } old && temporary() is { } more && more.CompanyIds(people.ToList()).Contains(old);
+        return temporary() is { } more && more.CompanyIds(people.ToList()).Contains(company.Id);
     }
 }

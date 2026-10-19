@@ -2,8 +2,8 @@ using MyCRMRecords.Data;
 
 namespace MyCRMRecords.Domain;
 
-// MyCRMRecords's tables (dbo.Cr…), one row per record. People are kept as logins (RSP\jsmith) with their name next to them,
-// not as OutSystems user ids. OutSystemsId is the record's Id in MyCRM when it came from there (imported or synced).
+// MyCRMRecords's own tables (dbo.Cr…), one row per record. People are kept as logins (RSP\jsmith) with their name next to
+// them, not as OutSystems user ids.
 
 /// <summary>An email sent (or not, and why).</summary>
 [Table("dbo.CrEmail")]
@@ -20,7 +20,7 @@ public sealed class EmailMessage : IRecord
     [Len(4000)] public string Error { get; set; } = "";
 }
 
-/// <summary>One run of a scheduled task (or of its Run now button), or of the import.</summary>
+/// <summary>One run of a scheduled task (or of its Run now button).</summary>
 [Table("dbo.CrJobRun")]
 public sealed class JobRun : IRecord
 {
@@ -83,6 +83,9 @@ public sealed class AuditEntry : IRecord
     [Len(100)] public string Address { get; set; } = "";
 }
 
+// The sync's records: the sync engine (OldAppSync.cs, the same in every app that replaces an OutSystems app) is kept but
+// MyCRMRecords no longer syncs, so they have no table (dbo.CrSyncLink, CrSyncRun and CrSyncChange were dropped).
+
 /// <summary>
 /// A record paired with its row in MyCRM by the sync (OldAppSync), with both sides' fingerprints as they were
 /// at the last sync. RemovedHere: deleted here, marked in MyCRM (LocalId is negative for a number taken there
@@ -138,8 +141,10 @@ public sealed class SyncChange : IRecord
 }
 
 // ---- MyCRM's records (Users, Territory and Company) ----
-// Static entities of MyCRM (Role, CompanyGroup, AddressType...) are kept as codes of the lists in Lists.cs and matched
-// by label in MyCRM, never by Id. "Removed" fields say when and by whom something was taken away here.
+// Kept in MyCRM's own tables in the OutSystems database, not here: MyCrmStore reads and writes them there (MyCrmMap says
+// where each property is), and the Id is MyCRM's. The [Table] names are only for the tests' in-memory stand-in. Static
+// entities of MyCRM (Role, CompanyGroup, AddressType...) are kept as codes of the lists in Lists.cs and matched by label
+// in MyCRM, never by Id. "Removed" fields say when and by whom something was taken away here (dbo.CrRecordNote).
 
 /// <summary>A team (MyCRM's Team), named after its manager. Never deleted: switched inactive.</summary>
 [Table("dbo.CrTeam")]
@@ -150,7 +155,6 @@ public sealed class CrmTeam : IRecord
     /// <summary>MyCRM's ShortName (the manager's logon in the Advance set-up).</summary>
     [Len(50)] public string ShortName { get; set; } = "";
     public bool IsActive { get; set; } = true;
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>
@@ -182,7 +186,6 @@ public sealed class CrmUser : IRecord
     public long? FormerTeamId { get; set; }
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A company group name (MyCRM's CompanyGroupName). Removed here, it is inactive here and kept in MyCRM.</summary>
@@ -194,11 +197,10 @@ public sealed class CompanyGroupName : IRecord
     public bool IsActive { get; set; } = true;
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>
-/// A company (MyCRM's Company). Its number is MyCRM's while the sync is on. The Pre… fields are the values just before
+/// A company (MyCRM's Company). The Pre… fields are the values just before
 /// the last edit on the company form, as MyCRM keeps them (its lists sort by PreName).
 /// </summary>
 [Table("dbo.CrCompany")]
@@ -260,7 +262,6 @@ public sealed class Company : IRecord
     [Len(50)] public string CreditTerms { get; set; } = "";
     [Len(50000)] public string SalesRemarks { get; set; } = "";
     [Len(50)] public string AdvanceCustomerType { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A caretake account's remarks (MyCRM's CompanyCaretake): only MyCRM's old imports wrote them; shown.</summary>
@@ -274,7 +275,6 @@ public sealed class CompanyCaretake : IRecord
     [Len(256)] public string CreatedBy { get; set; } = "";
     [Len(256)] public string UpdatedBy { get; set; } = "";
     public DateTime? DateCreated { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>
@@ -291,10 +291,9 @@ public sealed class CompanyRelationship : IRecord
     public bool IsActive { get; set; } = true;
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
-/// <summary>An address (MyCRM's Address). Its number is MyCRM's while the sync is on. Deleted, it is inactive (as in MyCRM).</summary>
+/// <summary>An address (MyCRM's Address). Deleted, it is inactive (as in MyCRM).</summary>
 [Table("dbo.CrAddress")]
 public sealed class Address : IRecord
 {
@@ -326,7 +325,6 @@ public sealed class Address : IRecord
     [Len(256)] public string CreatedBy { get; set; } = "";
     public DateTime? UpdatedAt { get; set; }
     [Len(256)] public string UpdatedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A company's address (MyCRM's CompanyAddressLink). Its address deleted, it is inactive here (MyCRM deleted it).</summary>
@@ -340,10 +338,9 @@ public sealed class CompanyAddressLink : IRecord
     public bool IsActive { get; set; } = true;
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
-/// <summary>A contact person (MyCRM's Contacts). Its number is MyCRM's while the sync is on. Deleted, it is inactive (as in MyCRM).</summary>
+/// <summary>A contact person (MyCRM's Contacts). Deleted, it is inactive (as in MyCRM).</summary>
 [Table("dbo.CrContact")]
 public sealed class Contact : IRecord
 {
@@ -373,7 +370,6 @@ public sealed class Contact : IRecord
     /// <summary>"Is Sales Navigator" in MyCRM.</summary>
     public bool IsLinkedIn { get; set; }
     public bool IsEqList { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A company's contact (MyCRM's CompanyContactLink); IsDefault is the company's primary contact.</summary>
@@ -385,7 +381,6 @@ public sealed class CompanyContactLink : IRecord
     [Indexed] public long ContactId { get; set; }
     public long CId { get; set; }
     public bool IsDefault { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A contact's phone number (MyCRM's Phone). Removed, it is inactive (as in MyCRM).</summary>
@@ -409,7 +404,6 @@ public sealed class Phone : IRecord
     [Len(20)] public string PrePhone { get; set; } = "";
     [Len(50)] public string PrePhoneType { get; set; } = "";
     public bool PreIsActive { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A contact's email address (MyCRM's Email). Removed, it is inactive (as in MyCRM).</summary>
@@ -431,7 +425,6 @@ public sealed class ContactEmail : IRecord
     [Len(250)] public string PreEmail { get; set; } = "";
     public bool PreIsActive { get; set; }
     public bool ConsentToMarketingInfo { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>
@@ -455,7 +448,6 @@ public sealed class Territory : IRecord
     [Len(256)] public string CreatedBy { get; set; } = "";
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A company in a territory (MyCRM's CompanyTerritory). Taken out, it is inactive (as in MyCRM); never made active again.</summary>
@@ -470,7 +462,6 @@ public sealed class CompanyTerritory : IRecord
     public DateTime? CreatedOn { get; set; }
     public DateTime? RemovedOn { get; set; }
     [Len(600)] public string RemovedBy { get; set; } = "";
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
 /// <summary>A company moving from one salesperson to another (MyCRM's TerritoryMovement); "" is nobody.</summary>
@@ -483,17 +474,49 @@ public sealed class TerritoryMovement : IRecord
     [Len(256)] public string ToUser { get; set; } = "";
     [Len(256)] public string UpdatedBy { get; set; } = "";
     [Indexed] public DateTime? UpdatedAt { get; set; }
-    [Indexed] public long? OutSystemsId { get; set; }
 }
 
-/// <summary>Every table, in the order the migrations create them.</summary>
+/// <summary>
+/// What MyCRMRecords keeps about a MyCRM record that MyCRM has no column for: a territory's name, when and by whom something
+/// was made or taken away here, a CRM user's former team, a group name or company address taken away (MyCRM has no mark
+/// for them). One row per record that has any, by MyCRM's entity and Id.
+/// </summary>
+[Table("dbo.CrRecordNote")]
+public sealed class RecordNote : IRecord
+{
+    public long Id { get; set; }
+    [Indexed, Len(50)] public string Entity { get; set; } = "";
+    [Indexed] public long RecordId { get; set; }
+    [Len(100)] public string Name { get; set; } = "";
+    /// <summary>Taken away here, for a record MyCRM has no IsActive for.</summary>
+    public bool Inactive { get; set; }
+    public DateTime? CreatedOn { get; set; }
+    [Len(256)] public string CreatedBy { get; set; } = "";
+    public DateTime? RemovedOn { get; set; }
+    [Len(600)] public string RemovedBy { get; set; } = "";
+    public long? FormerTeamId { get; set; }
+}
+
+/// <summary>A value MyCRMRecords wrote in MyCRM's tables, with the value it replaced, so any change can be put back by hand.</summary>
+[Table("dbo.CrChange")]
+public sealed class MyCrmChange : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public DateTime ChangedOn { get; set; }
+    [Len(600)] public string ChangedBy { get; set; } = "";
+    /// <summary>MyCRM's entity (Company, CUser, Territory...).</summary>
+    [Indexed, Len(50)] public string TableName { get; set; } = "";
+    [Indexed] public long RowId { get; set; }
+    [Len(50)] public string Column { get; set; } = "";
+    [Len(int.MaxValue)] public string Before { get; set; } = "";
+    [Len(int.MaxValue)] public string After { get; set; } = "";
+}
+
+/// <summary>MyCRMRecords' own tables, in the order the migrations create them (MyCRM's records are kept in MyCRM).</summary>
 public static class Tables
 {
     public static readonly IReadOnlyList<Type> All =
     [
-        typeof(EmailMessage), typeof(JobRun), typeof(AppUser), typeof(UserRole), typeof(AuditEntry), typeof(SyncLink), typeof(SyncRun), typeof(SyncChange),
-        typeof(CrmTeam), typeof(CrmUser), typeof(CompanyGroupName), typeof(Company), typeof(CompanyCaretake), typeof(CompanyRelationship), typeof(Address),
-        typeof(CompanyAddressLink), typeof(Contact), typeof(CompanyContactLink), typeof(Phone), typeof(ContactEmail), typeof(Territory), typeof(CompanyTerritory),
-        typeof(TerritoryMovement),
+        typeof(EmailMessage), typeof(JobRun), typeof(AppUser), typeof(UserRole), typeof(AuditEntry), typeof(RecordNote), typeof(MyCrmChange),
     ];
 }

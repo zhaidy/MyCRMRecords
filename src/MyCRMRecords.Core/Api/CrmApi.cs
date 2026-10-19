@@ -29,6 +29,8 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
         long Id(int index) => parts.Length > index && long.TryParse(parts[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0;
         int Skip() => int.TryParse(Q("skip"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var skip) ? Math.Max(0, skip) : 0;
         bool Flag(string name) => Q(name) is "1" or "true" or "yes";
+        // What this person changes in MyCRM is recorded as theirs.
+        using var author = MyCrmStore.As(actor.ChangedBy);
         try
         {
             switch (parts[0])
@@ -43,6 +45,8 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                         },
                         can = Can(actor),
                         roles = Roles.All,
+                        // Until an administrator lets it, MyCRMRecords only reads MyCRM's data: the pages say so.
+                        myCrm = new { writes = w.CanWrite, writesOff = w.CanWrite ? "" : MyCrmStore.WritesOff },
                     });
 
                 case "lists" when get:
@@ -152,6 +156,10 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
         catch (BadInputException ex)
         {
             return ApiResponse.BadRequest(ex.Message);
+        }
+        catch (MyCrmRefusedException ex)
+        {
+            return ApiResponse.Fail(409, ResultCodes.Conflict, ex.Message);
         }
         catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
         {

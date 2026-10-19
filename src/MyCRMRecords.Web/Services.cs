@@ -38,7 +38,7 @@ public static class Services
     private static readonly Lazy<FilesApi> LazyFilesApi = new(() => new FilesApi(LazyApp.Value));
     private static readonly Lazy<UsersApi> LazyUsersApi = new(() => new UsersApi(LazyApp.Value, Auth.DirectorySearch.Find));
 
-    private static readonly Lazy<AdminApi> LazyAdminApi = new(() => new AdminApi(LazyApp.Value, LazyStorage.Value, LazyApp.Value.Import, RunInBackground, DemoTools));
+    private static readonly Lazy<AdminApi> LazyAdminApi = new(() => new AdminApi(LazyApp.Value, LazyStorage.Value, DemoTools));
 
     // Build.ps1 writes the version marker and change log into each release; the server's poller writes the status.
     private static readonly Lazy<DeploymentApi> LazyDeploymentApi = new(() => new DeploymentApi(

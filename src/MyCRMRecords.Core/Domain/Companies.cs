@@ -689,12 +689,12 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
         contact.IsLinkedIn = input.IsLinkedIn;
         // "Is Eq. List" only for a contact with an email (MyCRM enabled it only then).
         contact.IsEqList = input.IsEqList && emails.Count > 0;
-        // A new contact takes MyCRM's number (the sync adds it there first), outside the batch, as MyCEV adds its feedbacks.
-        if (editing is null) store.Insert(contact);
         var saved = contact;
         store.Batch(s =>
         {
-            if (editing is not null) s.Update(contact);
+            // A new contact takes MyCRM's number.
+            if (editing is null) s.Insert(contact);
+            else s.Update(contact);
 
             if (input.IsDefault)
                 foreach (var other in s.Find<CompanyContactLink>(Query.Where("CompanyId", company.Id).And("IsDefault", true)).Where(l => l.ContactId != contact.Id))

@@ -8,7 +8,7 @@ namespace MyCRMRecords.Data;
 /// BRN has more than 3 characters, Advance's customers with that BRN (AdvanceConnector's Customer_Supp: Business_reg)
 /// give its customer number (Cust_no), with " #Multiple" after it when several share the BRN. A company with no such
 /// customer keeps its number. Read through <see cref="ExternalTable"/> (the real column names); only changed numbers are
-/// saved (and synced to MyCRM).
+/// saved (in MyCRM, once MyCRMRecords may change its data).
 /// </summary>
 public sealed class CustomerNumbers(IRecordStore store, ExternalDatabases databases, Func<CrmSettings> settings)
 {
@@ -39,6 +39,7 @@ public sealed class CustomerNumbers(IRecordStore store, ExternalDatabases databa
 
     public JobOutcome Run(string by)
     {
+        using var author = MyCrmStore.As(by);
         var byBrn = ByBrn();
         var changed = 0;
         var checkedCount = 0;

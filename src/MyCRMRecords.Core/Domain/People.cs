@@ -176,8 +176,8 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     public string EmailOf(string login) => User(login)?.Email.Trim() ?? "";
 
     /// <summary>
-    /// The people offered in the people choices: everyone MyCRMRecords knows with an email address (MyCRM's users came
-    /// with the import, and everyone who opened MyCRMRecords), by name.
+    /// The people offered in the people choices: everyone MyCRMRecords knows with an email address (MyCRM's users the
+    /// import brought before MyCRMRecords read MyCRM's tables directly, and everyone who opened MyCRMRecords), by name.
     /// </summary>
     public IReadOnlyList<AppUser> Everyone() =>
         store.Find<AppUser>().Where(u => u.IsActive && u.Login.Length > 0 && Strings.IsEmail(u.Email))

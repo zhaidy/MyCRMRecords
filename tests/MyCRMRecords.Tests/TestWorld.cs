@@ -28,7 +28,7 @@ public sealed class FakeEmail : IEmailSender
 
 /// <summary>
 /// MyCRMRecords with its data in a temporary folder, a fixed clock (Saturday 17 October 2026, 09:30), email faked, and
-/// MyCRM's tables in memory (also MyCRM's temporary territories). With <c>crmUsers</c> (the default) the people have their
+/// MyCRM's records kept with its own (MyCRM's temporary territories in memory). With <c>crmUsers</c> (the default) the people have their
 /// MyCRM roles: Sara is SalesAdmin, Sam Sales and Mia Manager (both in Mia's team), Ken Sales in his own team, Mark
 /// Marketing, Dina MD and Tom Telemarketer; Olga has no CRM role. Rob is an administrator of MyCRMRecords (Web.config).
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class TestWorld : IDisposable
     public SettingsFile<CrmSettings> SettingsFile { get; }
     public JsonRecordStore Store { get; }
     public CrmApp D { get; }
-    /// <summary>MyCRM's tables, for the sync and the import.</summary>
+    /// <summary>MyCRM's tables, for its temporary territories.</summary>
     public FakeOldTables OldApp { get; }
 
     public static readonly ApiUser Admin = new(@"RSP\root", "Rob Root", "rob@example.com", IsListedAdmin: true);
@@ -66,10 +66,10 @@ public sealed class TestWorld : IDisposable
         if (configure is not null) SettingsFile.Change(configure);
         Store = new JsonRecordStore(Path.Combine(Folder, "data"));
         D = CrmFactory.Create(store ?? Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
-            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, OldApp, OldApp);
+            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, store ?? Store, OldApp);
         foreach (var user in new[] { Admin, SalesAdmin, Sam, Mia, Ken, Mark, Dina, Tom, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
         if (!crmUsers) return;
-        // Straight into the records (not through the sync): as if imported, with no MyCRM Id yet.
+        // Straight into the records.
         var records = store ?? Store;
         MiaTeam = records.Insert(new CrmTeam { Name = "Mia Manager" }).Id;
         KenTeam = records.Insert(new CrmTeam { Name = "Ken Kwan" }).Id;

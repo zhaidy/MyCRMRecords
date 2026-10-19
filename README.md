@@ -4,7 +4,7 @@ MyCRMRecords takes over the **Users, Territory and Company part** of the OutSyst
 their addresses, contacts (with their phones and emails), relationships and group names; the named territories that
 give companies to salespeople; and the CRM users (each person's MyCRM role and teams) and teams. The rest of MyCRM
 (activities, prospects, projects, CSST, MIF, reports...) stays in OutSystems and keeps reading and writing the same
-tables: the two-way sync keeps them in step, permanently. It is an ASP.NET (.NET Framework 4.8) application for IIS,
+tables: MyCRMRecords reads and writes them where MyCRM keeps them, so both always show the same data. It is an ASP.NET (.NET Framework 4.8) application for IIS,
 built like MyAllocation, MyWarehouse, MyServiceParts, MyDeliveries, MyVendors, MyCustomers and MyCEV.
 
 How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
@@ -30,20 +30,21 @@ How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 
 MyCRM's territories were rebuilt from Advance every day; that is deprecated: Sales Admins now create the territories
 and put companies in them. MyCRM's imports from the old CRM are not carried over. Everything that sends or changes
-something outside MyCRMRecords starts **switched off** (admin page): the sync with MyCRM, the emails and the scheduled
-task. So MyCRMRecords can be installed, set up and checked while MyCRM still runs.
+something outside MyCRMRecords starts **switched off** (admin page): changing MyCRM's data, the emails and the
+scheduled task. So MyCRMRecords can be installed, set up and checked while MyCRM still runs.
 
 ## Project layout
 
 ```
 src/MyCRMRecords.Core/         net48 + net8.0: everything but the web host
   Data/                     record storage (JSON or SQL Server), migrations, settings, other databases (External,
-                            ExternalTable), scheduler, import (OutSystemsImport), the sync (OldAppSync, CrmSync with
-                            CrmTables), CustomerNumbers
+                            ExternalTable), scheduler, MyCRM's tables (MyCrmMap: where each property is; MyCrmStore:
+                            reading and writing them; RoutedStore), CustomerNumbers; OldAppSync/OldTables (the engine
+                            shared with the other apps, not used by MyCRMRecords)
   Integration/              email (Mailer)
   Documents/Xlsx.cs         Excel files
   Domain/                   Models (the tables), Lists (MyCRM's static entities), Companies, Territories, CrmUsers,
-                            Access, People, SeedData
+                            Access, People
   Api/                      CrmApi (pages), FilesApi (Excel samples and uploads), AdminApi, UsersApi, CrmApp (factory)
 src/MyCRMRecords.Web/          net48 web root: pages, api.ashx, file.ashx, scripts, Web.config
 tests/MyCRMRecords.Tests/      xunit (net8.0); SQL Server tests when MYCRMRECORDS_TEST_SQLSERVER is set
@@ -72,7 +73,8 @@ group name, a team and a sample territory of yours.
 ## Sign-in and roles
 
 People sign in with their **Windows (domain) username and password** on `login.aspx`; the login is recorded as
-`RSP\jsmith` (MyCRM's users are `RSP\jsmith@ricoh.sg`: the import and the sync match them by that login).
+`RSP\jsmith` (MyCRM's users are `RSP\jsmith@ricoh.sg`: MyCRMRecords matches them by that login, or by the email address
+of the login that signs in).
 
 What people may do comes from their **MyCRM role**, as in MyCRM: the role of their first CRM user record (MyCRM's
 `Role()`), kept on the CRM users page.
@@ -94,25 +96,53 @@ opens MyCRMRecords as another person (administrators only; recorded with both na
 
 ## Storage
 
-**MyCRMRecords's own data** is in the JSON files (`App_Data/data/<table>.json`) until an administrator switches to
-SQL Server on the admin page (*Database* tab): *Save and switch* runs the data migrations and copies the data in. The
-tables are `dbo.Cr…`, one row per record, as mapped from `Domain/Models.cs`. What was sent or changed has tables of
-its own (`dbo.CrEmail`, `dbo.CrAudit`, `dbo.CrSyncChange`).
+**MyCRM's data stays in MyCRM.** The companies with their caretake remarks, relationships, group names, addresses,
+contacts, phones and emails, the CRM users and teams, the permanent territories with their companies and the territory
+movements are read and written in MyCRM's own tables in the OutSystems database (`Data/MyCrmStore.cs`; `MyCrmMap` says
+where each property is). A record's Id is MyCRM's. MyCRMRecords keeps no copy and does not sync: both apps see the same
+rows at once, and so do the other apps that read MyCRM's companies (MyFile, MyProjectManagement, MyCEV...).
+
+- **Writing is switched off** until an administrator ticks *Let MyCRMRecords change MyCRM's data* (admin page, *MyCRM*
+  tab; `MyCrm.WritesEnabled` in the settings). Until then MyCRMRecords only reads, every page says so, and a save is
+  refused (409) with that message.
+- **Nothing is ever deleted in MyCRM**: `MyCrmStore` has no delete. What is taken away is `ISACTIVE = 0` there; a CRM
+  user record taken away is inactive with no team and, when the person has no team left, no role, so MyCRM's `Role()`,
+  `IsSalesAdmin` and `GetSub` read exactly what they read when MyCRM deleted the records.
+- **What MyCRM has no column for** is kept in `dbo.CrRecordNote` by MyCRM's entity and Id: a territory's name, when and
+  by whom something was made or taken away, a CRM user's former team, a company address link or group name taken away
+  (MyCRM cannot mark those; the address itself is inactive there).
+- **Every value written** is recorded with the value it replaced and who changed it in `dbo.CrChange` (*Changes made in
+  MyCRM* on the *MyCRM* tab). A save is one transaction in MyCRM; only columns whose value changed are written, and a
+  value that reads back the same (a person OutSystems keeps twice, text with spaces at its ends) is no change.
+- **Only MyCRM's permanent territories** are read: the active permanent `Territory` rows and those MyCRMRecords keeps a
+  note of (taken away here), and the active `CompanyTerritory` rows of active permanent territories, never the 32,000
+  temporary territories of MyCRM's Projects and CSST parts nor the millions of inactive rows. The temporary ones are only
+  read for who may open a company.
+- **Static entities** (role, customer type, address type...) are matched by their label, never by their Id, which
+  differs between environments. **People** are their OutSystems user: a user is the login that signs in with the user's
+  email address, else the username as a login (`RSP\jsmith@ricoh.sg` is `RSP\jsmith`); a person MyCRM does not know
+  cannot be given a CRM user record or a territory.
+
+**MyCRMRecords's own data** (people, roles, the audit log, the emails, task runs, `dbo.CrRecordNote` and `dbo.CrChange`)
+is in the JSON files (`App_Data/data/<table>.json`) until an administrator switches to SQL Server on the admin page
+(*Database* tab): *Save and switch* runs the data migrations and copies the data in. The tables are `dbo.Cr…`, one row
+per record, as mapped from `Domain/Models.cs`. MyCRMRecords used to keep a copy of MyCRM's data and sync it; the
+migration `2026-10-19-mycrm-tables-directly` keeps what MyCRM has no column for as notes and drops the copies.
 
 **No record is ever deleted**: what people delete or take away is marked (a company, address, contact, phone, email,
-relationship, territory, company link, CRM user record or role `IsActive = false`, with when and by whom where MyCRM has
-no column for it; a sync pair that ends is `Unpaired`) and the pages read only what is in use. The test
-`Nothing_in_MyCRMRecords_deletes_a_record` fails on a `Delete` anywhere outside the stores.
+relationship, territory, company link, CRM user record or role `IsActive = false`, with when and by whom) and the pages
+read only what is in use. The test `Nothing_in_MyCRMRecords_deletes_a_record` fails on a `Delete` anywhere outside the
+stores.
 
-**The settings** (connections, email, sync, scheduled task) are in `App_Data/crm-records-settings.json`, every password
-encrypted with DPAPI and never sent to the browser.
+**The settings** (connections, email, MyCRM's switch, scheduled task) are in `App_Data/crm-records-settings.json`, every
+password encrypted with DPAPI and never sent to the browser.
 
 **The OutSystems database** (*Connections* tab): MyCRM's entities `Company`, `CompanyCaretake`, `CompanyRelationship`,
 `CompanyGroupName`, `Address`, `CompanyAddressLink`, `Contacts`, `CompanyContactLink`, `Phone`, `Email`, `CUser`,
 `Team`, `Territory`, `CompanyTerritory`, `TerritoryMovement`, the static entities `Role`, `CompanyGroup`,
 `CompAccountType`, `CompOwnership`, `CompanyIndustry`, `CustomerType`, `AdvanceCustomerType`, `AddressType`,
-`PhoneType`, `CompanyRelationshipType`, and the platform's users. Reading needs `SELECT`; the sync needs `INSERT` and
-`UPDATE` on the fifteen entity tables, and never `DELETE`.
+`PhoneType`, `CompanyRelationshipType`, and the platform's users. Reading needs `SELECT`; changing MyCRM's data needs
+`INSERT` and `UPDATE` on the fifteen entity tables, and never `DELETE`.
 
 **AdvanceConnector**: `Customer_Supp` (`Business_reg`, `Cust_no`), read by the scheduled task *Customer numbers from
 Advance*. Reading needs `SELECT` only.
@@ -140,49 +170,17 @@ them.
 
 ### Switching over from MyCRM
 
-The sync stays on for good: the rest of MyCRM keeps using these tables.
+MyCRMRecords and the rest of MyCRM share MyCRM's tables for good: there is nothing to copy or sync.
 
 1. Give the logins `SELECT` on the tables above (and the OutSystems platform's user table), and `INSERT` and `UPDATE`
-   on MyCRM's fifteen synced entity tables. Never `DELETE`.
+   on MyCRM's fifteen entity tables. Never `DELETE`.
 2. In OutSystems, switch off MyCRM's timers that would fight MyCRMRecords (`docs/outsystems/README.md`, section 14):
    the Advance territory rebuild and the old-CRM imports, and MyCRM's `UpdateCustomerNo` once MyCRMRecords' task is on.
-3. Import MyCRM's data (admin page, *Import from MyCRM*), press *Preview* on the *Sync with MyCRM* tab (it runs in the background) and note how
-   long it takes (the sync reads every synced row each time), then turn the sync on (every 10 minutes) before anyone
-   uses MyCRMRecords, so every new company, address and contact takes MyCRM's next number.
-4. Check the CRM users and name the territories (they come without names: "Territory 1203").
+3. On the admin page, *MyCRM* tab: tick *Let MyCRMRecords change MyCRM's data*.
+4. Check the CRM users and name the territories (MyCRM's come without names: "Territory 1203").
 5. Turn on the scheduled task *Customer numbers from Advance* (daily at 02:45).
 6. Send MyCRM's Users, territory and company screens to MyCRMRecords (`Set-OldAppRedirects.ps1`, section 14 of
    `docs/outsystems/README.md`); the company picker other parts of MyCRM use stays in MyCRM.
-
-### Sync with MyCRM
-
-`OldAppSync` (the engine, the same in every app that replaces an OutSystems app) with `CrmSync` (what is synced)
-keeps MyCRMRecords and MyCRM in step both ways, every 10 minutes, from the scheduler's timer, once *Sync with MyCRM*
-is on. The static entities (role, customer type, address type...) are matched by their label, never by their Id, which
-differs between environments.
-
-- Each record is paired with its row in `dbo.CrSyncLink`, with a fingerprint of each side as it was at the last sync;
-  the side whose fingerprint changed has changed, and its version is copied to the other (both changed:
-  MyCRMRecords's version). Records imported before the sync was on are paired by their `OutSystemsId`; the first sync
-  after the import writes nothing back to MyCRM.
-- **Only MyCRM's permanent territories**: `CrmTables` reads the active permanent `Territory` rows and the active
-  `CompanyTerritory` rows of those territories (about 200 and 23,000), never the 32,000 temporary territories of
-  MyCRM's Projects and CSST parts nor the millions of inactive rows. A territory or a company link MyCRM turns off
-  leaves that set and is marked inactive here. A territory's name is kept here only. Territory movements are synced
-  for the last 60 days.
-- **Nothing is ever deleted in MyCRM.** `IOldTablesWriter` has no delete. What is taken away here is `ISACTIVE = 0`
-  there; a company's address link and a group name (no such column in MyCRM) are left there as they are (the address
-  itself is inactive). A CRM user record taken away is inactive with no team and, when the person has no team left, no
-  role, so MyCRM's `Role()`, `IsSalesAdmin` and `GetSub` read exactly what they read when MyCRM deleted the records.
-- **Numbers**: while the sync is on, a new company, address or contact is first added to MyCRM and takes the Id it got
-  there, so the numbers are the same in both (other parts of MyCRM, and Advance's `CustomerMapping`, refer to them).
-- People are written as their OutSystems user (found by login, name or email), never added to OutSystems.
-- **Safety**: what was written there is marked `Pending` until the commit is confirmed (written again otherwise); a sync
-  that would change more than *Stop a sync that would change more than* records stops before changing anything and
-  pauses until an administrator syncs. Every sync is in `dbo.CrSyncRun`, every value written in MyCRM in
-  `dbo.CrSyncChange` with the value it replaced.
-- Adding a synced record or column: add it to `CrmSync` (both ways); the round-trip test fails until `FromOld` keeps
-  every field.
 
 ## Deploying
 

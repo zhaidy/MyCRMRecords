@@ -120,8 +120,14 @@ public class AppPage : Page
                 .Append(".</span><a class=\"button secondary small-btn\" href=\"logout.aspx\">Return to ").Append(HttpUtility.HtmlEncode(admin.DisplayName)).Append("</a></div>");
         if (DataProblem is not null)
             html.Append("<div class=\"impersonation-bar warning-bar\" role=\"alert\"><span>").Append(HttpUtility.HtmlEncode(DataProblem)).Append("</span></div>");
+        // Until an administrator lets it, MyCRMRecords only reads MyCRM's data: every page says so.
+        if (SignedIn && current != "guide.aspx" && !Services.App.CanWrite)
+            html.Append("<div class=\"impersonation-bar warning-bar\" role=\"status\"><span>").Append(HttpUtility.HtmlEncode(ReadOnlyNotice)).Append("</span></div>");
         return html.ToString();
     }
+
+    public const string ReadOnlyNotice =
+        "MyCRMRecords only shows MyCRM's data for now: saving is switched off until an administrator turns on \"Let MyCRMRecords change MyCRM's data\".";
 
     /// <summary>The scripts of every page, then the page's own.</summary>
     protected string Scripts(params string[] own) =>
