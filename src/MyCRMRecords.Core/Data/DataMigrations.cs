@@ -19,7 +19,7 @@ public static class DataMigrations
     public const string CreateTableSql = """
         IF OBJECT_ID(N'dbo.CrMigrations', N'U') IS NULL
         CREATE TABLE dbo.CrMigrations (
-            [Id] nvarchar(128) NOT NULL CONSTRAINT PK_CvMigrations PRIMARY KEY,
+            [Id] nvarchar(128) NOT NULL CONSTRAINT PK_CrMigrations PRIMARY KEY,
             [Title] nvarchar(400) NOT NULL,
             [AppliedBy] nvarchar(400) NOT NULL,
             [AppliedAtUtc] datetime2(3) NOT NULL

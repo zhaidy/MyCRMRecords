@@ -39,6 +39,25 @@ public sealed class RecordTests
         Assert.True(store.Insert(new Company()).Id > c.Id);
     }
 
+    /// <summary>
+    /// SQL Server names constraints across the whole database, which MyCRMRecords may share with the other apps
+    /// (MyCEV's dbo.CvMigrations has PK_CvMigrations): each primary key is named after its own table.
+    /// </summary>
+    [Fact]
+    public void Every_primary_key_is_named_after_its_own_table()
+    {
+        var sql = (DataMigrations.CreateTableSql + "\n" + string.Join("\n", DataMigrations.All.Select(m => m.Sql))).Replace("\r\n", "\n");
+        var tables = Regex.Matches(sql, @"CREATE TABLE dbo\.(\w+) \((.*?)\n\s*\);", RegexOptions.Singleline);
+        Assert.True(tables.Count > 10);
+        foreach (Match table in tables)
+        {
+            var key = Regex.Match(table.Groups[2].Value, @"CONSTRAINT (\w+) PRIMARY KEY");
+            Assert.True(key.Success, table.Groups[1].Value + " has no named primary key.");
+            Assert.Equal("PK_" + table.Groups[1].Value, key.Groups[1].Value);
+            Assert.StartsWith("Cr", table.Groups[1].Value, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void A_batch_that_fails_keeps_nothing()
     {
