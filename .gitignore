@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+TestResults/
+packages/
+# App data written by the website
+src/*/App_Data/
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
