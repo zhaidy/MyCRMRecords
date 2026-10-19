@@ -192,7 +192,27 @@ MyCRMRecords deletes nothing either way, and marks what it removes in MyCRM (`IS
    CUser rows at every save and creates new ones (losing `CId`, created/updated data and `ProfileId`); MyCRMRecords
    changes the rows in place, adds rows for new teams and marks the others inactive.
 
+4. **MyCRM's import timers from the old CRM are not carried over** (decided 2026-10-19): `Company`, `CompanyDaily`,
+   `Contact`, `ContactLink`, `Address`, `CompanyAddressLink`, `Phone`, `Email`, `ImportUpdateContact`,
+   `ImportUpdateContactLink`, `ImportLG`/`LMA`/`GMA`/`SME` and their `UpdateCompany` variants, `UpdateCompanyCRMIdByBRN`,
+   `UpdateCompanyCRMIdByName`, `UpdateOldCRMCompanyId`, `UpdateAdvanceTypeCode`, `BulkUpdateCustomerType`,
+   `ChannelPartnerCompanies`, `MissingCompany`. Only **`UpdateCustomerNo`** (Advance's customer number into
+   `Company.CustomerNo`, daily at 02:45) is kept, as a scheduled task of MyCRMRecords. The old-CRM Id columns
+   (`CRMCompanyId`, `CId`, `CRMAddressId`, …) are kept and synced as they are, never filled by MyCRMRecords.
+5. **MyCRM's bugs in this part are fixed** (decided 2026-10-19): re-saving the default address with "Is Default"
+   ticked is accepted (MyCRM refused it: "There is already a default address for this company"); every save records who
+   changed the record and when (MyCRM's number-of-employees and sales-remarks saves did not); the phone error says
+   "Invalid phone number" (MyCRM: "Invalid Email").
+6. **A duplicate BRN is refused on new and edited companies** (MyCRM checked new companies only); a company marked
+   "Is HOME USER" still skips the check, as in MyCRM (decided 2026-10-19).
+7. **The `Pre…` columns are filled exactly as MyCRM fills them** (the values just before the last edit, on the saves
+   that write them in MyCRM), because lists that stay in MyCRM sort by `PreCompanyName`.
+
 ## 13. Production counts that shaped the design (2026-10-19)
+
+The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):
+Preview's time is measured on production first, and reading only changed rows is added to the engine only if needed
+(decided 2026-10-19). Company and contact tables: about 725,000 rows.
 
 Active territories 32,099, of which temporary 31,898; salespeople with a permanent territory 199; active
 `CompanyTerritory` rows 1,019,601, of which in active permanent territories 22,716; companies with a salesperson 22,712,
