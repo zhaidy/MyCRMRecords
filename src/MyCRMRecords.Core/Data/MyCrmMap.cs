@@ -124,7 +124,7 @@ public static class MyCrmMap
         public Builder<T> Day(params string[] properties) { foreach (var p in properties) _fields[p] = new CrmField(P(p), CrmFieldKind.Day, p.ToUpperInvariant()); return this; }
         public Builder<T> Ref(params string[] properties) { foreach (var p in properties) _fields[p] = new CrmField(P(p), CrmFieldKind.Ref, p.ToUpperInvariant()); return this; }
         public Builder<T> User(params string[] properties) { foreach (var p in properties) _fields[p] = new CrmField(P(p), CrmFieldKind.User, p.ToUpperInvariant()); return this; }
-        public Builder<T> User(string property, string column, bool required = false) { _fields[property] = new CrmField(P(property), CrmFieldKind.User, column, required: required); return this; }
+        public Builder<T> Person(string property, string column, bool required = false) { _fields[property] = new CrmField(P(property), CrmFieldKind.User, column, required: required); return this; }
         public Builder<T> Static(string property, string column, ChoiceList list, string fallback = "") { _fields[property] = new CrmField(P(property), CrmFieldKind.Static, column, list, fallback); return this; }
         public Builder<T> Side(params string[] properties) { foreach (var p in properties) _fields[p] = new CrmField(P(p), CrmFieldKind.Side, ""); return this; }
         public Builder<T> Fixed(string column, object? value) { _fixed[column] = value; return this; }
@@ -146,7 +146,7 @@ public static class MyCrmMap
         new Builder<CompanyGroupName>(GroupNames).Side("IsActive", "RemovedOn", "RemovedBy").Build(),
         new Builder<CrmTeam>(Teams).Build(),
         new Builder<CrmUser>(Users)
-            .User("Login", "USERID", required: true).Static("Role", "ROLEID", CrmRoles.List).Ref("TeamId", "ProfileId").User("CreatedBy", "UpdatedBy")
+            .Person("Login", "USERID", required: true).Static("Role", "ROLEID", CrmRoles.List).Ref("TeamId", "ProfileId").User("CreatedBy", "UpdatedBy")
             .Side("FormerTeamId", "RemovedOn", "RemovedBy").Build(),
         new Builder<Company>(Companies)
             .Column("Name", "COMPANY").Static("CompanyGroup", "COMPANYGROUPID", CompanyGroups.List).Ref("CompanyGroupNameId", "PreCompanyGroupNameId")
@@ -172,11 +172,11 @@ public static class MyCrmMap
             .Column("Number", "PHONE").User("CreatedBy", "UpdatedBy").Build(),
         new Builder<ContactEmail>(Emails).Column("Address", "EMAIL").Ref("CompanyId", "ContactId").User("CreatedBy", "UpdatedBy").Build(),
         new Builder<Territory>(Territories)
-            .Column("Number", "TERRITORY").User("Owner", "OWNERID", required: true).Side("Name", "CreatedOn", "CreatedBy", "RemovedOn", "RemovedBy")
+            .Column("Number", "TERRITORY").Person("Owner", "OWNERID", required: true).Side("Name", "CreatedOn", "CreatedBy", "RemovedOn", "RemovedBy")
             .Fixed("ISTEMPORARY", false).Only(CrmRows.PermanentTerritories).Build(),
         new Builder<CompanyTerritory>(CompanyTerritories)
             .Ref("TerritoryId", "CompanyId").User("CreatedBy").Side("CreatedOn", "RemovedOn", "RemovedBy").Only(CrmRows.ActiveLinksOfPermanentTerritories).Build(),
-        new Builder<TerritoryMovement>(Movements).Ref("CompanyId").User("FromUser", "FROMUSERID").User("ToUser", "TOUSERID").User("UpdatedBy").Build(),
+        new Builder<TerritoryMovement>(Movements).Ref("CompanyId").Person("FromUser", "FROMUSERID").Person("ToUser", "TOUSERID").User("UpdatedBy").Build(),
     ];
 
     private static readonly Dictionary<Type, CrmEntity> ByType = All.ToDictionary(e => e.Type);

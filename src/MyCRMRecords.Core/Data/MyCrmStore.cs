@@ -485,7 +485,8 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
         var sql = new StringBuilder($"SELECT x.* FROM {table} x WHERE {string.Join(" AND ", where)}");
         if (!t.InMemory)
         {
-            sql.Append(" ORDER BY ").Append(t.OrderBy).Append(direction).Append(", x.[ID]").Append(direction);
+            sql.Append(" ORDER BY ").Append(t.OrderBy).Append(direction);
+            if (t.OrderBy != "x.[ID]") sql.Append(", x.[ID]").Append(direction);
             if (query.Skip > 0 || query.Take is not null)
             {
                 sql.Append(" OFFSET ").Append(query.Skip.ToString(CultureInfo.InvariantCulture)).Append(" ROWS");

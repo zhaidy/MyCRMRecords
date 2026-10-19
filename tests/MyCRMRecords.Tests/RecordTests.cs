@@ -143,6 +143,22 @@ public sealed class RecordTests
     }
 
     [Fact]
+    public void Every_property_of_MyCRMs_records_has_a_place_in_MyCRM_of_its_own()
+    {
+        foreach (var e in MyCrmMap.All)
+        {
+            var stored = e.Stored.Select(f => f.Column).ToList();
+            Assert.True(stored.Count == stored.Distinct(StringComparer.OrdinalIgnoreCase).Count(), $"{e.Entity} maps two properties to one column: {string.Join(", ", stored)}");
+            Assert.DoesNotContain("ID", stored);
+            Assert.All(e.Fields.Where(f => f.Kind == CrmFieldKind.User), f => Assert.Equal(typeof(string), f.Type));
+            Assert.All(e.Fields.Where(f => f.Kind == CrmFieldKind.Static), f => Assert.NotNull(f.List));
+            Assert.Equal(e.Type.GetProperties().Count(p => p.CanWrite && p.Name != "Id"), e.Fields.Count);
+        }
+        Assert.Equal("CREATEDBY", MyCrmMap.Of<Company>()!.Field("CreatedBy")!.Column);
+        Assert.Equal("UPDATEDBY", MyCrmMap.Of<Company>()!.Field("UpdatedBy")!.Column);
+    }
+
+    [Fact]
     public void Every_text_column_has_a_length()
     {
         foreach (var type in Tables.All)
