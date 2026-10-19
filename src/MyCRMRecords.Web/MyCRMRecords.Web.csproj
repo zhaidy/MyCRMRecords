@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ASP.NET (System.Web) application for IIS on .NET Framework 4.8, the same runtime as ReportGenerator3 and MyAllocation.
+    This folder is itself the web root: the DLLs build into bin\ next to the pages, api.ashx and Web.config,
+    so IIS Express can serve it directly. Deployment/Build.ps1 assembles the release from it.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyCRMRecords.Web</RootNamespace>
+    <OutputPath>bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Web" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.DirectoryServices" />
+    <Reference Include="System.DirectoryServices.AccountManagement" />
+    <Reference Include="System.Net.Http" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\MyCRMRecords.Core\MyCRMRecords.Core.csproj" />
+    <Compile Include="..\MyCRMRecords.Core\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
+
+</Project>

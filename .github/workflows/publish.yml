@@ -1,0 +1,133 @@
+name: Build IIS release
+# Every push to master builds, tests and packages the site. The IIS server's scheduled task
+# (Deployment/Poll.ps1, the same mechanism as ReportGenerator3) deploys the successful build
+# of the current master commit. GitHub never connects to the server.
+#
+# A merged pull request starts this build from PR checks (Deployment/TestAndMerge.ps1), which put on master exactly
+# the commit they had just built and tested. The build then only packages that commit, without testing it again.
+# Any other commit (a direct push, a run started by hand, or master having moved on) is tested here.
+#
+# Every job runs on GitHub's runners unless the repository variable SELF_HOSTED_RUNNER is 'true'; then it runs on the
+# self-hosted Windows runner (README, "Self-hosted runner"), which uses no Actions minutes, as in ReportGenerator3.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      tested:
+        description: 'Commit that PR checks already tested (filled in by PR checks; leave empty to run the tests)'
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: mycrmrecords-build-master
+  cancel-in-progress: true
+jobs:
+  release:
+    if: github.ref == 'refs/heads/master'
+    # Windows PowerShell 5.1 here matches the IIS server that runs the deployment scripts.
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && fromJSON('["self-hosted","Windows"]') || 'windows-2022' }}
+    timeout-minutes: 20
+    # contents: write to attach the package to the release website-builds.
+    permissions:
+      contents: write
+    env:
+      # 'true' only when master is still the commit PR checks tested; a person running this by hand leaves it empty.
+      TESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.tested == github.sha }}
+      # NuGet packages go into the workspace, so the package cache holds only this repository's packages. A
+      # self-hosted runner keeps NuGet's own folder in its profile instead, so nothing is downloaded again.
+      NUGET_PACKAGES: ${{ vars.SELF_HOSTED_RUNNER != 'true' && format('{0}/.nuget/packages', github.workspace) || '' }}
+    steps:
+      - name: Start SQL Server LocalDB in the background
+        # LocalDB takes about 15 seconds to start; it starts while the next steps run, and the database step below
+        # waits until it answers.
+        if: env.TESTED != 'true'
+        shell: powershell
+        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { Start-Process SqlLocalDB -ArgumentList 'start', 'MSSQLLocalDB' -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
+      - uses: actions/checkout@v4
+        with:
+          # The full history, for the change log on the Deployment admin page.
+          fetch-depth: 0
+      - name: Check for the .NET 8 runtime
+        id: dotnet
+        # The runner image comes with the .NET SDKs, and the newest of them builds (setup-dotnet never changed which).
+        # The tests need the .NET 8 runtime: setup-dotnet downloads it (285 MB, half a minute) only if the image no
+        # longer has it.
+        shell: powershell
+        run: if (dotnet --list-runtimes | Select-String -Quiet '^Microsoft\.NETCore\.App 8\.') { [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "installed=true`n") }
+      - uses: actions/setup-dotnet@v4
+        if: steps.dotnet.outputs.installed != 'true'
+        with:
+          dotnet-version: 8.0.x
+      - name: NuGet package cache
+        if: vars.SELF_HOSTED_RUNNER != 'true'
+        # Restored here, and saved at the end of the job when the projects' packages changed. Pull requests can only
+        # read master's caches, so this build fills the cache for PR checks; Build.ps1 restores the whole solution,
+        # test packages included, even when it skips the tests.
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Wait for SQL Server LocalDB for the database tests
+        # The SQL Server tests run when MYCRMRECORDS_TEST_SQLSERVER is set, and are skipped otherwise. LocalDB sometimes
+        # fails to start on a fresh runner; the script recreates it and tries again.
+        if: env.TESTED != 'true'
+        shell: powershell
+        run: ./Deployment/StartLocalDb.ps1
+      - name: Build, test and package release
+        shell: powershell
+        run: ./Deployment/Build.ps1 -Revision '${{ github.sha }}' -BuildNumber '${{ github.run_number }}' -SkipTests:($env:TESTED -eq 'true')
+      # The package goes to the GitHub release website-builds as mycrmrecords-release-<build number>.zip, where
+      # Deployment/Poll.ps1 downloads it (as in ReportGenerator3). A private repository has only 0.5 GB of Actions
+      # storage, and GitHub refuses artifact uploads for the rest of the month once it is used up; releases have no
+      # storage quota. One release holds every build: adding a file to it notifies nobody, while a new release for each
+      # build would notify everyone watching the repository.
+      - name: Package release
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = Join-Path $env:RUNNER_TEMP 'mycrmrecords-release.zip'
+          if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+          [IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $env:RUNNER_TEMP 'MyCRMRecords-release'), $zip, [IO.Compression.CompressionLevel]::Optimal, $false)
+          Write-Host ('Release package: ' + [Math]::Round((Get-Item -LiteralPath $zip).Length / 1MB, 1) + ' MB')
+      - name: Attach the package to the website-builds release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs'), path = require('path');
+            const { owner, repo } = context.repo, tag = 'website-builds', name = `mycrmrecords-release-${context.runNumber}.zip`;
+            let release;
+            try { release = (await github.rest.repos.getReleaseByTag({ owner, repo, tag })).data; }
+            catch (e) {
+              if (e.status !== 404) throw e;
+              release = (await github.rest.repos.createRelease({ owner, repo, tag_name: tag, target_commitish: context.sha, name: 'Website builds', prerelease: true,
+                body: 'The release packages of the latest master builds, which the IIS server deploys (Deployment/Poll.ps1). Every build adds mycrmrecords-release-<build number>.zip; the clean-up keeps the newest two.' })).data;
+            }
+            // A re-run of this build replaces the package of its earlier attempt.
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { owner, repo, release_id: release.id, per_page: 100 });
+            for (const old of assets.filter(a => a.name === name)) await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: old.id });
+            const data = fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'mycrmrecords-release.zip'));
+            await github.rest.repos.uploadReleaseAsset({ owner, repo, release_id: release.id, name, data, headers: { 'content-type': 'application/zip', 'content-length': data.length } });
+            core.notice(`Attached ${name} (${(data.length / 1048576).toFixed(1)} MB) to the release ${tag}.`);
+      # While the repository is public (Actions storage is free), the build also uploads the artifact that the poller
+      # installed before the release website-builds downloads. Deploying this build installs the new poller on the
+      # server; make the repository private only after that (README, "Making the repository private").
+      - uses: actions/upload-artifact@v4
+        if: ${{ !github.event.repository.private }}
+        with:
+          name: mycrmrecords-release
+          path: ${{ runner.temp }}/MyCRMRecords-release
+          if-no-files-found: error
+          retention-days: 7
+  # Deletes the older packages after every build, also one whose upload failed: the release website-builds keeps the
+  # newest builds, and older Actions artifacts go too. (A workflow_run trigger never fires for the builds PR checks
+  # start, since GitHub starts no workflow_run for a run started with the GITHUB_TOKEN.)
+  cleanup:
+    needs: release
+    if: ${{ !cancelled() && github.ref == 'refs/heads/master' }}
+    permissions:
+      actions: write
+      contents: write
+    uses: ./.github/workflows/delete-old-artifacts.yml

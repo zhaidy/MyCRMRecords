@@ -1,0 +1,79 @@
+name: PR checks
+# Runs the same build, tests and deployment checks as a master build, on the pull request merged with the current
+# master. Like ReportGenerator3, a pull request then merges into master by itself, and master builds and deploys.
+#
+# Several pull requests can be open and pass at the same time (for example from parallel Claude sessions).
+# Deployment/TestAndMerge.ps1 pushes exactly the tested merge commit, and only as a fast-forward of the master it
+# was tested with: if another pull request merged first, this run merges with the new master and tests again
+# (up to 6 times). Master therefore only receives combinations that passed, in whatever order the pull requests finish.
+#
+# The job runs on GitHub's runners unless the repository variable SELF_HOSTED_RUNNER is 'true'; then it runs on the
+# self-hosted Windows runner (README, "Self-hosted runner"), which uses no Actions minutes.
+on:
+  pull_request:
+    branches: [master]
+    # ready_for_review / unlabeled: a draft or a "no-automerge" pull request merges once that changes.
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+permissions:
+  contents: write   # the fast-forward push to master (never granted to forks by GitHub)
+  actions: write    # starting the master build
+  pull-requests: read
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && fromJSON('["self-hosted","Windows"]') || 'windows-2022' }}
+    # Room for re-testing when other pull requests merge first.
+    timeout-minutes: 75
+    env:
+      # NuGet packages go into the workspace, so the package cache holds only this repository's packages. A
+      # self-hosted runner keeps NuGet's own folder in its profile instead, so nothing is downloaded again.
+      NUGET_PACKAGES: ${{ vars.SELF_HOSTED_RUNNER != 'true' && format('{0}/.nuget/packages', github.workspace) || '' }}
+    steps:
+      - name: Start SQL Server LocalDB in the background
+        # LocalDB takes about 15 seconds to start; it starts while the next steps run, and the database step below
+        # waits until it answers.
+        shell: powershell
+        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { Start-Process SqlLocalDB -ArgumentList 'start', 'MSSQLLocalDB' -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The full history: the merge with master and the change log need it.
+          fetch-depth: 0
+          # The token is not left in the checkout, so the code under test cannot use it.
+          persist-credentials: false
+      - name: Check for the .NET 8 runtime
+        id: dotnet
+        # The runner image comes with the .NET SDKs, and the newest of them builds (setup-dotnet never changed which).
+        # The tests need the .NET 8 runtime: setup-dotnet downloads it (285 MB, half a minute) only if the image no
+        # longer has it.
+        shell: powershell
+        run: if (dotnet --list-runtimes | Select-String -Quiet '^Microsoft\.NETCore\.App 8\.') { [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "installed=true`n") }
+      - uses: actions/setup-dotnet@v4
+        if: steps.dotnet.outputs.installed != 'true'
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore the NuGet package cache
+        if: vars.SELF_HOSTED_RUNNER != 'true'
+        # The master build (publish.yml) saves it; a pull request only reads it, so its code never changes the cache.
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Wait for SQL Server LocalDB for the database tests
+        # The SQL Server tests run when MYCRMRECORDS_TEST_SQLSERVER is set, and are skipped otherwise. LocalDB sometimes
+        # fails to start on a fresh runner; the script recreates it and tries again.
+        shell: powershell
+        run: ./Deployment/StartLocalDb.ps1
+      - name: Test with master, then merge
+        # Only branches of this repository merge themselves (never forks); drafts wait, and the "no-automerge" label
+        # holds a pull request back. Those are tested with master and left for a person to merge.
+        shell: powershell
+        env:
+          MERGE_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AUTOMERGE: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && !contains(github.event.pull_request.labels.*.name, 'no-automerge') }}
+        run: ./Deployment/TestAndMerge.ps1 -PullRequest $env:PR -Head $env:HEAD_SHA -BuildNumber '${{ github.run_number }}' -Merge:($env:AUTOMERGE -eq 'true')
