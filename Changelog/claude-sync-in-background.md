@@ -1,0 +1,3 @@
+# The first sync with MyCRM runs in the background, and much faster
+
+After the import, turning on *Sync with MyCRM* (or pressing *Sync now* or *Preview*) made the page wait while the first sync paired every one of the hundreds of thousands of records; ASP.NET ended the page after two minutes, the sync was undone and stayed "Running…" in the list. Now the sync and its preview run in the background and the tab shows their result when they end (a preview also says how long it took). A sync that was cut off is shown as such. Looking up MyCRM's users for each record no longer searches the whole user list every time, which made a sync of this size take hours.

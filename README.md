@@ -146,7 +146,7 @@ The sync stays on for good: the rest of MyCRM keeps using these tables.
    on MyCRM's fifteen synced entity tables. Never `DELETE`.
 2. In OutSystems, switch off MyCRM's timers that would fight MyCRMRecords (`docs/outsystems/README.md`, section 14):
    the Advance territory rebuild and the old-CRM imports, and MyCRM's `UpdateCustomerNo` once MyCRMRecords' task is on.
-3. Import MyCRM's data (admin page, *Import from MyCRM*), press *Preview* on the *Sync with MyCRM* tab and note how
+3. Import MyCRM's data (admin page, *Import from MyCRM*), press *Preview* on the *Sync with MyCRM* tab (it runs in the background) and note how
    long it takes (the sync reads every synced row each time), then turn the sync on (every 10 minutes) before anyone
    uses MyCRMRecords, so every new company, address and contact takes MyCRM's next number.
 4. Check the CRM users and name the territories (they come without names: "Territory 1203").

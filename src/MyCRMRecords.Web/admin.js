@@ -298,7 +298,10 @@
         <button class="button primary" id="sync-run"${s.enabled ? '' : ' disabled'}>Sync now</button>
         <label class="check"><input type="checkbox" id="sync-large-ok">Allow a large sync</label></div>
       <div id="sync-result"></div>
-      <p class="muted small" style="margin-top:12px">${d.pairs} records are paired with MyCRM.</p>
+      ${d.preview ? `<div class="notice ${d.preview.outcome === 'Running' ? '' : d.preview.outcome === 'Done' ? 'ok' : 'error'}" style="margin-top:10px">
+        <strong>Preview of ${esc(dateTime(d.preview.startedAt))}${d.preview.outcome === 'Running' ? ' (running…)' : d.preview.finishedAt ? `, ${Math.max(1, Math.round((new Date(d.preview.finishedAt) - new Date(d.preview.startedAt)) / 1000))} s` : ''}</strong>
+        <pre class="small" style="white-space:pre-wrap;margin:6px 0 0">${esc(d.preview.summary)}</pre></div>` : ''}
+      <p class="muted small" style="margin-top:12px">${d.pairs} records are paired with MyCRM. The first sync after the import pairs every record: it runs in the background and takes several minutes.</p>
       <h3 style="margin-top:16px">Syncs</h3>
       ${d.runs.length ? `<ul class="check-lines">${d.runs.map(r => `<li class="${r.ok ? 'good' : r.finishedOn ? 'bad' : ''}">${esc(dateTime(r.startedOn))} · ${esc(r.by)} · ${esc(r.message)}${r.details ? `<details><summary>Details</summary><pre class="small">${esc(r.details)}</pre></details>` : ''}</li>`).join('')}</ul>` : '<p class="muted">None yet.</p>'}
       </section>
@@ -321,16 +324,20 @@
       result(a);
     });
     $('#sync-preview').addEventListener('click', async () => {
-      $('#sync-result').innerHTML = '<p class="loading">Reading both…</p>';
-      result(await api('POST', 'admin/sync/preview', {}));
+      const a = await api('POST', 'admin/sync/preview', {});
+      toast(a.result.message, !a.result.ok);
+      await sync();
     });
     $('#sync-run').addEventListener('click', async () => {
-      $('#sync-result').innerHTML = '<p class="loading">Syncing…</p>';
       const a = await api('POST', 'admin/sync/run', {allowLarge: $('#sync-large-ok').checked});
       toast(a.result.message, !a.result.ok);
       await sync();
-      result(a);
     });
+    // While a preview or a sync runs (in the background), the tab looks again every 5 seconds.
+    if ((d.preview && d.preview.outcome === 'Running') || d.runs.some(r => !r.finishedOn)) {
+      clearTimeout(window.syncPoll);
+      window.syncPoll = setTimeout(() => { if (tab === 'sync') sync(); }, 5000);
+    }
     let skip = 0, timer = 0;
     async function changes() {
       const c = await api('GET', 'admin/sync/changes?' + new URLSearchParams({q: $('#changes-q').value, skip}));
