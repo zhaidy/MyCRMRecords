@@ -76,7 +76,7 @@ public class AppPage : Page
     private string NoAccessPage() =>
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
         + "  <title>No access · MyCRMRecords</title>\n"
-        + $"  <link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">\n</head>\n<body>\n"
+        + $"  <link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">{Brand.TabIcon}\n</head>\n<body>\n"
         + TopBar("") + "\n  <div class=\"app-shell\"><main><div class=\"empty\"><h3>Not for your role</h3>"
         + $"<p>{HttpUtility.HtmlEncode(AllowedWho)} Your account is {HttpUtility.HtmlEncode(Login)}; a Sales Admin sets MyCRM roles on the CRM users page.</p>"
         + "<p><a class=\"button secondary small-btn\" href=\"guide.aspx\">Open the user guide</a></p></div></main></div>\n"
@@ -93,7 +93,7 @@ public class AppPage : Page
         var html = new StringBuilder();
         html.Append("<header class=\"appbar\">")
             .Append("<button class=\"icon-button menu-button\" id=\"menu-button\" aria-label=\"Menu\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span></button>")
-            .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\"><span class=\"brand-mark\" aria-hidden=\"true\">C<span>.</span></span><span>MyCRMRecords</span></a>")
+            .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
         html.Append(Item("./", "file", "Companies"));
         if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
@@ -134,7 +134,7 @@ public class AppPage : Page
         string.Concat(new[] { "common.js" }.Concat(own).Append("guide.js")
             .Select(script => $"<script src=\"{HttpUtility.HtmlAttributeEncode(Assets.Url(script))}\"></script>\n  "));
 
-    protected string Stylesheet() => $"<link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">";
+    protected string Stylesheet() => $"<link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">" + Brand.TabIcon;
 
     /// <summary>"Jamie Lee" → "JL", "jsmith" → "JS".</summary>
     public static string InitialsOf(string name)

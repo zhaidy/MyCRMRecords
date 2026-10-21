@@ -22,8 +22,8 @@ svg{width:18px;height:18px;display:block;stroke:currentColor;stroke-width:2;fill
 /* Top bar: brand, menu links, then the guide and the signed-in person */
 .appbar{position:sticky;top:0;z-index:30;height:72px;display:flex;align-items:center;gap:28px;padding:0 36px;border-bottom:1px solid var(--line);background:var(--card)}
 .brand{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.1;color:var(--ink);flex:none}
-.brand-mark{display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--brand-1),var(--brand-2));width:36px;height:36px;border-radius:11px;font-size:19px;font-weight:900;flex:none}
-.brand-mark span{color:#fff}
+.brand-mark{display:flex;align-items:center;justify-content:center;color:var(--accent);width:32px;height:32px;flex:none}
+.brand-mark svg{width:30px;height:30px}
 .sidebar{display:flex;align-items:stretch;gap:6px;height:100%}
 .nav-item{position:relative;display:flex;align-items:center;gap:9px;border:0;background:none;padding:0 12px;color:var(--ink-2);font-size:15px;font-weight:600;white-space:nowrap}
 .nav-item svg{width:18px;height:18px}
