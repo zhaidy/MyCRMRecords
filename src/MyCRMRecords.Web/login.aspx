@@ -5,11 +5,12 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Sign in · MyCRMRecords</title>
   <link rel="stylesheet" href="<%: MyCRMRecords.Web.Assets.Url("app.css") %>">
+  <%= MyCRMRecords.Web.Brand.TabIcon %>
 </head>
 <body class="login-body">
   <div class="login-main" role="main">
     <form class="login-card" method="post" autocomplete="on">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">W<span>.</span></span><span>MyCRMRecords</span></div>
+      <div class="brand"><%= MyCRMRecords.Web.Brand.Mark %><span>MyCRMRecords</span></div>
       <h2>Sign in</h2>
       <p>Use your Windows (domain) username and password, the same as Report Generator and MyAllocation.</p>
       <% if (Message.Length > 0) { %>
