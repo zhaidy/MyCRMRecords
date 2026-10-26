@@ -231,6 +231,11 @@ public sealed class SettingsTests
     {
         using var world = new TestWorld(s => s.Email.Password = "mail-pass");
         var admin = new AdminApi(world.D, null!, demoTools: false);
+        // Only POST changes anything: a HEAD (which another page can send without asking) or a PUT changes nothing.
+        Assert.Equal(405, admin.Handle("HEAD", "admin/settings/email", "", new Dictionary<string, string>(), TestWorld.Admin).Status);
+        Assert.Equal(405, admin.Handle("PUT", "admin/mycrm", "", new Dictionary<string, string>(), TestWorld.Admin).Status);
+        Assert.Equal(new CrmSettings().Email.Server, world.SettingsFile.Load().Email.Server);
+        Assert.False(world.SettingsFile.Load().MyCrm.WritesEnabled);
         Assert.Equal(200, admin.Handle("POST", "admin/settings/email", "{\"enabled\":true,\"server\":\"smtp.example.com\",\"port\":25,\"password\":\"\",\"from\":\"rspapps@ricoh.sg\",\"siteUrl\":\"https://apps.ricoh.sg/MyCRMRecords/\"}",
             new Dictionary<string, string>(), TestWorld.Admin).Status);
         var saved = world.SettingsFile.Load();

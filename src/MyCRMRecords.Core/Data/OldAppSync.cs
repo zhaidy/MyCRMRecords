@@ -432,32 +432,36 @@ public sealed class OldAppSync
         foreach (var (parentName, parentId) in entity.Parents)
             if (parentId(record) is { } id && id != 0 && context.OldId(parentName, id) is null)
                 _entities.First(e => e.Name == parentName).Accept(new PushParent(pass, id));
-        for (var attempt = 0; ; attempt++)
+        var (newId, link, _) = pass.PushNew(entity, record);
+        writer.Commit();
+        entity.SetOldId?.Invoke(record, newId);
+        if (store.Get<T>(newId) is null)
         {
-            var (newId, link, values) = pass.PushNew(entity, record);
-            if (store.Get<T>(newId) is null)
-            {
-                writer.Commit();
-                record.Id = newId;
-                entity.SetOldId?.Invoke(record, newId);
-                store.InsertKeepingIds([record]);
-                _store.Batch(s =>
-                {
-                    foreach (var l in pass.Pending)
-                    {
-                        l.Pending = false;
-                        if (l.Id == 0) s.Insert(l);
-                        else s.Update(l);
-                    }
-                    foreach (var change in writer.Changes) s.Insert(change);
-                });
-                return record;
-            }
-            // A record made here before the sync was on has this number: the row just added is marked as removed (the old
-            // app keeps it, it is never deleted) and another number is taken.
-            if (attempt >= 20) throw new InvalidOperationException($"No free number could be taken from {tables.Title}.");
-            pass.Abandon(entity, link, newId, values);
+            record.Id = newId;
+            store.InsertKeepingIds([record]);
         }
+        else
+        {
+            // A record made here while the sync was off has that number already: this one is kept here under a number of
+            // its own and paired with the row just added there. (Adding another row there each time, as before, left
+            // live copies of the record in the old app, which it never deletes.)
+            context.Remove(link);
+            record.Id = 0;
+            store.Insert(record);
+            link.LocalId = record.Id;
+            context.Add(link);
+        }
+        _store.Batch(s =>
+        {
+            foreach (var l in pass.Pending)
+            {
+                l.Pending = false;
+                if (l.Id == 0) s.Insert(l);
+                else s.Update(l);
+            }
+            foreach (var change in writer.Changes) s.Insert(change);
+        });
+        return record;
     }
 
     /// <summary>
@@ -780,6 +784,33 @@ public sealed class OldAppSync
             var unpairedRows = rowsByKey.Where(p => !pairedOld.Contains(p.Key)).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
             foreach (var x in locals.Values.Where(r => !pairedLocal.Contains(r.Id)).OrderBy(r => r.Id))
             {
+                // Imported from the old app, whose row is gone there: it was deleted there after the import (MyForms, for one,
+                // deletes a linkage it un-links). Marked here as for a paired record deleted there, and never added back there. Only a
+                // record that was never paired: one added there by a sync whose commit failed also has the old Id but no row,
+                // and is written again (its pair, kept Unpaired, says so).
+                if (!windowed && entity.KeyColumns.SequenceEqual(new[] { "ID" }, StringComparer.OrdinalIgnoreCase)
+                    && entity.OldIdOf?.Invoke(x) is { } importedId && importedId != 0 && !rowsByKey.ContainsKey(importedId.ToString(CultureInfo.InvariantCulture))
+                    && context.ByOld(entity.Name, importedId.ToString(CultureInfo.InvariantCulture)) is null
+                    && store.FindFirst<SyncLink>(Query.Where("Entity", entity.Name).And("LocalId", x.Id)) is null)
+                {
+                    var gone = new SyncLink { Entity = entity.Name, LocalId = x.Id, OldKey = importedId.ToString(CultureInfo.InvariantCulture), SyncedOn = context.Now, RemovedThere = true };
+                    context.Add(gone);
+                    if (entity.MarkRemovedHere is { } markHere)
+                    {
+                        var table = Table.Of<T>();
+                        var before = table.Columns.Select(c => c.Get(x)).ToList();
+                        markHere(x);
+                        if (table.Columns.Select(c => c.Get(x)).Where((v, i) => !Equals(v, before[i])).Any())
+                        {
+                            store.Update(x);
+                            _here.Add($"the {entity.Label} {entity.Describe(x)} marked as removed (it was deleted in {tables.Title} after the import).");
+                        }
+                    }
+                    else _notes.Add($"The {entity.Label} {entity.Describe(x)} was deleted in {tables.Title} after the import; it is kept here (nothing is deleted) and not added there again.");
+                    gone.LocalHash = LocalHash(entity, x, columns);
+                    Save(gone);
+                    continue;
+                }
                 OldRow? match = null;
                 if (entity.OldIdOf?.Invoke(x) is { } oldId && oldId != 0 && unpairedRows.TryGetValue(oldId.ToString(CultureInfo.InvariantCulture), out var byId))
                     match = byId;
