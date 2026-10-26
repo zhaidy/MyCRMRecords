@@ -785,10 +785,13 @@ public sealed class OldAppSync
             foreach (var x in locals.Values.Where(r => !pairedLocal.Contains(r.Id)).OrderBy(r => r.Id))
             {
                 // Imported from the old app, whose row is gone there: it was deleted there after the import (MyForms, for one,
-                // deletes a linkage it un-links). Marked here as for a paired record deleted there, and never added back there.
+                // deletes a linkage it un-links). Marked here as for a paired record deleted there, and never added back there. Only a
+                // record that was never paired: one added there by a sync whose commit failed also has the old Id but no row,
+                // and is written again (its pair, kept Unpaired, says so).
                 if (!windowed && entity.KeyColumns.SequenceEqual(new[] { "ID" }, StringComparer.OrdinalIgnoreCase)
                     && entity.OldIdOf?.Invoke(x) is { } importedId && importedId != 0 && !rowsByKey.ContainsKey(importedId.ToString(CultureInfo.InvariantCulture))
-                    && context.ByOld(entity.Name, importedId.ToString(CultureInfo.InvariantCulture)) is null)
+                    && context.ByOld(entity.Name, importedId.ToString(CultureInfo.InvariantCulture)) is null
+                    && store.FindFirst<SyncLink>(Query.Where("Entity", entity.Name).And("LocalId", x.Id)) is null)
                 {
                     var gone = new SyncLink { Entity = entity.Name, LocalId = x.Id, OldKey = importedId.ToString(CultureInfo.InvariantCulture), SyncedOn = context.Now, RemovedThere = true };
                     context.Add(gone);
