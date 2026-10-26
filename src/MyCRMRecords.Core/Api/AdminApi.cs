@@ -23,7 +23,9 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
     public ApiResponse Handle(string method, string path, string body, IReadOnlyDictionary<string, string> query, ApiUser user)
     {
         var route = path.Trim('/');
+        // Reads are GET; every change is POST, and nothing else changes anything (ApiHandler refuses other methods too).
         var get = method == "GET";
+        if (!get && method != "POST") return ApiResponse.Fail(405, "METHOD_NOT_ALLOWED", "Use GET or POST.");
         string Q(string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
         try
         {

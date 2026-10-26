@@ -40,6 +40,15 @@ public sealed class ApiHandler : IHttpHandler
             response.Write("{\"result\":{\"ok\":false,\"code\":\"UNAUTHORIZED\",\"message\":\"Please sign in again.\"}}");
             return;
         }
+        // Only GET reads and POST changes: anything else (HEAD, PUT…) would otherwise reach the routes that change things
+        // without the JSON check below or the audit log.
+        if (request.HttpMethod != "GET" && request.HttpMethod != "POST")
+        {
+            response.StatusCode = 405;
+            response.AppendHeader("Allow", "GET, POST");
+            response.Write("{\"result\":{\"ok\":false,\"code\":\"METHOD_NOT_ALLOWED\",\"message\":\"Use GET or POST.\"}}");
+            return;
+        }
         // Changes are sent as JSON: browsers cannot send that cross-site without a CORS preflight, which this API never
         // grants, so other sites cannot make a signed-in person change anything.
         if (request.HttpMethod == "POST" && !(request.ContentType ?? "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
