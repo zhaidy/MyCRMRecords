@@ -8,8 +8,8 @@ namespace MyCRMRecords.Web;
 
 /// <summary>
 /// Serves <c>api.ashx/...</c> (IIS maps .ashx to ASP.NET by default, so nothing is registered in IIS). The pages call it
-/// as the signed-in person (<see cref="CrmApi"/>, <see cref="UsersApi"/>, and for administrators <see cref="AdminApi"/>
-/// and <see cref="DeploymentApi"/>). Every change (each POST) goes into the audit log.
+/// as the signed-in person (<see cref="CrmApi"/>, <see cref="OrdersApi"/> (read only), <see cref="UsersApi"/>, and for
+/// administrators <see cref="AdminApi"/> and <see cref="DeploymentApi"/>). Every change (each POST) goes into the audit log.
 /// </summary>
 public sealed class ApiHandler : IHttpHandler
 {
@@ -108,6 +108,7 @@ public sealed class ApiHandler : IHttpHandler
         }
         if (route == "users/impersonate" && request.HttpMethod == "POST") return Impersonate(context, body, user);
         if (UsersApi.Handles(path)) return Services.UsersApi.Handle(request.HttpMethod, path, body, query, user);
+        if (OrdersApi.Handles(path)) return Services.OrdersApi.Handle(request.HttpMethod, path, body, query, user);
         return Services.Api.Handle(request.HttpMethod, path, body, query, user);
     }
 
@@ -128,8 +129,8 @@ public sealed class ApiHandler : IHttpHandler
     }
 
     /// <summary>
-    /// "Sign in as" on the User roles page and the Companies page (administrators only; recorded): the person's cookie
-    /// replaces theirs, carrying who to return to.
+    /// "Sign in as" on the User roles page and the Costing sheets page (administrators only; recorded): the person's
+    /// cookie replaces theirs, carrying who to return to.
     /// </summary>
     private static ApiResponse Impersonate(HttpContext context, string body, ApiUser user)
     {
@@ -139,11 +140,16 @@ public sealed class ApiHandler : IHttpHandler
         try { input = MyCRMRecords.Json.Deserialize<ImpersonateInput>(body) ?? new ImpersonateInput(); }
         catch (Newtonsoft.Json.JsonException) { return ApiResponse.BadRequest(); }
         var login = (input.Login ?? "").Trim();
-        var person = Services.App.People.User(login);
-        if (person is null && Services.App.People.RolesOf(login).Count == 0) return ApiResponse.NotFound();
         if (string.Equals(login, user.Login, StringComparison.OrdinalIgnoreCase)) return ApiResponse.BadRequest("That is you.");
-        var target = new ApiUser(person?.Login ?? login, person is { DisplayName.Length: > 0 } ? person.DisplayName : login, person?.Email ?? "",
-            Impersonator: new ApiUser(user.Login, user.DisplayName, user.Email));
+        // Someone MyCRMRecords knows, or anyone MyCRM or a costing sheet names (who may never have opened it yet).
+        var person = Services.App.People.User(login);
+        PersonToSignInAs? listed = null;
+        try { listed = Services.App.OrdersAccess.PeopleToSignInAs(Services.App.People.Everyone()).FirstOrDefault(p => string.Equals(p.Login, login, StringComparison.OrdinalIgnoreCase)); }
+        catch (Exception) { /* MyOrders cannot be read just now: only the people MyCRMRecords knows. */ }
+        if (person is null && listed is null && Services.App.People.RolesOf(login).Count == 0) return ApiResponse.NotFound();
+        var name = person is { DisplayName.Length: > 0 } ? person.DisplayName : listed?.Name ?? login;
+        var email = person is { Email.Length: > 0 } ? person.Email : listed?.Email ?? "";
+        var target = new ApiUser(person?.Login ?? listed?.Login ?? login, name, email, Impersonator: new ApiUser(user.Login, user.DisplayName, user.Email));
         SignIn.IssueCookie(context.Response, target, remember: false);
         return ApiResponse.Of(new { result = new { ok = true, code = ResultCodes.Ok, message = $"You are now signed in as {target.DisplayName}." } });
     }

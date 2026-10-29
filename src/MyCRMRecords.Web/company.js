@@ -52,6 +52,7 @@
         <section class="card" id="addresses"></section>
         <section class="card" id="contacts"></section>
         <section class="card" id="relationships"></section>
+        <section class="card" id="orders"></section>
         ${d.movements ? `<section class="card"><h2>Territory Movement History</h2>${movements()}</section>` : ''}
         <section class="card"><details><summary class="text-button">More Company Details</summary><div class="facts" style="margin-top:12px">
           ${fact('Remarks', `<span style="white-space:pre-wrap">${esc(c.remarks)}</span>`, 'wide')}
@@ -65,6 +66,7 @@
     addresses();
     contacts();
     relationships();
+    orders(c);
     drawIcons(page);
     $('#edit')?.addEventListener('click', async () => { if (await companyForm(lists, c)) load(); });
     $('#save-remarks').addEventListener('click', async () => {
@@ -72,6 +74,40 @@
       toast(answer.result.message, !answer.result.ok);
       showErrors(page, answer.result.errors || []);
     });
+  }
+
+  /**
+   * The company's costing sheets and request forms from MyOrders (read only): the newest of those the person may see,
+   * each opening its page, and a link to the whole list of this company's.
+   */
+  async function orders(c) {
+    const box = $('#orders');
+    box.innerHTML = '<h2>Costing Sheets and Request Forms</h2><p class="muted small">Loading…</p>';
+    const listOf = kind => api('GET', `${kind}?` + new URLSearchParams({company: String(id)}));
+    const [sheets, forms] = await Promise.all([listOf('costingsheets'), listOf('requestforms')]);
+    if (!sheets.result.ok && !forms.result.ok) {
+      box.innerHTML = `<h2>Costing Sheets and Request Forms</h2><p class="muted">${esc(sheets.result.message)}</p>`;
+      return;
+    }
+    const all = (href, total, what) => total > 5
+      ? `<p class="small" style="margin:8px 0 0"><a href="${href}?${new URLSearchParams({company: String(id), name: c.name})}">See all ${total} ${what}</a></p>` : '';
+    const none = what => `<p class="muted small" style="margin:6px 0 0">No ${what} of this company that you may see.</p>`;
+    const sheetRows = sheets.result.ok ? sheets.rows.slice(0, 5) : [];
+    const formRows = forms.result.ok ? forms.rows.slice(0, 5) : [];
+    box.innerHTML = `<h2>Costing Sheets and Request Forms</h2>
+      <p class="muted small">From MyOrders, read only: the newest of those you may see.</p>
+      <h3 style="margin:12px 0 0">Costing sheets</h3>
+      ${!sheets.result.ok ? `<p class="muted small">${esc(sheets.result.message)}</p>` : sheetRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Costing sheet</th><th>Salesman</th><th>Created</th><th class="num">Achieved Price</th></tr></thead><tbody>
+        ${sheetRows.map(r => `<tr><td><a href="costingsheet.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.status)}</span></td>
+          <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td>
+          <td class="num nowrap">${Number(r.totalAchievedPrice || 0).toLocaleString('en-SG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>`).join('')}
+        </tbody></table></div>${all('costingsheets.aspx', sheets.total, 'costing sheets')}` : none('costing sheets')}
+      <h3 style="margin:16px 0 0">Request forms</h3>
+      ${!forms.result.ok ? `<p class="muted small">${esc(forms.result.message)}</p>` : formRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Request form</th><th>Salesman</th><th>Created</th></tr></thead><tbody>
+        ${formRows.map(r => `<tr><td><a href="requestform.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.type)} · ${esc(r.status)}</span></td>
+          <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td></tr>`).join('')}
+        </tbody></table></div>${all('requestforms.aspx', forms.total, 'request forms')}` : none('request forms')}`;
+    drawIcons(box);
   }
 
   /** The number of employees, shown with Edit, or an input with Save and Cancel (MyCRM's NoOfEmployees block). */
