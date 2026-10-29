@@ -68,7 +68,7 @@ public sealed class OrdersWorld : IDisposable
         var roles = new Dictionary<string, long>();
         var roleId = 31L;
         foreach (var label in new[] { "Sales", "Manager", "Head", "SalesAdmin", "Credit", "Service Delivery Manager", "MDS Specialist" })
-            roles[label] = Data.Add(Entities.Orders.Role, new { ID = roleId += 3, LABEL = label });
+            roles[label] = Data.Add(Entities.CrmRole, new { ID = roleId += 3, LABEL = label });
         const long miaTeam = 7, kenTeam = 8;
         void Crm(long user, string role, long? team) => Data.Add(Entities.CrmUser, new { USERID = user, ROLEID = roles[role], TEAMID = team, ISACTIVE = true });
         Crm(SamId, "Sales", miaTeam);

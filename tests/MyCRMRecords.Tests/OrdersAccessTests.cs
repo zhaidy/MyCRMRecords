@@ -99,7 +99,7 @@ public sealed class OrdersAccessTests
         using var world = new OrdersWorld();
         // Jean has a MyCRM user and Pat is a costing sheet's salesperson without one; neither has opened MyCRMRecords.
         var jean = world.Data.User(@"RSP\jean", "Jean Ng", "jean@example.com");
-        var sales = world.Data.All(Entities.Orders.Role).Single(r => r.Text("LABEL") == "Sales").Long("ID");
+        var sales = world.Data.All(Entities.CrmRole).Single(r => r.Text("LABEL") == "Sales").Long("ID");
         world.Data.Add(Entities.CrmUser, new { USERID = jean, ROLEID = sales, TEAMID = 8L, ISACTIVE = true });
         var pat = world.Data.User(@"RSP\pat", "Pat Lee", "pat@example.com");
         world.Sheet(pat, world.Acme);
@@ -139,7 +139,7 @@ public sealed class OrdersAccessTests
         Assert.Equal(@"RSP\AlfrisKuay", OutSystemsImport.LoginOf(@"RSP\AlfrisKuay@ricoh.sg", "RSP"));
         var first = world.Data.User(@"RSP\alfriskuay", "Alfris Kuay", "alfriskuay@ricoh.sg");
         var second = world.Data.User(OutSystemsImport.LoginOf(@"RSP\AlfrisKuay@ricoh.sg", "RSP"), "Alfris Kuay");
-        var sales = world.Data.All(Entities.Orders.Role).Single(r => r.Text("LABEL") == "Sales").Long("ID");
+        var sales = world.Data.All(Entities.CrmRole).Single(r => r.Text("LABEL") == "Sales").Long("ID");
         world.Data.Add(Entities.CrmUser, new { USERID = first, ROLEID = sales, TEAMID = 8L, ISACTIVE = true });
         var a = world.Sheet(first, world.Acme);
         var b = world.Sheet(second, world.Zen);
@@ -153,7 +153,7 @@ public sealed class OrdersAccessTests
         Assert.NotNull(world.D.CostingSheets.Get(actor, b));
         // So does a manager whose MyCRM team has his first user only (Ken's team gets a manager here).
         var manager = world.Data.User(@"RSP\max", "Max Manager", "max@example.com");
-        var managerRole = world.Data.All(Entities.Orders.Role).Single(r => r.Text("LABEL") == "Manager").Long("ID");
+        var managerRole = world.Data.All(Entities.CrmRole).Single(r => r.Text("LABEL") == "Manager").Long("ID");
         world.Data.Add(Entities.CrmUser, new { USERID = manager, ROLEID = managerRole, TEAMID = 8L, ISACTIVE = true });
         var max = world.Actor(new ApiUser(@"RSP\max", "Max Manager", "max@example.com"));
         Assert.Contains(b, world.D.CostingSheets.List(max, new CostingSheetSearch()).Rows.Select(r => r.Id));
