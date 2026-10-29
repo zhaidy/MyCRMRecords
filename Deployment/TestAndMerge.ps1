@@ -26,6 +26,8 @@ Remove-Item Env:MERGE_TOKEN -ErrorAction SilentlyContinue
 $repository = $env:GITHUB_REPOSITORY
 if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'TestAndMerge.ps1 must run in GitHub Actions.' }
 if (-not $token) { throw 'MERGE_TOKEN is not set.' }
+# git never asks for a sign-in: on a self-hosted runner it would open Windows' credential prompt and wait forever.
+$env:GIT_TERMINAL_PROMPT = '0'; $env:GCM_INTERACTIVE = 'Never'
 $root = Split-Path $PSScriptRoot -Parent
 Import-Module (Join-Path $PSScriptRoot 'ChangeLog.psm1') -Force
 $headers = @{Authorization=('Bearer ' + $token); Accept='application/vnd.github+json'; 'X-GitHub-Api-Version'='2022-11-28'; 'User-Agent'='MyCRMRecords-PR-checks'}
@@ -39,8 +41,16 @@ function Invoke-Git {
     if ($LASTEXITCODE) { throw ('git ' + $args[0] + ' failed with exit code ' + $LASTEXITCODE + '.') }
     $output
 }
+# The token goes to one git process through its environment (a private repository needs it to fetch as well as to push),
+# never through the command line, and is gone before any build or test runs.
+function Invoke-GitWithToken {
+    $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('x-access-token:' + $token))
+    $env:GIT_CONFIG_COUNT = '1'; $env:GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader'; $env:GIT_CONFIG_VALUE_0 = 'AUTHORIZATION: basic ' + $basic
+    try { Invoke-Git @args }
+    finally { Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0 -ErrorAction SilentlyContinue }
+}
 function Get-Master {
-    Invoke-Git fetch -q --no-tags origin '+refs/heads/master:refs/remotes/origin/master' | Out-Null
+    Invoke-GitWithToken fetch -q --no-tags origin '+refs/heads/master:refs/remotes/origin/master' | Out-Null
     ([string](Invoke-Git rev-parse 'refs/remotes/origin/master')).Trim()
 }
 

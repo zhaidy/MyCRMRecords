@@ -48,4 +48,20 @@ public sealed class PageStyleTests
         Assert.Contains("@media", AppCss());
         Assert.Matches(@"@media\s*\(max-width:\s*\d+px\)\s*\{[^@]*\.menu-button\{display:inline-flex\}", AppCss());
     }
+
+    [Fact]
+    public void Every_page_and_script_goes_into_the_release()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Web"))) root = root.Parent;
+        Assert.NotNull(root);
+        var listed = Regex.Match(File.ReadAllText(Path.Combine(root!.FullName, "Deployment", "Build.ps1")), @"\$pages = @\(([^)]*)\)").Groups[1].Value;
+        Assert.NotEmpty(listed);
+        var files = Directory.GetFiles(Path.Combine(root.FullName, "src", "MyCRMRecords.Web"))
+            .Select(f => Path.GetFileName(f)!)
+            .Where(f => f == "Web.config" || new[] { ".aspx", ".ashx", ".js", ".css", ".png" }.Contains(Path.GetExtension(f).ToLowerInvariant()))
+            .ToList();
+        Assert.Contains("company.aspx", files);
+        Assert.All(files, f => Assert.Contains("'" + f + "'", listed));
+    }
 }
