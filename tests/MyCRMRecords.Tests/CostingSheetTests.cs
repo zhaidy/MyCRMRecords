@@ -322,4 +322,26 @@ public sealed class CostingSheetTests
         cs["MONTHLYLEASE"] = 295.5m;
         Assert.Equal(295.5m, CostingSheets.Finance(cs, false, ((6m, 36, 0.6m), 2000, 200), 432m, 432m).PerMonth);
     }
+
+    [Fact]
+    public void A_companys_page_lists_its_costing_sheets_and_request_forms_and_each_links_back_to_it()
+    {
+        using var world = new OrdersWorld();
+        var acme = world.Sheet(world.SamId, world.Acme, "Invoiced");
+        world.Sheet(world.SamId, world.Zen, "Draft");
+        var ken = world.Sheet(world.KenId, world.Acme, "Draft");
+        var form = world.Form(world.SamId, world.Acme);
+        world.Form(world.SamId, world.Zen);
+        var company = new Dictionary<string, string> { ["company"] = world.Acme.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+
+        // Only that company's, and of those only the ones the person may see (Sam: his own, not Ken's).
+        var sheets = world.Json(world.Call("costingsheets", OrdersWorld.Sam, company));
+        Assert.Equal(new[] { acme }, sheets["rows"]!.Select(r => (long)r["id"]!));
+        Assert.Equal(new[] { ken, acme }, world.Json(world.Call("costingsheets", OrdersWorld.Admin, company))["rows"]!.Select(r => (long)r["id"]!));
+        Assert.Equal(new[] { form }, world.Json(world.Call("requestforms", OrdersWorld.Sam, company))["rows"]!.Select(r => (long)r["id"]!));
+
+        // A costing sheet and a request form name their company's Id, for the link to its page.
+        Assert.Equal(world.Acme, (long)world.Json(world.Call("costingsheets/" + acme, OrdersWorld.Sam))["costingSheet"]!["companyId"]!);
+        Assert.Equal(world.Acme, (long)world.Json(world.Call("requestforms/" + form, OrdersWorld.Sam))["requestForm"]!["companyId"]!);
+    }
 }
