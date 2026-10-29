@@ -84,6 +84,23 @@ public static class CrmRoles
         new Choice("Presales", "Presales"), new Choice("CustomerSupport", "Customer Support"), new Choice("Logistics", "Logistics"),
         new Choice("ServiceDeliveryManager", "Service Delivery Manager"), new Choice("CustomerSuccessExecutive", "Customer Success Executive"));
 
+    public const string Allocator = "Allocator";
+    public const string Scheduler = "Scheduler";
+    public const string Ap = "AP";
+    public const string ApManager = "APManager";
+    public const string ServiceDeliveryManager = "ServiceDeliveryManager";
+
+    /// <summary>
+    /// The roles that see every costing sheet: MyOrders' ShowAll (Credit Manager, Credit, Credit GM, Stock Allocator,
+    /// Allocator, SalesAdmin, AP, AP Manager, MD, Admin, Scheduler and Head). Everyone else sees the costing sheets of the
+    /// salespeople in their MyCRM list (MyCRM's GetSub: themselves, and their teams' people for the roles that have one).
+    /// </summary>
+    public static readonly string[] SeeAllCostingSheets =
+        [CreditManager, Credit, CreditGm, StockAllocator, Allocator, SalesAdmin, Ap, ApManager, Md, Admin, Scheduler, Head];
+
+    /// <summary>MyOrders' Service Delivery Managers see only the costing sheets of companies whose name contains "dbs".</summary>
+    public const string ServiceDeliveryManagerCompanies = "dbs";
+
     /// <summary>The roles whose profile has one team (MyCRM's CUser_Sales block).</summary>
     public static readonly string[] OneTeam = [Sales, PpSpecialist, CleTrainer];
 

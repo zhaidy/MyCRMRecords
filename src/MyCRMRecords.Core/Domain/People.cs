@@ -76,6 +76,23 @@ public sealed record Actor(string Login, string DisplayName, string Email, IRead
     /// <summary>MyCRM hides a company's territory movements from Sales and Telemarketers.</summary>
     public bool SeesMovements => IsAdmin || (CrmRole != CrmRoles.Sales && CrmRole != CrmRoles.Telemarketer);
 
+    private Lazy<OrdersProfile> orders = new(() => OrdersProfile.None);
+
+    /// <summary>
+    /// Where the person's MyOrders profile comes from (<see cref="OrdersAccess.Profile"/>): read the first time
+    /// <see cref="Orders"/> is used, so only the costing sheet and request form pages read MyCRM's users for it.
+    /// </summary>
+    public Func<OrdersProfile> OrdersFrom { init => orders = new Lazy<OrdersProfile>(value); }
+
+    /// <summary>
+    /// The person as MyOrders knew them: their MyCRM role and the OutSystems users whose costing sheets and request forms
+    /// they see (MyOrders' rule, by OutSystems user, kept as it was in MyOrdersRecords).
+    /// </summary>
+    public OrdersProfile Orders => orders.Value;
+
+    /// <summary>MyOrders' ShowAll: these roles (and administrators) see every costing sheet and request form.</summary>
+    public bool SeesAllCostingSheets => IsAdmin || CrmRoles.Is(Orders.Role, CrmRoles.SeeAllCostingSheets);
+
     /// <summary>"Jamie Lee", or "Alex Tan on behalf of Jamie Lee".</summary>
     public string ChangedBy => OnBehalfOf is null ? DisplayName : $"{OnBehalfOf} on behalf of {DisplayName}";
 

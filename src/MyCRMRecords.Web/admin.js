@@ -143,11 +143,11 @@
     const c = settings.connections;
     const key = name => name.charAt(0).toLowerCase() + name.slice(1);
     const uses = {
-      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: MyCRMRecords reads them where MyCRM keeps them, and changes them once Let MyCRMRecords change MyCRM's data is on (MyCRM tab: adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company.",
+      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: MyCRMRecords reads them where MyCRM keeps them, and changes them once Let MyCRMRecords change MyCRM's data is on (MyCRM tab: adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company. MyOrders' costing sheets and request forms (with their items and attachments) are only read, never changed: a SELECT is all they need.",
       AdvanceConnector: "Advance's customers (Customer_Supp: Business_reg, Cust_no), read only: the scheduled task Customer numbers from Advance fills each company's customer number from them.",
     };
     $('#tab').innerHTML = `<form id="conn-form" novalidate class="stack">
-      <p class="muted">The OutSystems database (MyCRM's tables) and AdvanceConnector. Reading needs SELECT; changing MyCRM's data (MyCRM tab) also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
+      <p class="muted">The OutSystems database (MyCRM's tables, and MyOrders' for the costing sheets and request forms) and AdvanceConnector. Reading needs SELECT; changing MyCRM's data (MyCRM tab) also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
       ${databases.map(d => `<section class="card"><div class="card-heading"><h2>${esc(d.title)}</h2>${d.configured ? '<span class="pill">Set up</span>' : '<span class="pill warn">Not set up</span>'}</div>
         <p class="muted small">${esc(uses[d.name] || '')}</p>
         <div style="margin:12px 0">${field(c, key(d.name) + '.configured', 'Use this database', {type: 'check'})}</div>
@@ -155,7 +155,7 @@
         <div class="action-buttons"><button type="button" class="button secondary small-btn" data-test="${esc(d.name)}">Test</button></div><div data-test-result="${esc(d.name)}"></div></section>`).join('')}
       <section class="card"><details><summary class="text-button">Names in those databases</summary>
         <div class="form-grid two" style="margin-top:12px">
-          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
+          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'ordersModule', 'MyOrders module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
         </div></details></section>
       <div class="action-buttons"><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="conn-result" hidden></div></form>`;

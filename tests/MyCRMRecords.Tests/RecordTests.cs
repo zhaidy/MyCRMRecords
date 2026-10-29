@@ -143,6 +143,24 @@ public sealed class RecordTests
     }
 
     [Fact]
+    public void The_costing_sheets_and_request_forms_have_no_way_to_change_MyOrders_or_MyCRM()
+    {
+        // MyOrders' tables (and MyCRM's they name) are only read for them: IMyOrdersData has no method that writes, and its
+        // SQL has no statement that could. MyCRM's own records are written by MyCrmStore only, behind its switch.
+        Assert.Equal(new[] { "All", "File", "People", "RequestFormSalesmen", "Rows", "Search", "SearchRequestForms", "Users", "get_Available" },
+            typeof(IMyOrdersData).GetMethods().Select(m => m.Name).OrderBy(n => n, StringComparer.Ordinal));
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Core"))) root = root.Parent;
+        Assert.NotNull(root);
+        var core = Path.Combine(root!.FullName, "src", "MyCRMRecords.Core");
+        var source = string.Concat(new[] { "Data/MyOrdersData.cs", "Data/RequestFormData.cs", "Domain/CostingSheets.cs", "Domain/CostingSheetPrint.cs",
+            "Domain/CostingSheetView.cs", "Domain/RequestForms.cs", "Domain/RequestFormView.cs", "Domain/OrdersAccess.cs", "Api/OrdersApi.cs" }
+            .Select(f => File.ReadAllText(Path.Combine(core, f.Replace('/', Path.DirectorySeparatorChar)))));
+        foreach (var word in new[] { "INSERT ", "UPDATE ", "DELETE ", "MERGE ", "BeginWrite", "Execute(", "MyCrmStore", ".Insert(", ".Update(", "Batch(" })
+            Assert.DoesNotContain(word, source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Every_property_of_MyCRMs_records_has_a_place_in_MyCRM_of_its_own()
     {
         foreach (var e in MyCrmMap.All)

@@ -1,0 +1,69 @@
+/* requestformprint.aspx: MyOrders' request form PDF (its RequestFormPDF flow: DeliveryFormPDFNew and CollectionFormPDF) as a
+   page to print. The document's rules are MyOrders' stylesheets; the page sizes MyOrders tuned for its PDF converter are left
+   to the browser's print. */
+:root{color-scheme:light}
+body{background-color:#e9ebf0;margin:0;font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000}
+.print-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#18213d;color:#fff;font:14px system-ui,sans-serif}
+.print-bar a{color:#c3caff;font-weight:700;text-decoration:none}
+.print-bar .grow{flex:1}
+.print-bar button{font:inherit;font-weight:700;border-radius:999px;border:1px solid #5b6799;background:#252f55;color:#fff;padding:7px 14px;cursor:pointer}
+.print-bar button.primary{background:#9aa6ff;border-color:#9aa6ff;color:#10142a}
+.print-bar button:disabled{opacity:.5;cursor:default}
+.loading,.message{font:15px system-ui,sans-serif;padding:40px 16px;text-align:center}
+.message.note{max-width:21cm;margin:0 auto;padding:12px 16px 0;text-align:left}
+#doc{padding:16px}
+
+/* ---- The document (MyOrders' rules) ---- */
+.Page{position:relative;box-sizing:border-box;width:21cm;max-width:100%;min-height:29.7cm;margin:0 auto 16px;padding:1.6cm 1.4cm;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);page-break-before:always;break-before:page}
+.Page:first-of-type{page-break-before:auto;break-before:auto}
+.myHeader{font-size:9pt;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.myHeader img{width:170px;height:auto}
+.myHeader .middle{flex:1;min-width:0}
+.ref{text-align:right}
+.ref .Underline{text-decoration:underline;color:blue}
+.fakeSelect{margin-top:8px;padding:4px 6px;background:#000;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+table{border-collapse:collapse}
+.table{width:100%;margin-top:10px}
+.table th,.table td{text-align:center;border:1px solid;vertical-align:middle;padding:3px}
+.table2{width:100%}
+.table2 th,.table2 td{text-align:center;border:1px solid;border-top-style:none;vertical-align:middle;padding:3px;height:18px}
+.table td.label{font-weight:bold}
+.table td.left,.table2 td.left{text-align:left}
+.break{word-break:break-word}
+.UnderLineBox{border-bottom:1px solid;min-height:25px}
+.borderBox{border:1px solid;padding:6px 8px;margin-top:10px}
+.Bold,b{font-weight:bold}
+.row{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+.row>*{min-width:0}
+.half{flex:0 0 calc(50% - 4px);display:flex;gap:6px}
+.half .label{flex:0 0 33%}
+.half .value{font-weight:bold;flex:1;min-width:0;word-break:break-word}
+.qr{display:block}
+.declare{display:flex;gap:10px;align-items:flex-start;margin-top:12px}
+.tick{color:#2e9e4f}
+.heading2{font-size:14pt;font-weight:bold;margin:0}
+.heading3{font-size:12pt;margin:4px 0 0;color:blue}
+.italic{font-style:italic}
+.items .num{flex:0 0 28px;font-weight:bold}
+.items .item{display:flex;gap:8px;margin-top:12px}
+.items .item>div:last-child{flex:1}
+.toner{width:100%;border:1px solid;text-align:center}
+.toner td{border:1px solid;padding:4px}
+@media print{
+  body{background:#fff}
+  .print-bar,.message.note{display:none}
+  #doc{padding:0}
+  .Page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+  @page{size:A4;margin:10mm 12mm}
+  /* One delivery page (25 lines) or the collection form on one A4 sheet. */
+  body{font-size:8pt}
+  .myHeader img{width:120px}
+  .table{margin-top:5px}
+  .table th,.table td{padding:1px 3px}
+  .table2 th,.table2 td{padding:0 3px;height:13px;line-height:1.15}
+  .row{margin-top:4px}
+  .borderBox{margin-top:5px;padding:3px 6px}
+  .items .item{margin-top:5px}
+  .qr{width:90px;height:90px}
+}
+@media(max-width:700px){.Page{padding:16px;overflow-x:auto}.row{flex-wrap:wrap}.half{flex:1 1 100%}}

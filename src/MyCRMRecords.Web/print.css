@@ -1,0 +1,83 @@
+/* print.aspx: MyOrders' costing sheet PDF as a page to print. The document's rules are MyOrders' (CostingSheetPDF flow
+   stylesheet and its blocks); the page widths MyOrders tuned for its PDF converter are left to the browser's print. */
+:root{color-scheme:light}
+body{background-color:#e9ebf0;margin:0;font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000}
+.print-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#18213d;color:#fff;font:14px system-ui,sans-serif}
+.print-bar a{color:#c3caff;font-weight:700;text-decoration:none}
+.print-bar .grow{flex:1}
+.print-bar button{font:inherit;font-weight:700;border-radius:999px;border:1px solid #5b6799;background:#252f55;color:#fff;padding:7px 14px;cursor:pointer}
+.print-bar button.primary{background:#9aa6ff;border-color:#9aa6ff;color:#10142a}
+.print-bar .layouts button{border-radius:0}
+.print-bar .layouts button:first-child{border-radius:999px 0 0 999px}
+.print-bar .layouts button:last-child{border-radius:0 999px 999px 0;border-left:0}
+.print-bar .layouts button[aria-pressed=true]{background:#fff;color:#18213d}
+.loading,.message{font:15px system-ui,sans-serif;padding:40px 16px;text-align:center}
+#doc{padding:16px}
+
+/* ---- The document (MyOrders' rules) ---- */
+.Page{position:relative;box-sizing:border-box;width:21cm;max-width:100%;min-height:29.7cm;margin:0 auto 16px;padding:1.6cm 1.4cm;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);page-break-before:always;break-before:page}
+.Page:first-child{page-break-before:auto;break-before:auto}
+.title{font-size:18pt;text-align:center}
+.table,.table th,.table td{text-align:center;border:1px solid;vertical-align:middle}
+table{border-collapse:collapse}
+.BorderBox{border:1px solid;min-height:25px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.UnderLineBox{border-bottom:1px solid;min-height:20px}
+.BlackContainer{background:#000;color:#fff;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.FakeLink{color:blue}
+.GrayContainer{background:#fff;color:#000;font-weight:bold;font-size:14px}
+.Bold,b{font-weight:bold}
+.nowrap{white-space:nowrap}
+.right{text-align:right}
+.center{text-align:center}
+.mt5{margin-top:5px}.mt10{margin-top:10px}
+/* OutSystems' 12-column grid: N col is N/12 of the row. */
+.row{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+.row>*{min-width:0}
+.c1{flex:0 0 calc(8.333% - 8px)}.c2{flex:0 0 calc(16.666% - 8px)}.c3{flex:0 0 calc(25% - 8px)}.c4{flex:0 0 calc(33.333% - 8px)}
+.c5{flex:0 0 calc(41.666% - 8px)}.c6{flex:0 0 calc(50% - 8px)}.c7{flex:0 0 calc(58.333% - 8px)}.c8{flex:0 0 calc(66.666% - 8px)}
+.c9{flex:0 0 calc(75% - 8px)}.c10{flex:0 0 calc(83.333% - 8px)}.c12{flex:1 1 auto}
+.header-logos{display:flex;justify-content:space-between;align-items:flex-start}
+.header-logos img{width:170px;height:auto}
+.flag{border:1px solid;color:#ff0202;margin-top:1px;padding:10px;display:inline-block}
+.flag span{color:#ff0202;font-size:32px}
+.myTable{width:100%;margin-top:0;border-collapse:collapse}
+.myTable td{border-bottom:2px solid #000;padding:7px 0 7px 10px;width:20%;vertical-align:top}
+.myTable td:nth-child(n+2){text-align:center}
+.myTable td:nth-child(1){font-weight:normal}
+.variables td:nth-child(1){width:25%}.variables td:nth-child(2){width:25%}.variables td:nth-child(3){width:50%}
+.meter{width:100%;margin-top:8px}
+.meter td{width:14%;padding:2px 3px}
+.meter td.grey{background:#eee;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.epp{color:#807d7d;font-style:italic;margin-top:10px}
+.calc{margin-top:10px}
+.calc .BlackContainer{text-align:center;padding:2px}
+.calc .formula{display:flex;justify-content:center;align-items:flex-start;gap:10px;padding:10px;text-align:center;flex-wrap:wrap}
+.calc .formula .value{border-bottom:1px solid;padding:0 6px;min-width:70px}
+.calc .formula .caption{font-size:9pt}
+.calc .formula .op{padding-top:1px}
+.verification .row{align-items:flex-end}
+.parts{width:100%;margin-top:10px}
+.parts>tbody>tr>td{border:1px solid;vertical-align:middle;padding:4px}
+.parts .table{width:100%}
+/* New CS */
+.new h1{font-size:20pt;margin:0 0 10px}
+.new h3{font-size:12pt;margin:16px 0 6px;border-bottom:2px solid #000;padding-bottom:3px}
+.details{display:grid;grid-template-columns:5fr 7fr;gap:3px 12px}
+.details .label{font-weight:bold}
+.box div{padding:3px}
+.lines{width:100%;border-collapse:collapse;font-size:9pt}
+.lines th,.lines td{border-bottom:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top}
+.lines th{border-bottom:2px solid #000}
+.lines td.num,.lines th.num{text-align:right}
+.lines tr.main td{font-weight:bold}
+.lines tr.total td{border-top:2px solid #000;font-weight:bold}
+.approvals{display:grid;grid-template-columns:3fr repeat(4,2fr);gap:4px 10px;margin-top:6px}
+.approvals .label{font-weight:bold}
+@media print{
+  body{background:#fff}
+  .print-bar{display:none}
+  #doc{padding:0}
+  .Page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+  @page{size:A4;margin:15mm 12mm}
+}
+@media(max-width:700px){.Page{padding:16px;overflow-x:auto}.details{grid-template-columns:1fr}.row{flex-wrap:wrap}.row>*{flex:1 1 100%!important}}

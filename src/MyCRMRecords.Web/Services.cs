@@ -31,10 +31,12 @@ public static class Services
     {
         var settingsFile = new SettingsFile<CrmSettings>(MapPath("~/App_Data/crm-records-settings.json"), new DpapiSecretProtector());
         Func<string, System.Data.Common.DbConnection> connect = connectionString => new SqlConnection(connectionString);
-        return CrmFactory.Create(LazyStorage.Value, settingsFile, connect, MapPath("~/App_Data/scheduled-tasks.json"), () => DateTime.Now);
+        return CrmFactory.Create(LazyStorage.Value, settingsFile, connect, MapPath("~/App_Data/scheduled-tasks.json"), () => DateTime.Now,
+            domain: Auth.SignIn.DomainName);
     });
 
     private static readonly Lazy<CrmApi> LazyApi = new(() => new CrmApi(LazyApp.Value, Auth.DirectorySearch.Find));
+    private static readonly Lazy<OrdersApi> LazyOrdersApi = new(() => new OrdersApi(LazyApp.Value));
     private static readonly Lazy<FilesApi> LazyFilesApi = new(() => new FilesApi(LazyApp.Value));
     private static readonly Lazy<UsersApi> LazyUsersApi = new(() => new UsersApi(LazyApp.Value, Auth.DirectorySearch.Find));
 
@@ -47,6 +49,8 @@ public static class Services
     public static DatabaseStorage Store => LazyStorage.Value;
     public static CrmApp App => LazyApp.Value;
     public static CrmApi Api => LazyApi.Value;
+    /// <summary>The costing sheets and request forms (read only from MyOrders).</summary>
+    public static OrdersApi OrdersApi => LazyOrdersApi.Value;
     public static FilesApi FilesApi => LazyFilesApi.Value;
     public static UsersApi UsersApi => LazyUsersApi.Value;
     public static AdminApi AdminApi => LazyAdminApi.Value;

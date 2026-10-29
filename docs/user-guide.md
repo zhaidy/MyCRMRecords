@@ -4,7 +4,8 @@ MyCRMRecords keeps the customers: the companies with their addresses, contacts (
 parent and subsidiary companies, and who sells to them, in named **territories**; and the **CRM users**, MyCRM's
 profile of each person (their MyCRM role and teams). It replaces the Users, Territory and Company part of MyCRM; the
 rest of MyCRM (activities, prospects, projects, MIF, CSST…) stays in MyCRM and keeps working with the same companies.
-Sign in with your Windows (RSP) username and password.
+It also keeps MyOrders' **costing sheets** and **request forms** readable, read only (see
+[Costing sheets](#costing-sheets)). Sign in with your Windows (RSP) username and password.
 
 MyCRMRecords and MyCRM share the same data: what you save here is in MyCRM at once, and the other way round. Until an
 administrator lets MyCRMRecords change MyCRM's data, MyCRMRecords only shows it: a bar at the top of every page says so,
@@ -22,6 +23,7 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 - Every role but **Marketing** adds and changes a company's addresses, contacts and relationships.
 - **Sales Admins** (MyCRM role Admin or SalesAdmin) add companies and change their details, keep the **CRM users**
   and teams, and the **Territories**. **MD** keeps the territories too.
+- **Everyone** sees the costing sheets and request forms MyOrders let them see; see [Costing sheets](#costing-sheets).
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
   someone else.
 
@@ -72,6 +74,8 @@ The company's page has everything about it in one place.
 - **Territory Movement History** (not shown to Sales and Telemarketers): every change of the company's salesperson,
   newest first, with their teams, who made it and when.
 - **More Company Details**: remarks, caretake remarks and the other facts MyCRM keeps.
+- **Costing Sheets and Request Forms**: the company's newest costing sheets and request forms from MyOrders, of those
+  you may see; click a number to open it. **See all** opens the list of all of them.
 
 ## Territories
 
@@ -121,6 +125,155 @@ For Sales Admins. A person's MyCRM role and teams decide what they see and do, h
   list switches a team on or off at once. Teams are never deleted. **People** shows who is in a team.
 - A change to someone's role or teams counts in MyCRMRecords at once; in MyCRM, from their next sign-in.
 
+## Costing sheets
+
+MyCRMRecords keeps MyOrders' **costing sheets** and **request forms** readable: the lists, each one as MyOrders showed
+it, their attachments and their prints. They are read where MyOrders keeps them and never changed: there is nothing to
+create, edit, approve or delete in them here.
+
+Who sees which costing sheets is decided as in MyOrders, by your MyCRM role and teams:
+
+- **Sales** see their own costing sheets.
+- **Managers** see their own and those of the salespeople in their teams; **MDS and SOL Specialists** those of the
+  salespeople and specialists in their teams; the other roles with a team those of the people in their teams.
+- **Head, MD, Admin, SalesAdmin, Credit, Credit Manager, Credit GM, Stock Allocator, Allocator, AP, AP Manager and
+  Scheduler** see every costing sheet.
+- **Service Delivery Managers** see their teams' costing sheets of DBS only (companies whose name has "dbs").
+- **Administrators** (MyCRMRecords's own role) see every costing sheet.
+
+If you see no costing sheets but expected some, your MyCRM user may have no role or team: ask a Sales Admin to check
+it in MyCRM.
+
+
+**Costing sheets** in the menu lists the costing sheets you may see, newest first, 50 at a time (**Previous** and **Next** at the
+bottom).
+
+- **Search** finds a costing sheet by its number, status, reference, company, invoice number or order number. The list
+  changes as you type.
+- **Costing Sheet Status**, **Sales Rep**, **Specialist** and **Has Specialist** narrow the list. **Has Specialist**
+  **Yes** shows the costing sheets with an MDS or Fusion (SOL) specialist, **No** those without, as in MyOrders.
+  Someone MyOrders knew under two usernames (for example *RSP\alfriskuay* and *RSP\AlfrisKuay@ricoh.sg*) is one
+  person here: listed once under **Sales Rep** and **Specialist**, with the costing sheets of both; and they see the
+  costing sheets of both themselves.
+- **Dates** shows the date filters: **From/To Creation Date**, **From/To Head Approval Date** and **From/To Invoice
+  Date**.
+- **Reset** clears the search and filters. MyCRMRecords remembers your search and filters for next time.
+- Click a column heading to sort by it; click it again to reverse the order.
+- **Download** saves the list as it is filtered, every page of it, as an Excel workbook.
+- **Open** (or the number) opens the costing sheet. The printer button prints it, when MyOrders would have let you
+  (see [Printing a costing sheet](#printing-a-costing-sheet)).
+- Each row shows the reference under the number, the contact under the company, when it was created, updated and
+  printed, the achieved price, the invoice number with its date and the order number, and whether OPO checked it.
+- A costing sheet deleted in MyOrders is not in the list.
+- Opened from a company's page (**See all** under *Costing Sheets and Request Forms*), the list shows only that
+  company's costing sheets, with no other filter; **Show every company** goes back to the whole list (and your own
+  search and filters).
+- **Sign in as…** (administrators) opens MyCRMRecords as someone else, chosen among everyone MyCRM or a costing sheet
+  names, to see the costing sheets they see; see [User roles](#user-roles).
+
+## A costing sheet
+
+A costing sheet's page shows what MyOrders' costing sheet summary showed, read only:
+
+- **Costing sheet**: reference, salesman, status, the specialists (a yellow tag while their part was still pending),
+  dates, company (click it to open the company), billing address, contact, customer number and type, and the flags (ZBA, contract extension, fixed
+  term, vital pricing, GMA pricing), with who it was transferred from.
+- **History**: when it was created, approved, head approved, sent for the credit check, endorsed by credit, checked by
+  OPO, made pending invoicing, given its order number, invoiced, printed, recalled, transferred and last updated, with
+  who did it when MyOrders kept the name; then the order and invoice numbers, credit terms and total approved price.
+- **Attachments**: the files attached in MyOrders, with their size and who uploaded them. **Download** saves one.
+  Specialists' attachments are marked.
+- **Product**: each product with its items (sub items and complex items) and their street and achieved prices, and the
+  totals. A complex item shows *Not Available* for its street price when MyOrders had none for it. Heads, Admins and
+  Sales Admins also see the percentages above the manager price and the landed cost, the deal margin and the
+  commissions.
+- **Meter Charges**: for each machine, whether it is under FSA, whether it is below the GM CPC, and its initial,
+  monthly and thereafter copies and prices.
+- **Billing**: finance type and amounts (months, interest, down and final payment, the monthly amount, the PPP rates),
+  the external finance company, lease agreement number, transaction type, trade-in, billing address and remarks.
+- **Variable Costs** and **Trade In(s)**.
+- **More details**: the proposal, option and request form numbers, and what MyOrders kept on the costing sheet (contact
+  name, phone, email, fax, delivery address, EPP, novation, PO and receipt completed).
+- When the costing sheet has a request form whose products differ from it, a yellow note and the **Costing sheet and
+  request form** box list the products whose quantities differ.
+- A costing sheet deleted in MyOrders still opens from a link, with a red note saying when and by whom it was deleted.
+
+## Printing a costing sheet
+
+**Print** (on a costing sheet's page, or the printer button in the list) opens MyOrders' costing sheet PDF as a page in
+a new tab. As in MyOrders, it is there once the costing sheet is **Pending Credit Check**, **Pending Credit GM Check**,
+**Pending Invoicing** or **Invoiced**, for Managers, Heads, GM, PP Specialist Managers, Specialist Senior Managers,
+Stock Allocators, AP, AP Managers, Credit GM, MD, Admins and Sales Admins.
+
+- **New CS** is MyOrders' newer costing sheet: details, items, variables, meter charges, the financing summary and the
+  approvals. **Old CS** is the first one: the items three to a page with the particulars and variable costs, the meter
+  charges, the financing page with the internal financing calculation and verification, the service credit per machine
+  when the machines' rates differ, and the specialists' solutions and packets.
+- **Print / Save as PDF** opens the browser's print. To keep a PDF, choose **Save as PDF** as the printer: the file is
+  named *CostingSheet #&lt;number&gt;*, as MyOrders named it.
+- Printing here does not change the costing sheet's *Printed At* (MyOrders set it when it printed).
+
+## Request forms
+
+**Request forms** in the menu lists the request forms you may see, newest first, 50 at a time. Who sees which request
+forms is decided as for the costing sheets (your own, your team's, or every one for the roles that see all; Service
+Delivery Managers DBS's only). As in MyOrders' specialists' list, you also see the request forms you are the MDS or
+Fusion specialist of; MDS and Fusion specialist managers and specialist senior managers see every request form with a
+specialist, and PP specialists and their managers those whose PP specialist is in their team.
+
+- **Search** finds a request form by its number, status, reference or company. The list changes as you type.
+- **Request Form Status**, **Request Form Type**, **Sales Rep** and **From/To Creation Date** narrow the list.
+- **Reset** clears the search and filters. MyCRMRecords remembers your search and filters for next time.
+- Click a column heading to sort by it; click it again to reverse the order.
+- **Download** saves the list as it is filtered as an Excel workbook, MyOrders' Download: a row for each request form
+  and delivery or collection date.
+- **Open** (or the number) opens the request form. The printer button prints it, when MyOrders would have let you (see
+  [Printing a request form](#printing-a-request-form)).
+- Each row shows the reference and type under the number, the contact under the company, when it was created, updated
+  and recalled with its delivery or collection dates, its status (with **Pending print** when MyOrders had not printed
+  it since it reached a printable status or was recalled), when it was printed, and whether OPO checked it.
+- A request form deleted in MyOrders is not in the list.
+- Opened from a company's page, the list shows only that company's request forms; **Show every company** goes back
+  to the whole list.
+
+## A request form
+
+A request form's page shows what MyOrders' request form summary showed, read only:
+
+- **Request form**: type, reference, salesman, status, the specialists (a yellow tag while their part was still
+  pending), dates, company (click it to open the company), billing address, contact and their phone numbers, customer number and type, event tag, its
+  costing sheet (click it to open the costing sheet), and the delivery declaration.
+- **Items** (every type but Collection): each product with its sub items and complex items, their quantities and street
+  prices, the item's street price and the **Request Total Street Price**, as MyOrders stored them.
+- **Delivery**: each product with its parts, where and when it is delivered, to whom, Is FSA, No Lift, the remarks,
+  and the model and serial number.
+- **Collection Items** (Collection): the collection details of the first item (collection type, contract, fees, asset
+  type, brand, date, address, contacts, instructions), then every item collected.
+- **History**: when it was created, approved by the manager and the head, sent for the credit check, endorsed and
+  approved by credit, checked by OPO, sent, printed, recalled and last updated, with who did it when MyOrders kept the
+  name; then the sales order, picking slip and invoice numbers.
+- **Attachments**: the files attached in MyOrders, with their size and who uploaded them. **Download** saves one.
+- When its costing sheet's products differ from it, a yellow note and the **Costing sheet and request form** box list
+  the products whose quantities differ.
+- A request form deleted in MyOrders still opens from a link, with a red note saying when and by whom it was deleted.
+
+## Printing a request form
+
+**Print** (on a request form's page, or the printer button in the list) opens MyOrders' request form PDF as a page in a
+new tab. As in MyOrders, it is there once the request form is **Pending Credit Check**, **Pending Allocation**,
+**Pending Invoicing** or **Backordered**, for Sales Admins, Admins, Managers, Heads, MD, Stock Allocators, Schedulers,
+Credit GM, PP Specialist Managers and Specialist Senior Managers.
+
+- A **Collection** prints the collection form: the type of request, the customer and collection information, every item,
+  who created and approved it, and the signature boxes.
+- The other types print the **delivery form** as MyOrders printed it last: a part for each delivery (address, date,
+  contact), its lines 25 to a page with the item codes, serial numbers and allocated quantities, and the QR code of the
+  request form's number. MyOrders made the delivery form each time it printed; a request form MyOrders never printed has
+  none to show, and the page says so.
+- **Print / Save as PDF** opens the browser's print. To keep a PDF, choose **Save as PDF** as the printer: the file is
+  named *RequestForm #&lt;number&gt;*, as MyOrders named it.
+- Printing here does not change the request form's *Printed At*.
+
 ## User roles
 
 For administrators. Everyone signed in can open MyCRMRecords; what they do in the CRM comes from their MyCRM role,
@@ -139,7 +292,8 @@ For administrators. Everything that sends or changes something outside MyCRMReco
 - **Database**: where MyCRMRecords keeps its data. **Test connection** checks a SQL Server database; **Save and
   switch** moves to it.
 - **Data migrations**: changes to the database, each run with **Run migration**.
-- **Connections**: the OutSystems database (MyCRM's tables and its users) and AdvanceConnector (Advance's customers,
+- **Connections**: the OutSystems database (MyCRM's tables and its users, and MyOrders' for the costing sheets and
+  request forms, only read) and AdvanceConnector (Advance's customers,
   for the customer numbers). **Test** saves the tab and checks every table and column MyCRMRecords reads.
 - **Email**: the mail server. **Send emails** switches emails on; **Send a test email** checks it. **Emails** lists
   every email, sent or not, and why not. MyCRM's Users, Territory and Company screens send no emails.

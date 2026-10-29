@@ -66,7 +66,7 @@ try {
     $web = Join-Path $repo 'src/MyCRMRecords.Web'
     New-Item -ItemType Directory -Path (Join-Path $site 'bin') | Out-Null
     Copy-Item (Join-Path $web 'bin/*.dll') (Join-Path $site 'bin')
-    $pages = @('admin.aspx', 'audit.aspx', 'company.aspx', 'default.aspx', 'deployment.aspx', 'guide.aspx', 'login.aspx', 'logout.aspx', 'people.aspx', 'territories.aspx', 'users.aspx', 'api.ashx', 'file.ashx', 'app.css', 'admin.js', 'audit.js', 'common.js', 'companies.js', 'company.js', 'crm.js', 'deployment.js', 'guide.js', 'people.js', 'territories.js', 'users.js', 'Web.config')
+    $pages = @('admin.aspx', 'audit.aspx', 'company.aspx', 'costingsheet.aspx', 'costingsheets.aspx', 'default.aspx', 'deployment.aspx', 'guide.aspx', 'login.aspx', 'logout.aspx', 'people.aspx', 'print.aspx', 'requestform.aspx', 'requestformprint.aspx', 'requestforms.aspx', 'territories.aspx', 'users.aspx', 'api.ashx', 'file.ashx', 'app.css', 'print.css', 'requestformprint.css', 'admin.js', 'audit.js', 'common.js', 'companies.js', 'company.js', 'costingsheet.js', 'costingsheets.js', 'crm.js', 'deployment.js', 'guide.js', 'people.js', 'print.js', 'qrcode.js', 'requestform.js', 'requestformprint.js', 'requestforms.js', 'territories.js', 'users.js', 'ricoh-logo.png', 'restricted.png', 'Web.config')
     Copy-Item ($pages | ForEach-Object { Join-Path $web $_ }) $site
     foreach ($required in @('bin/MyCRMRecords.Web.dll', 'bin/MyCRMRecords.Core.dll', 'bin/Newtonsoft.Json.dll') + $pages) {
         if (-not (Test-Path -LiteralPath (Join-Path $site $required))) { throw "Release is missing $required." }

@@ -41,13 +41,16 @@ public sealed class MyCrmSettings
 /// <summary>The other databases MyCRMRecords reads and (MyCRM's tables, when switched on) writes.</summary>
 public sealed class ConnectionSettings
 {
-    /// <summary>The OutSystems platform database: MyCRM's tables (import and sync), its users and roles.</summary>
+    /// <summary>The OutSystems platform database: MyCRM's tables, MyOrders' (read only), its users and roles.</summary>
     public ExternalDatabase OutSystems { get; set; } = new();
 
     /// <summary>AdvanceConnector: Advance's customers, for the customer numbers (read only).</summary>
     public ExternalDatabase AdvanceConnector { get; set; } = new();
 
     public string CrmModule { get; set; } = "MyCRM";
+
+    /// <summary>The OutSystems module with the costing sheets and request forms (read only).</summary>
+    public string OrdersModule { get; set; } = "MyOrders";
 
     public AdvanceTables AdvanceTables { get; set; } = new();
 }

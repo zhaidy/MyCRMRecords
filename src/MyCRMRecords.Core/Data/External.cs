@@ -26,7 +26,7 @@ public static class ExternalNames
 /// </summary>
 public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, DbConnection> connectionFactory)
 {
-    private static readonly ConcurrentDictionary<string, (string Table, DateTime At)> Entities = new();
+    private static readonly ConcurrentDictionary<string, (string Table, DateTime At)> EntityTables = new();
 
     public ExternalDatabase Settings(string name)
     {
@@ -64,19 +64,30 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
         return work(connection);
     }
 
-    /// <summary>The table of an OutSystems entity, e.g. "dbo.[OSUSR_ab1_PARTREQUEST]" (cached for ten minutes).</summary>
-    public string EntityTable(DbConnection outSystems, string module, string entity)
+    /// <summary>
+    /// The table of an OutSystems entity, e.g. "dbo.[OSUSR_ab1_PARTREQUEST]" (cached for ten minutes). With
+    /// <paramref name="retiredToo"/> (MyOrders, which is read only), a module deleted in OutSystems is still found while
+    /// its table is there; MyCRM, which MyCRMRecords may write, is only ever found active.
+    /// </summary>
+    public string EntityTable(DbConnection outSystems, string module, string entity, bool retiredToo = false)
     {
-        var key = outSystems.ConnectionString + "|" + module + "|" + entity;
-        if (Entities.TryGetValue(key, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(10)) return cached.Table;
+        var key = outSystems.ConnectionString + "|" + module + "|" + entity + "|" + retiredToo;
+        if (EntityTables.TryGetValue(key, out var cached) && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(10)) return cached.Table;
         var rows = Sql.Rows(outSystems, null,
             "SELECT TOP 1 e.PHYSICAL_TABLE_NAME FROM dbo.OSSYS_ENTITY e JOIN dbo.OSSYS_ESPACE s ON s.ID = e.ESPACE_ID " +
             "WHERE s.NAME = @module AND s.IS_ACTIVE = 1 AND e.NAME = @entity AND e.IS_ACTIVE = 1 ORDER BY e.ID DESC",
             ("@module", module), ("@entity", entity));
+        // A module deleted in OutSystems (MyOrders once it is retired) is inactive in the catalog, but OutSystems keeps its
+        // tables and their data: its latest entity whose table is still there is the one.
+        if (rows.Count == 0 && retiredToo)
+            rows = Sql.Rows(outSystems, null,
+                "SELECT TOP 1 e.PHYSICAL_TABLE_NAME FROM dbo.OSSYS_ENTITY e JOIN dbo.OSSYS_ESPACE s ON s.ID = e.ESPACE_ID " +
+                "WHERE s.NAME = @module AND e.NAME = @entity AND OBJECT_ID(N'dbo.' + QUOTENAME(e.PHYSICAL_TABLE_NAME)) IS NOT NULL ORDER BY s.IS_ACTIVE DESC, e.ID DESC",
+                ("@module", module), ("@entity", entity));
         if (rows.Count == 0 || rows[0]["PHYSICAL_TABLE_NAME"] is not string physical)
             throw new InvalidOperationException($"The OutSystems database has no entity {entity} in the module {module}.");
         var table = "dbo." + Sql.Name(physical);
-        Entities[key] = (table, DateTime.UtcNow);
+        EntityTables[key] = (table, DateTime.UtcNow);
         return table;
     }
 
@@ -142,11 +153,11 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
                     lines.Add((false, $"{table}: {ex.Message}" + DottedNameHint(table)));
                 }
             }
-            void Entity(string module, string entity, params string[] columns)
+            void Entity(string module, string entity, string[] columns, bool retiredToo = false)
             {
                 try
                 {
-                    Check(EntityTable(connection, module, entity), columns);
+                    Check(EntityTable(connection, module, entity, retiredToo), columns);
                 }
                 catch (Exception ex) when (ex is DbException or InvalidOperationException)
                 {
@@ -158,6 +169,10 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
                 case ExternalNames.OutSystems:
                     foreach (var (entity, columns) in MyCrmMap.Checked)
                         Entity(c.CrmModule, entity, columns);
+                    // What the costing sheets and request forms read (MyOrders' tables, and MyCRM's they name).
+                    foreach (var check in Entities.Checked)
+                        Entity(check.Entity.Module == OsModule.MyOrders ? c.OrdersModule : c.CrmModule, check.Entity.Name, check.Columns,
+                            check.Entity.Module == OsModule.MyOrders);
                     Check("dbo.OSSYS_USER", "ID", "USERNAME", "NAME", "EMAIL", "IS_ACTIVE");
                     break;
                 case ExternalNames.AdvanceConnector:
