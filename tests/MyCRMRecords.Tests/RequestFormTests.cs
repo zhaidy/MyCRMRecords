@@ -65,7 +65,7 @@ public sealed class RequestFormTests
 
         // A specialist senior manager sees every request form with a specialist.
         var olgaId = world.OlgaId;
-        var seniorRole = world.Data.Add(Entities.Orders.Role, new { ID = 97L, LABEL = "Specialist Senior Manager" });
+        var seniorRole = world.Data.Add(Entities.CrmRole, new { ID = 97L, LABEL = "Specialist Senior Manager" });
         world.Data.Add(Entities.CrmUser, new { USERID = olgaId, ROLEID = seniorRole, TEAMID = (long?)null, ISACTIVE = true });
         Assert.Equal(new[] { mds, other, 9001L }.OrderBy(i => i), Seen(world, OrdersWorld.Olga));
     }
@@ -130,7 +130,7 @@ public sealed class RequestFormTests
     public void The_print_is_MyOrders_last_delivery_form_or_its_collection_form_and_follows_its_print_rule()
     {
         using var world = new OrdersWorld();
-        var salesAdminRole = world.Data.Add(Entities.Orders.Role, new { ID = 98L, LABEL = "SalesAdmin" });
+        var salesAdminRole = world.Data.Add(Entities.CrmRole, new { ID = 98L, LABEL = "SalesAdmin" });
         world.Data.Add(Entities.CrmUser, new { USERID = world.OlgaId, ROLEID = salesAdminRole, TEAMID = (long?)null, ISACTIVE = true });
         var id = world.Form(world.SamId, world.Acme, "Pending Allocation", printed: new DateTime(2026, 2, 3));
         var later = world.Data.Add(Entities.DeliveryFormPrint, new { REQUESTFORMID = id, ADDRESSID = world.AcmeAddress, CONTACTID = world.AcmeContact, DATE = new DateTime(2026, 2, 12), NOLIFT = false, REMARKS = "" });
