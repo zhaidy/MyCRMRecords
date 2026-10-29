@@ -318,7 +318,8 @@ h1{font-size:25px}
 /* Room for it in the top bar: below 1400px wide the menu drops its icons and Reset sample data its words (as they already
    did below 1150px), and the brand its name while the whole menu is in the bar */
 @media(min-width:1151px) and (max-width:1400px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
-@media(min-width:901px) and (max-width:1150px){.brand>span:last-child{display:none}}
+@media(min-width:901px) and (max-width:1150px){.brand>span:last-child{display:none}.appbar{gap:12px}.sidebar>.nav-item svg,.nav-group>.nav-item svg{display:none}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 8px;font-size:14px}}
+@media(min-width:901px) and (max-width:1000px){.appbar-name{display:none}}
 .guide-main{max-width:1240px}
 .guide-lead{margin:6px 0 0;color:var(--ink-2);font-size:15.5px}
 .guide-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:24px;align-items:start}

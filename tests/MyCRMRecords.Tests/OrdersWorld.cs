@@ -2,14 +2,6 @@ using Newtonsoft.Json.Linq;
 
 namespace MyCRMRecords.Tests;
 
-/// <summary>Stands in for Windows DPAPI: marks the text, so the tests can see it was protected.</summary>
-public sealed class FakeProtector : ISecretProtector
-{
-    public string Protect(string plainText) => "protected:" + plainText;
-    public string Unprotect(string protectedText) =>
-        protectedText.StartsWith("protected:", StringComparison.Ordinal) ? protectedText.Substring(10) : throw new FormatException("Not protected here.");
-}
-
 /// <summary>
 /// MyCRMRecords' costing sheets and request forms, with its data in a temporary folder, a fixed clock (Tuesday 20 October 2026, 09:30) and MyOrders' and
 /// MyCRM's tables in memory (<see cref="FakeMyOrders"/>). MyCRM's people: Sam (Sales) and Mia (Manager) in Mia's team, Ken
