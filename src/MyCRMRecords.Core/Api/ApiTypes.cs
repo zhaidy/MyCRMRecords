@@ -40,8 +40,11 @@ public sealed record ApiUser(string Login, string DisplayName, string Email = ""
 {
     public string ChangedBy => Impersonator is null ? DisplayName : $"{Impersonator.DisplayName} on behalf of {DisplayName}";
 
-    /// <summary>The person as the rules see them: their roles from the User roles page (Administrator too when Web.config lists them).</summary>
-    public Actor ToActor(People people)
+    /// <summary>
+    /// The person as the rules see them: their roles from the User roles page (Administrator too when Web.config lists
+    /// them) and, when <paramref name="orders"/> is given, their MyOrders profile (read only when a rule needs it).
+    /// </summary>
+    public Actor ToActor(People people, OrdersAccess? orders = null)
     {
         var roles = people.RolesOf(Login).ToList();
         if (IsListedAdmin && !roles.Contains(Roles.Admin)) roles.Add(Roles.Admin);
@@ -50,6 +53,7 @@ public sealed record ApiUser(string Login, string DisplayName, string Email = ""
         {
             CrmRole = people.CrmRoleOf(Login),
             CrmSalesAdmin = people.IsCrmSalesAdmin(Login),
+            OrdersFrom = orders is null ? () => OrdersProfile.None : () => orders.Profile(Login, Email),
         };
     }
 }

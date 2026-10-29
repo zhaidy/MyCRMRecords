@@ -224,6 +224,9 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     the apps reading MyCRM's companies see a change at once. Writing waits for an administrator's switch; nothing is
     deleted there; every value written is recorded; what MyCRM has no column for (a territory's name, who took something
     away and when, a former team, a company address link or group name taken away) is kept by MyCRMRecords by MyCRM's Id.
+18. **MyOrders' costing sheets and request forms are here too, read only** (2026-10-30, merged from MyOrdersRecords):
+    how MyOrders' part works and the rules changed for it are in [myorders/README.md](myorders/README.md) (section 9)
+    and the `myorders/request-forms-*.md` files.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

@@ -15,7 +15,8 @@ public sealed record FileAnswer(int Status, string FileName, string ContentType,
 
 /// <summary>
 /// The files of file.ashx: the Excel samples to fill in, downloaded; the number of employees (BRN, NoOfEmployees) and a
-/// territory's list of companies (Company, BRN) uploaded as Excel workbooks.
+/// territory's list of companies (Company, BRN) uploaded as Excel workbooks; and, read only from MyOrders, a costing
+/// sheet's or request form's attachment and the costing sheets and request forms lists as Excel workbooks.
 /// </summary>
 public sealed class FilesApi(CrmApp w)
 {
@@ -25,6 +26,16 @@ public sealed class FilesApi(CrmApp w)
     public const string Employees = "employees";
     /// <summary>MyCRM's TerritoryUpdate import: columns Company and BRN; the companies found are shown, nothing is changed.</summary>
     public const string TerritoryList = "territory-list";
+
+    /// <summary>attachment?costingSheet=&lt;id&gt;&amp;id=&lt;attachment id&gt;</summary>
+    public const string Attachment = "attachment";
+    /// <summary>costingsheets?&lt;the list's filters&gt;: every costing sheet that matches (up to <see cref="MaxRows"/>).</summary>
+    public const string List = "costingsheets";
+    public const int MaxRows = 20000;
+    /// <summary>requestform-attachment?requestForm=&lt;id&gt;&amp;id=&lt;attachment id&gt;</summary>
+    public const string RequestFormAttachment = "requestform-attachment";
+    /// <summary>requestforms?&lt;the list's filters&gt;: MyOrders' Download, a row per request form and delivery or collection date.</summary>
+    public const string RequestFormList = "requestforms";
 
     private static string Q(IReadOnlyDictionary<string, string> query, string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
 
@@ -42,7 +53,74 @@ public sealed class FilesApi(CrmApp w)
                 return new FileAnswer(200, "Company.xlsx", FileAnswer.XlsxType,
                     Xlsx.Create("Sheet1", [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 20)], [new object?[] { "Sample Holdings Pte Ltd", "199912345K" }]));
         }
-        return FileAnswer.Fail(404, "Not found.");
+        return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");
+    }
+
+    /// <summary>
+    /// The costing sheets' and request forms' files, read only from MyOrders as the signed-in person: an attachment, or a
+    /// list as an Excel workbook (MyOrders' Download); null for any other kind.
+    /// </summary>
+    private FileAnswer? Orders(string kind, IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        if (kind is not (Attachment or List or RequestFormAttachment or RequestFormList)) return null;
+        if (!w.OrdersData.Available) return FileAnswer.Fail(503, "MyOrders' tables cannot be read yet: an administrator has to set up the connection first.");
+        var actor = user.ToActor(w.People, w.OrdersAccess);
+        switch (kind)
+        {
+            case Attachment:
+            {
+                var file = w.CostingSheets.Attachment(actor, Id(query, "costingSheet"), Id(query, "id"));
+                return file is { } found
+                    ? new FileAnswer(200, found.FileName, ContentType(found.FileName), found.Content)
+                    : FileAnswer.Fail(404, "There is no such attachment, or it is not on a costing sheet you may see.");
+            }
+            case List:
+            {
+                var search = OrdersApi.Search(query);
+                search.Skip = 0;
+                search.Take = MaxRows;
+                var page = w.CostingSheets.List(actor, search);
+                var columns = new List<Xlsx.ColumnSpec>
+                {
+                    new("Id", 10, "number"), new("Salesman", 26), new("Reference", 18), new("Company", 40), new("Contact", 26), new("Created At", 18),
+                    new("Updated At", 18), new("Printed At", 18), new("Head Approved At", 18), new("Invoice Date", 14), new("Achieved Price", 16, "money"),
+                    new("Costing Sheet Status", 24), new("Invoice No", 18), new("Order No", 18), new("OPO Checked", 12),
+                };
+                var rows = page.Rows.Select(r => new object?[]
+                {
+                    (decimal)r.Id, r.Salesman, r.Reference, r.Company, r.Contact, r.CreatedAt, r.UpdatedAt, r.PrintedAt, r.HeadApprovedAt, r.MinInvoiceDate,
+                    r.TotalAchievedPrice, r.Status, r.InvoiceNo, r.OrderNo, r.IsOpoChecked ? "Yes" : "No",
+                });
+                return new FileAnswer(200, $"CostingSheets-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create("Costing Sheets", columns, rows));
+            }
+            case RequestFormAttachment:
+            {
+                var file = w.RequestForms.Attachment(actor, Id(query, "requestForm"), Id(query, "id"));
+                return file is { } found
+                    ? new FileAnswer(200, found.FileName, ContentType(found.FileName), found.Content)
+                    : FileAnswer.Fail(404, "There is no such attachment, or it is not on a request form you may see.");
+            }
+            case RequestFormList:
+            {
+                var search = OrdersApi.RequestFormQuery(query);
+                search.Skip = 0;
+                search.Take = MaxRows;
+                var page = w.RequestForms.List(actor, search);
+                // MyOrders' Download: its eight columns, a row for each of a request form's delivery or collection dates.
+                var columns = new List<Xlsx.ColumnSpec>
+                {
+                    new("Request Form Id", 14, "number"), new("Type", 16), new("Status", 24), new("Company", 40), new("Delv / Collection Date", 18),
+                    new("Salesperson", 26), new("Costing Sheet Id", 14, "number"), new("Created On", 18),
+                };
+                var rows = page.Rows.SelectMany(r => (r.Dates.Count == 0 ? new DateTime?[] { null } : r.Dates.Select(d => (DateTime?)d))
+                    .Select(d => new object?[]
+                    {
+                        (decimal)r.Id, r.Type, r.Status, r.Company, d, r.Salesman, r.CostingSheetId is { } cs ? (decimal?)cs : null, r.CreatedAt,
+                    }));
+                return new FileAnswer(200, $"RequestForms-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create("Request Forms", columns, rows));
+            }
+        }
+        return null;
     }
 
     /// <summary>A file uploaded to file.ashx: employees, or territory-list?territory=.</summary>
@@ -116,4 +194,20 @@ public sealed class FilesApi(CrmApp w)
         var wanted = Key(heading);
         return rows.Select(r => r.FirstOrDefault(p => Key(p.Key) == wanted).Value ?? "").Select(v => v.Trim()).Where(v => v.Length > 0).ToList();
     }
+
+    /// <summary>The content type of a file by its extension (the browser opens a PDF or a picture; anything else is saved).</summary>
+    public static string ContentType(string fileName) => Path.GetExtension(fileName ?? "").ToLowerInvariant() switch
+    {
+        ".pdf" => "application/pdf",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".xlsx" => FileAnswer.XlsxType,
+        ".xls" => "application/vnd.ms-excel",
+        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".doc" => "application/msword",
+        ".msg" => "application/vnd.ms-outlook",
+        ".txt" => "text/plain",
+        _ => "application/octet-stream",
+    };
 }

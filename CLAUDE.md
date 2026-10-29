@@ -80,6 +80,26 @@ records of MyCRM (`MyCrmMap.All`) are read and written in MyCRM's own tables by 
   that replaces an OutSystems app (MyWarehouse, MyServiceParts, MyDeliveries, MyVendors, MyProjectManagement,
   MyCustomers): MyCRMRecords keeps the sync engine files though it does not sync; a fix to the engine goes to all of them.
 
+## MyOrders' costing sheets and request forms are only read
+
+MyCRMRecords also keeps MyOrders' costing sheets and request forms readable (merged from MyOrdersRecords, 2026-10-30).
+It reads MyOrders' and MyCRM's tables for them where they are and **never writes to them**: `IMyOrdersData`
+(`Data/MyOrdersData.cs`, `Data/RequestFormData.cs`) is the only way to them and has no method that writes, and
+`The_costing_sheets_and_request_forms_have_no_way_to_change_MyOrders_or_MyCRM` fails on an INSERT, UPDATE, DELETE or a
+writer there. MyCRMRecords' switch for MyCRM's data has nothing to do with them.
+
+- Every entity read and its columns are in `Entities.Checked` (the Connections tab's *Test* checks each, in the
+  *MyOrders module* setting). A new column or entity goes there, and in `OrdersSqlServerTests.OutSystemsSql`.
+- MyOrders' tables are found even after MyOrders is retired (`EntityTable(..., retiredToo: true)`); MyCRM's never are.
+- A file column (Binary Data) is read as its length (`DATALENGTH`); only `File` reads one file's bytes, for its download.
+- Long lists are searched and paged in SQL (`SqlMyOrdersData.Search`, `SearchRequestForms`); `FakeMyOrders` answers the
+  same searches in memory, and `OrdersSqlServerTests` checks both answer alike: a new filter or sort goes in both.
+- Who sees which is MyOrders' rule (`OrdersAccess`, by OutSystems user, with `SamePerson` for someone OutSystems keeps
+  twice), read from `Actor.Orders` (`ApiUser.ToActor(people, app.OrdersAccess)`), applied alike to a list, a record,
+  its attachments and its print. It is not MyCRMRecords' company rule (`Access`): keep the two apart.
+- The prints (`print.js`, `requestformprint.js`) keep MyOrders' texts verbatim; `docs/outsystems/myorders/` says how
+  MyOrders works and lists every rule changed on purpose.
+
 ## Keep MyCRM's behaviour unless there is a reason
 
 MyCRMRecords replaces the OutSystems application MyCRM. `docs/outsystems/` says how MyCRM works, and

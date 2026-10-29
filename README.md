@@ -27,6 +27,8 @@ How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 | CRM users (role, teams, codes) and teams | Users, CUserDetails, Teams, AdminPage | `people.aspx` (`CrmUsers`) |
 | Advance's customer number of each company | timer UpdateCustomerNo (02:45) | scheduled task *Customer numbers from Advance* (`CustomerNumbers`) |
 | Sign in as someone else | (none) | `users/impersonate` (administrators) |
+| MyOrders' costing sheets, read only: list, page, attachments, Download, the costing sheet PDF | MyOrders' CostingSheets, CostingSheetSummary, PDF | `costingsheets.aspx`, `costingsheet.aspx`, `print.aspx` (`CostingSheets`, `OrdersAccess`) |
+| MyOrders' request forms, read only: list, page, attachments, Download, delivery and collection forms | MyOrders' RequestForms, RequestFormSummary, PDF | `requestforms.aspx`, `requestform.aspx`, `requestformprint.aspx` (`RequestForms`) |
 
 MyCRM's territories were rebuilt from Advance every day; that is deprecated: Sales Admins now create the territories
 and put companies in them. MyCRM's imports from the old CRM are not carried over. Everything that sends or changes
@@ -158,7 +160,10 @@ answer `{ result: { ok, code, message, errors, id }, data }`. The routes are in 
 `people`, `companies`, `companies/{id}` and its `employees`, `remarks`, `relationships`, `addresses/{id}`,
 `contacts/{id}`, `groupnames`, `territories`, `territories/{id}` and its `add`, `takeout`, `match`, `remove`,
 `territories/search`, `crmusers`, `crmusers/person?login=`, `teams`), `Api/AdminApi.cs` (`admin/...`) and
-`Api/UsersApi.cs`. `file.ashx` downloads `sample?of=employees` and `sample?of=territory`; a POST (multipart, with the
+`Api/UsersApi.cs`; the costing sheets and request forms (GET only) in `Api/OrdersApi.cs` (`orders/session`,
+`orders/people`, `costingsheets`, `costingsheets/filters`, `costingsheets/{id}`, `costingsheets/{id}/print`, the same
+for `requestforms`; the lists take `company=` too). `file.ashx` downloads `attachment`, `costingsheets`,
+`requestform-attachment` and `requestforms` (MyOrders, read only), and `sample?of=employees` and `sample?of=territory`; a POST (multipart, with the
 `X-MyCRMRecords` header) to `employees` or `territory-list?territory=` uploads an Excel workbook.
 
 ## IIS server setup (one time)
