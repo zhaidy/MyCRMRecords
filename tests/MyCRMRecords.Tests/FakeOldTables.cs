@@ -277,6 +277,27 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
                 sql.AppendLine($"INSERT INTO dbo.[{physical}] VALUES ({record.Key}, {Q(record.Value)}, {record.Key}, 1);");
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY ([ESPACE_ID], [NAME], [PHYSICAL_TABLE_NAME], [IS_ACTIVE]) VALUES (1, {Q(pair.Key)}, {Q(physical)}, 1);");
         }
+        // MyOrders (read for the costing sheets and request forms) is in the same OutSystems database: its entities, empty,
+        // and the columns the costing sheets read from MyCRM's, so the connection test passes as it does in production.
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (2, N'MyOrders', 1);");
+        foreach (var (entity, columns) in Entities.Checked)
+        {
+            string Type(string column) => column == "ID" || column.EndsWith("ID", StringComparison.Ordinal) ? "bigint" : "nvarchar(2000)";
+            var known = entity.Module == OsModule.MyCRM
+                ? _schema.TryGetValue(entity.Name, out var schema) ? schema.Values.Select(c => c.Name).ToList()
+                : Static.ContainsKey(entity.Name) ? new List<string> { "ID", "LABEL", "ORDER", "IS_ACTIVE" } : null
+                : null;
+            if (known is not null)
+            {
+                var table = "OSUSR_ab1_" + entity.Name.ToUpperInvariant();
+                foreach (var column in columns.Where(c => !known.Contains(c, StringComparer.OrdinalIgnoreCase)))
+                    sql.AppendLine($"ALTER TABLE dbo.[{table}] ADD [{column}] {Type(column)} NULL;");
+                continue;
+            }
+            var physical = (entity.Module == OsModule.MyOrders ? "OSUSR_or1_" : "OSUSR_ab1_") + entity.Name.ToUpperInvariant();
+            sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {Type(c)} NULL"))});");
+            sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY ([ESPACE_ID], [NAME], [PHYSICAL_TABLE_NAME], [IS_ACTIVE]) VALUES ({(entity.Module == OsModule.MyOrders ? 2 : 1)}, {Q(entity.Name)}, {Q(physical)}, 1);");
+        }
         return sql.ToString();
     }
 
