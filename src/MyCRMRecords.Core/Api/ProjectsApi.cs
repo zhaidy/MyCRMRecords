@@ -230,7 +230,15 @@ public sealed class ProjectsApi(CrmApp w)
 
     private ApiResponse ProjectDetail(Actor actor, long id)
     {
-        if (w.Projects.Get(id) is not { } p) return ApiResponse.NotFound();
+        if (w.Projects.Get(id) is not { } p)
+        {
+            // A deleted project (MyCRM keeps it, inactive): said as such; its name, day and who deleted it only to its owner and Sales Admins.
+            if (id <= 0 || w.Store.Get<Project>(id) is not { IsActive: false } gone) return ApiResponse.NotFound();
+            var told = actor.IsSalesAdmin || actor.IsLogin(gone.Owner);
+            var when = gone.UpdatedDate is { } day ? " on " + day.ToString("d MMM yyyy", CultureInfo.InvariantCulture) : "";
+            var by = gone.UpdatedBy.Trim().Length > 0 ? " by " + w.People.NameOf(gone.UpdatedBy) : "";
+            return ApiResponse.Fail(404, "DELETED", told ? $"The project {gone.ProjectName.Trim()} was deleted{when}{by}." : "This project was deleted.");
+        }
         if (!w.Projects.MaySee(actor, p)) return ApiResponse.Forbidden("You don't have permissions to view this project: neither you nor your team are in it.");
         var today = w.Clock().Date;
         var (losing, companyCount) = w.Projects.LosingAccess(p.Id);

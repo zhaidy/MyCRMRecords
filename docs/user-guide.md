@@ -197,7 +197,8 @@ The **Activities** page lists the sales activities in MyCRM that you own or take
 team's (**My team**, or one person of your team). Everything is saved in MyCRM.
 
 - Type in the search box to find activities by company, remarks, action or type. Choose **Upcoming** (today and
-  later), **Today**, **Past** or **All**, and a **Type**. MyCRMRecords remembers your choices.
+  later), **Today**, **Past** or **All**, and a **Type**. MyCRMRecords remembers your choices. On a computer the search
+  and filters stay under the top bar as you scroll.
 - **List** shows the activities by day with their time, type, remarks and action, company, contacts, owner and status:
   **Completed**, **Pending**, or **Not completed** (its start date has passed). **Calendar** shows a month: the arrows
   change the month and **Today** comes back; a day with more than three shows **+ more**.
@@ -235,7 +236,7 @@ The project's page shows its status (**Open**, **Ended** or **Closed**), owner a
 
 - **Companies**, with their salesperson. **Add companies** (search and tick) and **Remove** (after asking; a project
   keeps at least one company) are for the project's owner and Sales Admins.
-- **Members**, with their role and the companies their temporary territory gives them. Only the project's owner adds
+- **Members**, with their role and, under **Temporary territory**, the companies their temporary territory gives them. Only the project's owner adds
   and removes members: **Add member**, choose the **Person** and their **Role in this project**; the box says whether
   they get temporary access. **Remove** (after asking) takes their temporary territory away. To change a role, remove
   the member and add them again.
@@ -244,7 +245,8 @@ The project's page shows its status (**Open**, **Ended** or **Closed**), owner a
 
 At the top right, the owner and Sales Admins have **Edit** (name, status, dates, remarks), **Close project** and
 **Delete**. Both ask first and say how many members lose their temporary access. A closed project cannot be changed or
-opened again; a deleted one disappears from Projects. Activities stay on their companies either way.
+opened again; a deleted one disappears from Projects, and its page says **Project deleted** (to its owner and Sales
+Admins, with when and by whom), with the way back to Projects. Activities stay on their companies either way.
 
 ## Territories
 
@@ -278,6 +280,11 @@ one territory: putting it in another moves it there. MyCRM's territories built f
     Press **Put the … found companies here**.
     Before anything changes you are asked to confirm (**Put them here**), with the companies that leave another
     salesperson listed.
+  - **History** (the third tab): the companies moved to or from the territory's salesperson, newest first (the latest
+    200), with the date, the company, **From → to** (the salespeople; **No salesperson** when it had none or has none
+    now) and who moved it. MyCRM records each move by salesperson, not by territory, so a vacant territory has no
+    history here, and moves made before the territory's present salesperson had it are not listed. Every move is also
+    kept in each company's Territory Movement History.
 
 ## CRM users
 
@@ -316,15 +323,16 @@ that open every company see every file.
 
 - Type in **Search files** to find a file by its name, one of its numbers (invoice, DO, contract, service, reference,
   PPS, RMA, PSD or MSD reference), or its company's name or BRN.
-- Choose a type: **All**, **Costing sheet**, **Request form**, **FSA**, **Leasing**, **DO** or **Others**; and when it
-  was uploaded: **Uploaded: any time**, **Last 30 days**, **Last 12 months** or **This year**. The search and filters
-  are kept for next time.
-- Each row shows the file's name, type, company (click it to open the company), its first number (or the BRN), when it
-  was uploaded and its size. Point at the number to see all of them.
+- Choose a type: **All**, **Costing sheet**, **Request form**, **FSA**, **Leasing**, **DO** or **Others**; a
+  **Territory** (**All mine**, or one of your and your team's territories; the roles that open every company choose
+  among every territory): only the files of its companies; and when it was **Uploaded**: **Any time**, **Last 30
+  days**, **Last 12 months** or **This year**. The search and filters are kept for next time.
+- Each row shows the file's name, type, company (click it to open the company), the company's territory, its first
+  number (or the BRN), when it was uploaded and its size. Point at the number to see all of them.
 - On a computer, click a file's name (or the eye) to show its PDF beside the list, with its numbers, company and who
   uploaded it; **Open full size** opens it in a new tab and **Download** saves it. The arrow in the row downloads it too.
-- Tick files (or the box at the top for the whole page) and press **Download as zip** to save them in one zip file, at
-  most 50 at a time; **Clear** unticks them. A zip is refused if one of the files is of a company you may not open.
+- Tick files (or the box at the top for the whole page): the top of the page shows how many are selected, with
+  **Clear** (unticks them) and **Download as zip**, which saves them in one zip file, at most 50 at a time. A zip is refused if one of the files is of a company you may not open.
 - On a phone each file is a card: tap it to open its PDF on the whole screen.
 - From a company's **Files** tab, **See all** opens this page with only that company's files; **Show every company**
   goes back to all of them.
@@ -343,10 +351,11 @@ its BRN. You also see the machines of the companies a Sales Admin gave you **tem
 - Type in the search box at least 3 characters of a serial number, model, company name or BRN.
 - Choose a coverage: **All**, **Contract** (a contract running today), **Warranty** (a warranty running today),
   **T&M** (time and materials), **Expired** (its contract or warranty has ended) or **No contract**; and a **Finance
-  type**: Internal lease, External lease, Outright, Dealer or none. The search and filters are kept for next time.
+  type**: **All**, Internal lease, External lease, Outright, Dealer or **None**. The search and filters are kept for next time.
 - Each row shows the serial number (click it to open the machine), model, company (click it to open the company's
   Machines tab), **Access via** (your territory's name, **Project**, **Temporary**, or **All companies**), its
-  coverage with the contract number and when it ends, and its finance type.
+  coverage with the contract number and when it ends, its finance type and **Last service**: the day its last service
+  call done at this customer was completed (Advance's service calls).
 - **Machine access** (Sales Admins) opens the [Machine access](#machine-access) page.
 - On a phone each machine is a card: tap it to open the machine.
 
@@ -358,11 +367,13 @@ A machine's page: its serial number and coverage, its model, company and how you
   address, BRN and Advance's customer number. For a machine on time and materials, its last service and invoice.
 - **Copies per month**: the black and white (teal) and colour (coral) copies billed each month, from Advance's meter
   cards; choose **6 months** or **12 months**. Point at a month to see its numbers.
+- The tabs **Service history**, **Toner supply** and **Meter readings** stay under the top bar as you scroll.
 - **Service history**: the service calls done in the last 12 months, newest first, with the service type (and EM, PM
   or Others), the technician's code, the black and white and colour meter readings, and when they were entered and
   completed.
 - **Toner supply**: the toner orders of the last 12 months, with their invoice.
-- **Meter readings**: each invoice of the last 12 months with its black and white and colour copies.
+- **Meter readings**: the black and white and colour copies billed each month of the last 12 months, newest first,
+  with the invoices of each month, and above them the **Monthly average** of the months listed.
 - **Last contract** (a machine on time and materials that had one): its last contract's dates and, per meter type, the
   minimum bill, minimum copies, minimum rate and the rate thereafter.
 

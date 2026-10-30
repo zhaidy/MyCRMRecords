@@ -59,7 +59,7 @@ public sealed class FakeMyFiles(FakeMyOrders? tables = null) : IMyFilesData
                 && (label.Length == 0 || (r.Id("FILETYPEID") is { } t && types.TryGetValue(t, out var l) && MyFilesTypes.Key(l) == label))
                 && (s.CompanyId is null || r.Id("COMPANYID") == s.CompanyId)
                 && (s.UploadedFrom is null || (r.Date("CREATEDAT") is { } at && at >= s.UploadedFrom.Value.Date))
-                && (s.Companies is null || r.Id("COMPANYID") is not { } c2 || s.Companies.Contains(c2)))
+                && (s.Companies is null || (r.Id("COMPANYID") is not { } c2 ? s.NoCompanyToo : s.Companies.Contains(c2))))
             .OrderByDescending(r => r.Date("CREATEDAT")).ThenByDescending(r => r.Long("ID")).ToList();
         return new FilePage(matching.Count, matching.Skip(Math.Max(0, s.Skip)).Take(Math.Max(1, Math.Min(s.Take, 500))).Select(r => SqlMyFilesData.Row(AsRead(r), types)).ToList());
     }

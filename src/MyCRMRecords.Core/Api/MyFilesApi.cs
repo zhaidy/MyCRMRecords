@@ -27,11 +27,16 @@ public sealed class MyFilesApi(CrmApp w)
             var search = Search(query);
             if (search.CompanyId is { } company && !w.MyFiles.MayOpenCompany(actor, company))
                 return ApiResponse.Forbidden("You don't have permissions to view this company's files: it is not in your or your team's territories.");
-            var page = w.MyFiles.List(actor, search);
+            var choices = w.MyFiles.TerritoryChoices(actor);
+            // A territory: one of the person's choices (another lists nothing).
+            long? territory = long.TryParse(query.TryGetValue("territory", out var chosen) ? chosen : "", NumberStyles.Integer, CultureInfo.InvariantCulture, out var tid) && tid > 0
+                ? (choices.Any(c => c.Id == tid) ? tid : -1) : null;
+            var page = w.MyFiles.List(actor, search, territory);
             return ApiResponse.Of(new
             {
                 total = page.Total, skip = search.Skip, take = search.Take, rows = page.Rows,
                 types = MyFilesTypes.All.Select(t => new { label = t.Label, name = t.Name }),
+                territories = choices.Select(c => new { c.Id, title = Territories.Title(c) }),
                 limited = MyFiles.Limited(actor),
             });
         }

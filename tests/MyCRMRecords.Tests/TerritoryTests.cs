@@ -179,6 +179,36 @@ public sealed class TerritoryTests
     }
 
     [Fact]
+    public void A_territorys_History_lists_the_moves_to_and_from_its_salesperson_newest_first()
+    {
+        using var world = new TestWorld();
+        var sara = world.Actor(TestWorld.SalesAdmin);
+        var tan = world.Company("Tan", "T1000");
+        var lim = world.Company("Lim", "L1000");
+        var zen = world.Company("Zen", "Z1000");
+        var north = world.Territory("North", 1, TestWorld.Sam, tan.Id);
+        var south = world.Territory("South", 2, TestWorld.Ken, lim.Id);
+        Assert.True(world.D.Territories.AddCompanies(sara, south.Id, [tan.Id]).Ok);
+        world.Now = world.Now.AddDays(1);
+        Assert.True(world.D.Territories.AddCompanies(sara, north.Id, [zen.Id]).Ok);
+        // A move between others is not North's.
+        world.Store.Insert(new TerritoryMovement { CompanyId = lim.Id, FromUser = TestWorld.Mia.Login, ToUser = TestWorld.Ken.Login, UpdatedBy = "x", UpdatedAt = world.Now });
+        var answer = Newtonsoft.Json.Linq.JObject.Parse(world.Call("GET", $"territories/{north.Id}/history", user: TestWorld.SalesAdmin).Json);
+        var rows = answer["rows"]!;
+        // Zen put in North, Tan moved to South, Tan first put in North (the same moment: the later first).
+        Assert.Equal(new[] { "Zen", "Tan", "Tan" }, rows.Select(r => (string)r["company"]!));
+        Assert.Equal("", (string)rows[0]!["from"]!);
+        Assert.Equal("Sam Sales", (string)rows[0]!["to"]!);
+        Assert.Equal("Sam Sales", (string)rows[1]!["from"]!);
+        Assert.Equal("Sara Admin", (string)rows[1]!["by"]!);
+        // A vacant territory has no history; only those who keep territories see it.
+        var vacant = world.Store.Insert(new Territory { Name = "Vacant", Number = 9, Owner = "", IsActive = true });
+        Assert.Empty(world.D.Territories.History(vacant));
+        Assert.Equal(403, world.Call("GET", $"territories/{north.Id}/history", user: TestWorld.Sam).Status);
+        Assert.Equal(404, world.Call("GET", "territories/99999/history", user: TestWorld.SalesAdmin).Status);
+    }
+
+    [Fact]
     public void Territories_are_kept_by_Sales_Admins_and_MD()
     {
         using var world = new TestWorld();

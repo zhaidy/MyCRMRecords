@@ -106,6 +106,8 @@ public sealed class MachineSearch
 
     /// <summary>The day the coverage is worked out for.</summary>
     public DateTime Today { get; set; }
+    /// <summary>Whether each machine of the page gets its last service done (<see cref="MachineRow.LastServiced"/>): the Machines page's column.</summary>
+    public bool LastServiced { get; set; }
     public int Skip { get; set; }
     public int Take { get; set; } = 50;
 }
@@ -132,6 +134,11 @@ public sealed record MachineRow
     public string LastService { get; init; } = "";
     public string LastInvoice { get; init; } = "";
     public string LastContract { get; init; } = "";
+    /// <summary>
+    /// When the last service call done at this customer (Service, SO-status F90) was completed; read only when asked
+    /// (<see cref="MachineSearch.LastServiced"/>), for the page's rows only.
+    /// </summary>
+    public DateTime? LastServiced { get; init; }
     /// <summary>serial.[Serial-stat] (SALIL…) and its words; "" when none.</summary>
     public string FinanceCode { get; init; } = "";
     public string Finance { get; init; } = "";
@@ -372,8 +379,16 @@ public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<Connect
         var args = parameters.ToArray();
         var total = Convert.ToInt32(Sql.Rows(connection, null, "SELECT COUNT(*) AS [N]" + from, args)[0]["N"], CultureInfo.InvariantCulture);
         var take = Math.Max(1, Math.Min(search.Take, 500));
-        var rows = Sql.Rows(connection, null,
-            $"SELECT {Select(m)}{from} ORDER BY m.{m["name"]}, m.{m["serial_no"]}, m.{m["item_no"]} OFFSET {N(Math.Max(0, search.Skip))} ROWS FETCH NEXT {N(take)} ROWS ONLY", args);
+        var page = $"SELECT {Select(m)}{from} ORDER BY m.{m["name"]}, m.{m["serial_no"]}, m.{m["item_no"]} OFFSET {N(Math.Max(0, search.Skip))} ROWS FETCH NEXT {N(take)} ROWS ONLY";
+        if (search.LastServiced)
+        {
+            // The last service done, looked up for the page's rows only (after the paging), by serial number and customer.
+            var t = ExternalTable.Of(connection, Tables.Service);
+            page = $"SELECT p.*, ls.[LastServiced] FROM ({page}) p OUTER APPLY (SELECT MAX(CASE WHEN sv.{t["Complete_dt"]} > @none THEN sv.{t["Complete_dt"]} END) AS [LastServiced] " +
+                   $"FROM {t} sv WHERE sv.{t["Serial_no"]} = p.[Serial] AND sv.{t["SO_status"]} = 'F90' AND (ISNULL(p.[CustNo], N'') = N'' OR sv.{t["Cust_no"]} = p.[CustNo])) ls " +
+                   "ORDER BY p.[CustName], p.[Serial], p.[Item]";
+        }
+        var rows = Sql.Rows(connection, null, page, args);
         return new MachinePage(total, rows.Select(r => Row(r, search.Today)).ToList());
     });
 
@@ -634,6 +649,7 @@ public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<Connect
             LastService = r.Text("ServiceRef"),
             LastInvoice = r.Text("InvoiceRef"),
             LastContract = r.Text("ContractRef"),
+            LastServiced = r.Date("LastServiced"),
             FinanceCode = FinanceTypes.NameOf(finance).Length > 0 ? finance.ToUpperInvariant() : finance,
             Finance = FinanceTypes.NameOf(finance),
             Coverage = Coverages.Of(mifType, r.Date("ContractStart"), r.Date("ContractEnd"), r.Date("SellEnd"), today),

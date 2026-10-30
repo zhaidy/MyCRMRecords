@@ -99,6 +99,7 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         search.Today = Today(clock());
         search.Skip = Math.Max(0, search.Skip);
         search.Take = PageSize;
+        search.LastServiced = true;
         var page = advance.Search(search);
         return (page.Total, Rows(scope, page.Rows), false);
     }

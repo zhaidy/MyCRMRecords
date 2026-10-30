@@ -59,6 +59,8 @@ public sealed class FileSearch
     /// rules (<see cref="Domain.MyFiles"/>), never by the page.
     /// </summary>
     public IReadOnlyCollection<long>? Companies { get; set; }
+    /// <summary>Whether the files of no company are listed with <see cref="Companies"/>' (not with a territory chosen).</summary>
+    public bool NoCompanyToo { get; set; } = true;
 
     public int Skip { get; set; }
     public int Take { get; set; } = 50;
@@ -78,6 +80,8 @@ public sealed record FileRow
     public string Type { get; init; } = "";
     /// <summary>The MyCRM company (MyCRM's Company Id), null when the file has none.</summary>
     public long? CompanyId { get; init; }
+    /// <summary>The company's MyCRM territory (its salesperson's), set by the rules (<see cref="Domain.MyFiles"/>); "" when none.</summary>
+    public string Territory { get; init; } = "";
     /// <summary>The company's name and BRN as MyFiles copied them on the file when it was uploaded.</summary>
     public string Company { get; init; } = "";
     public string Brn { get; init; } = "";
@@ -178,9 +182,10 @@ public sealed class SqlMyFilesData(ExternalDatabases databases, Func<ConnectionS
             // thousands, more than parameters or a statement's IN list should).
             var xml = new StringBuilder();
             foreach (var id in companies.Where(c => c > 0).Distinct()) xml.Append("<c>").Append(N(id)).Append("</c>");
+            var none = search.NoCompanyToo ? "f.[COMPANYID] IS NULL OR f.[COMPANYID] = 0" : "1 = 0";
             where.Add(xml.Length == 0
-                ? "(f.[COMPANYID] IS NULL OR f.[COMPANYID] = 0)"
-                : $"(f.[COMPANYID] IS NULL OR f.[COMPANYID] = 0 OR f.[COMPANYID] IN (SELECT n.c.value('.', 'bigint') FROM (SELECT CAST({P(xml.ToString())} AS xml) AS x) s CROSS APPLY s.x.nodes('/c') AS n(c)))");
+                ? $"({none})"
+                : $"({none} OR f.[COMPANYID] IN (SELECT n.c.value('.', 'bigint') FROM (SELECT CAST({P(xml.ToString())} AS xml) AS x) s CROSS APPLY s.x.nodes('/c') AS n(c)))");
         }
         var whereSql = " WHERE " + string.Join(" AND ", where);
         var args = parameters.ToArray();

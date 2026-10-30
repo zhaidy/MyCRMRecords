@@ -326,7 +326,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     by contract, Warranty, Time & material, Contract expired, No contract); a T&M machine's **Rates** open its last
     contract on its own page. Installed date, location and last service of every machine are not shown there (they are
     read one machine at a time, on its page).
-26. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
+25. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
     (`MyCustomerEmails`: AdvanceConnector's `CustomerMapping` with `Company_ID` = the company, joined to `Email_Master`
     by customer number, each row once; read only, its tables are settings and in the connection test), *Machines sold by
     dealer* (`DealerSoldMachines`: `daily_mif` of the BRN with `serial-stat` SALDLR and `mif-type` MTR), the caretakers
@@ -334,6 +334,22 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     latest past activities. MyCRM showed the emails under the contacts and the caretakers in the header. Differences:
     an address's type is changed in the address form only (no longer in the list), and a contact is deleted from its
     form only (no bin in the list); related companies show their territory.
+26. **Pages added to on purpose** (2026-10-30), all read only:
+    - **A territory's History tab**: MyCRM had no history per territory, only each company's Territory Movement History.
+      `TerritoryMovement` records a move by person (`FromUserId`, `ToUserId`), not by territory, so the tab lists the
+      moves to or from the territory's present salesperson (two queries on `FROMUSERID` / `TOUSERID`, the latest 200);
+      none for a vacant territory.
+    - **The Files page's Territory filter and column** (MyFiles had neither): a file's territory is its company's
+      (`COMPANYID`), the first active link of an active permanent territory, read for the page's 50 rows only. The filter
+      lists the territories of the person's `GetSub` list (every territory for the roles that open every company) and
+      shows only its companies' files (not those of no company).
+    - **The Machines page's Last service column** (MyMachines' list had none): the day the last service call done
+      (`Service`, `SO-status` F90) of the machine at its customer was completed, looked up in the same query for the
+      page's 50 rows only (after the paging).
+    - **A machine's Meter readings** add up `meter_card`'s invoices by month (as the Copies per month chart does), with
+      the months' average, instead of one row per invoice.
+    - **A deleted project's page** says the project was deleted (with when and by whom, to its owner and Sales Admins)
+      instead of "not found".
 
 ## 13. Production counts that shaped the design (2026-10-19)
 
