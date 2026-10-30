@@ -60,22 +60,25 @@ public static class Xlsx
             // Styles: 0 normal, 1 bold header, 2 date, 3 money (#,##0.00), 4 number.
             Entry("xl/styles.xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="dd-mmm-yyyy"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4E8FC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>""");
 
+            // Each sheet is written straight into the workbook, row by row (a list of tens of thousands of rows is
+            // never held whole as text).
             for (var s = 0; s < sheets.Count; s++)
             {
                 var columns = sheets[s].Columns;
                 var rows = sheets[s].Rows;
-                var sheet = new StringBuilder();
-                sheet.Append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>""");
+                var entry = zip.CreateEntry($"xl/worksheets/sheet{s + 1}.xml", CompressionLevel.Optimal);
+                using var sheet = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+                sheet.Write("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>""");
                 for (var i = 0; i < columns.Count; i++)
-                    sheet.Append($"<col min=\"{i + 1}\" max=\"{i + 1}\" width=\"{columns[i].Width.ToString(CultureInfo.InvariantCulture)}\" customWidth=\"1\"/>");
-                sheet.Append("</cols><sheetData><row r=\"1\">");
-                for (var i = 0; i < columns.Count; i++) sheet.Append(TextCell(i, 1, columns[i].Heading, 1));
-                sheet.Append("</row>");
+                    sheet.Write($"<col min=\"{i + 1}\" max=\"{i + 1}\" width=\"{columns[i].Width.ToString(CultureInfo.InvariantCulture)}\" customWidth=\"1\"/>");
+                sheet.Write("</cols><sheetData><row r=\"1\">");
+                for (var i = 0; i < columns.Count; i++) sheet.Write(TextCell(i, 1, columns[i].Heading, 1));
+                sheet.Write("</row>");
                 var rowNumber = 1;
                 foreach (var row in rows)
                 {
                     rowNumber++;
-                    sheet.Append($"<row r=\"{rowNumber}\">");
+                    sheet.Write($"<row r=\"{rowNumber}\">");
                     for (var i = 0; i < columns.Count && i < row.Length; i++)
                     {
                         var value = row[i];
@@ -84,23 +87,22 @@ public static class Xlsx
                         switch (value)
                         {
                             case DateTime date:
-                                sheet.Append($"<c r=\"{reference}\" s=\"2\"><v>{date.ToOADate().ToString(CultureInfo.InvariantCulture)}</v></c>");
+                                sheet.Write($"<c r=\"{reference}\" s=\"2\"><v>{date.ToOADate().ToString(CultureInfo.InvariantCulture)}</v></c>");
                                 break;
                             case decimal number:
-                                sheet.Append($"<c r=\"{reference}\" s=\"{(columns[i].Kind == "money" ? 3 : 4)}\"><v>{number.ToString(CultureInfo.InvariantCulture)}</v></c>");
+                                sheet.Write($"<c r=\"{reference}\" s=\"{(columns[i].Kind == "money" ? 3 : 4)}\"><v>{number.ToString(CultureInfo.InvariantCulture)}</v></c>");
                                 break;
                             case int or long or double:
-                                sheet.Append($"<c r=\"{reference}\" s=\"4\"><v>{Convert.ToString(value, CultureInfo.InvariantCulture)}</v></c>");
+                                sheet.Write($"<c r=\"{reference}\" s=\"4\"><v>{Convert.ToString(value, CultureInfo.InvariantCulture)}</v></c>");
                                 break;
                             default:
-                                sheet.Append(TextCell(i, rowNumber, Convert.ToString(value, CultureInfo.InvariantCulture) ?? "", 0));
+                                sheet.Write(TextCell(i, rowNumber, Convert.ToString(value, CultureInfo.InvariantCulture) ?? "", 0));
                                 break;
                         }
                     }
-                    sheet.Append("</row>");
+                    sheet.Write("</row>");
                 }
-                sheet.Append($"</sheetData><autoFilter ref=\"A1:{ColumnName(columns.Count - 1)}{Math.Max(rowNumber, 1)}\"/></worksheet>");
-                Entry($"xl/worksheets/sheet{s + 1}.xml", sheet.ToString());
+                sheet.Write($"</sheetData><autoFilter ref=\"A1:{ColumnName(columns.Count - 1)}{Math.Max(rowNumber, 1)}\"/></worksheet>");
             }
         }
         return output.ToArray();
@@ -130,10 +132,11 @@ public static class Xlsx
         new(text.Where(c => c == '\t' || c == '\n' || c == '\r' || c >= ' ' && c != '￾' && c != '￿').ToArray());
 
     /// <summary>
-    /// The first sheet of a workbook as rows of text, by column heading (the first row): what OutSystems' Excel
-    /// uploads read. Throws <see cref="InvalidDataException"/> when the file is not an .xlsx workbook.
+    /// The first sheet of a workbook (or the sheet numbered <paramref name="sheetIndex"/> from 0) as rows of text, by
+    /// column heading (the first row): what OutSystems' Excel uploads read. Throws <see cref="InvalidDataException"/>
+    /// when the file is not an .xlsx workbook.
     /// </summary>
-    public static List<Dictionary<string, string>> Read(Stream file)
+    public static List<Dictionary<string, string>> Read(Stream file, int sheetIndex = 0)
     {
         try
         {
@@ -149,7 +152,7 @@ public static class Xlsx
                     shared.Add(string.Concat(si.Descendants(ns + "t").Select(t => t.Value)));
             }
             var sheet = zip.Entries.Where(e => e.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase) && e.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(e => e.FullName.Length).ThenBy(e => e.FullName, StringComparer.Ordinal).FirstOrDefault()
+                .OrderBy(e => e.FullName.Length).ThenBy(e => e.FullName, StringComparer.Ordinal).Skip(Math.Max(0, sheetIndex)).FirstOrDefault()
                 ?? throw new InvalidDataException("The workbook has no sheet.");
             System.Xml.Linq.XDocument xml;
             using (var stream = sheet.Open()) xml = System.Xml.Linq.XDocument.Load(stream);

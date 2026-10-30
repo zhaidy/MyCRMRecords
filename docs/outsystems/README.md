@@ -357,6 +357,17 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     `ISCLOSED` nor `ISCANCELLED`), stage, type and estimated order date, newest first (`DATECREATED`). The page is found,
     counted and paged in one SQL statement (`MyCrmStore.ProspectIds`: owner IN (...), the search as a UNION of remarks and
     company name); only the page's company names and owners are read. A row opens its company's Prospects tab.
+28. **Two of MyCRM's reports as downloads of the lists** (2026-10-30; rule 23 left reports out). MyCRM's report 09
+    *Company Summary* is the Companies page's **Download** (`file.ashx/companies`, `Reports.CompanySummary`): every
+    company of the page's search, filters and All / Mine / No salesperson, as the list's rule allows, with its
+    salesperson (`Territories.Owners`), team and managers (`CUser`, `Team`), territory, first postal code and billing
+    (else default) address, caretake remarks (`CompanyCaretake`) and caretakers (MyCRM's `companyOwnerCaretake`, for all
+    companies at once). Reports 17 *Projects* and 08 *Caretake Account* are the Projects page's **Download**
+    (`file.ashx/projects`, `Reports.ProjectsReport`): the list's projects, and a line per project company with its
+    account owner and the project's caretakers, each with whether their temporary territory gives them the company.
+    Both read a thousand companies per query, never one per company; at most 100,000 companies (10,000 projects) per
+    file, with a last line saying so. Both are recorded in the audit log. MyCRM's report screens, their head / team
+    selectors and its other reports are not built.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

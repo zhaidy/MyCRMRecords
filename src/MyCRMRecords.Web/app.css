@@ -2134,3 +2134,30 @@ table.data.pros-table td.num{font-variant-numeric:tabular-nums;white-space:nowra
 @media(min-width:901px) and (max-width:1160px){.nav-item{padding:0 4px;font-size:12.5px}.install-button{display:none}}
 @media(min-width:901px) and (max-width:980px){.nav-item{padding:0 3px;font-size:12px}.appbar-right{gap:4px}}
 @media(min-width:901px) and (max-width:940px){.nav-item{padding:0 2px;font-size:11.5px}.appbar{gap:6px;margin-left:12px;margin-right:12px}}
+/* ---- Report downloads and printing: the Companies and Projects pages (Download, Print) ---- */
+.print-only{display:none}
+@media print{
+  :is(#companies-page,#projects-page) ~ *,.tabbar,.impersonation-bar,.guide-panel,.help-button,.toast{display:none!important}
+  body:has(#companies-page,#projects-page){background:#fff;color:#000}
+  body:has(#companies-page,#projects-page) .app-shell{padding:0;margin:0}
+  :is(#companies-page,#projects-page){padding:0!important;margin:0!important;max-width:none!important}
+  :is(#companies-page,#projects-page) :is(.heading-actions,.pager,.file-cards,.proj-foot,.tick,.loading){display:none!important}
+  #companies-page .companies-filters,#projects-page .companies-filters :is(.search-box,.tabs){display:none!important}
+  #projects-page .companies-filters,#projects-page .companies-filter-row{display:block;margin:0 0 8px;padding:0}
+  #projects-page .proj-count{margin:0;text-align:left}
+  :is(#companies-page,#projects-page) .page-heading{margin:0 0 8px;padding:0}
+  :is(#companies-page,#projects-page) h1{font-size:20pt;color:#000}
+  :is(#companies-page,#projects-page) #count{display:block!important;color:#000;font-size:10pt}
+  :is(#companies-page,#projects-page) .count-scope{display:inline!important}
+  :is(#companies-page,#projects-page) .print-only{display:inline}
+  :is(#companies-page,#projects-page) .companies-list{display:block!important;background:none!important;border:0!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-radius:0!important;overflow:visible!important}
+  :is(#companies-page,#projects-page) #rows{display:block!important}
+  :is(#companies-page,#projects-page) table.data{display:table!important;width:100%;table-layout:auto;font-size:8.5pt;border-collapse:collapse}
+  :is(#companies-page,#projects-page) table.data :is(th,td){width:auto;height:auto;padding:3px 5px!important;white-space:normal;overflow:visible;text-overflow:clip;color:#000;background:none!important;border-bottom:1px solid #bbb}
+  :is(#companies-page,#projects-page) table.data th{border-bottom:1.5px solid #000;font-weight:700}
+  :is(#companies-page,#projects-page) table.data thead{display:table-header-group}
+  :is(#companies-page,#projects-page) table.data tr{break-inside:avoid}
+  :is(#companies-page,#projects-page) table.data a{color:#000!important;text-decoration:none}
+  :is(#companies-page,#projects-page) table.data :is(th,td){display:table-cell!important}
+  @page{margin:12mm}
+}

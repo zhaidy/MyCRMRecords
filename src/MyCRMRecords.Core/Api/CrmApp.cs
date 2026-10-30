@@ -70,6 +70,8 @@ public sealed class CrmApp
     public Projects Projects { get; init; } = null!;
     /// <summary>MyCRM's sales activities (in MyCRM's tables).</summary>
     public Activities Activities { get; init; } = null!;
+    /// <summary>The Company summary and projects downloads (MyCRM's reports 09, 17 and 08).</summary>
+    public Reports Reports { get; init; } = null!;
 
     /// <summary>Whether MyCRMRecords may change MyCRM's data now (the administrator's switch).</summary>
     public bool CanWrite => MyCrm is null || MyCrm.CanWrite;
@@ -112,6 +114,7 @@ public static class CrmFactory
         files ??= new SqlMyFilesData(databases, () => settings().Connections);
         machines ??= new SqlAdvanceMachines(databases, () => settings().Connections);
         machineAccess ??= new SqlMyMachinesAccess(databases, () => settings().Connections, () => settings().MyMachines.WritesEnabled, own, clock, domain);
+        var companies = new Companies(store, access, territories, clock);
         var projects = new Projects(store, own, access, people, territories,
             new ProjectTerritories(outSystemsUserId ?? (login => tables is not null && tables.Available ? tables.UserIdOf(login) : null)), clock);
         return new CrmApp
@@ -125,7 +128,7 @@ public static class CrmFactory
             Access = access,
             Users = new CrmUsers(store, people, clock),
             Territories = territories,
-            Companies = new Companies(store, access, territories, clock),
+            Companies = companies,
             CustomerNumbers = customerNumbers,
             Mailer = mailer,
             Databases = databases,
@@ -143,6 +146,7 @@ public static class CrmFactory
             Machines = new Machines(machines, machineAccess, access, store, clock),
             Projects = projects,
             Activities = new Activities(store, access, people, territories, projects, clock),
+            Reports = new Reports(store, companies, projects, territories, people, clock),
         };
     }
 }

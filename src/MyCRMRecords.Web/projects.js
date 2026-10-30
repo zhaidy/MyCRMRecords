@@ -24,7 +24,11 @@
     page.innerHTML = `
       <div class="page-heading companies-heading"><div class="companies-title"><h1>Projects</h1>
           <p>Projects give people temporary access to companies, for example to caretake an account. Saved in MyCRM.</p></div>
-        <div class="heading-actions">${answer.canCreate ? '<button type="button" class="button primary phone-fab" id="create" title="Create project"><span data-icon="plus"></span><span class="action-label">Create project</span></button>' : ''}</div></div>
+        <div class="heading-actions"><div class="action-capsule" role="group" aria-label="More actions">
+            <a class="capsule-button" id="download" href="#" title="Download the projects and their caretake accounts (Excel)"><span data-icon="excel"></span><span class="action-label">Download</span></a>
+            <span class="capsule-divider companies-wide" aria-hidden="true"></span>
+            <button type="button" class="capsule-button companies-wide" id="print" title="Print this page"><span data-icon="printer"></span><span class="action-label">Print</span></button></div>
+          ${answer.canCreate ? '<button type="button" class="button primary phone-fab" id="create" title="Create project"><span data-icon="plus"></span><span class="action-label">Create project</span></button>' : ''}</div></div>
       <div class="companies-filters" role="search"><div class="companies-filter-row">
         <label class="search-box"><span data-icon="search"></span><span class="sr-only">Search projects</span>
           <input id="q" type="search" placeholder="Project name, remarks or company" aria-label="Search projects"></label>
@@ -36,11 +40,21 @@
     drawIcons(page);
     $('#q').addEventListener('input', event => { filter.q = event.target.value; filter.skip = 0; clearTimeout(timer); timer = setTimeout(load, 350); });
     $('#create')?.addEventListener('click', () => create(answer));
+    $('#print').addEventListener('click', () => window.print());
+    // Every project that matches the Open, Closed or All and the search (not just this page), with a sheet of their companies.
+    $('#download').addEventListener('click', event => {
+      event.preventDefault();
+      toast('Preparing the projects and their caretake accounts…');
+      location.href = 'file.ashx/projects?' + new URLSearchParams({show: filter.show, q: filter.q});
+    });
   }
 
   function render() {
     $$('[data-show]', page).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.show === filter.show)));
-    $('#count').innerHTML = `<b>${data.total} project${data.total === 1 ? '' : 's'}</b> · you or your team are in · newest first`;
+    const shown = {open: 'Open', closed: 'Closed', all: 'All'}[filter.show] || 'Open';
+    $('#count').innerHTML = `<b>${data.total} project${data.total === 1 ? '' : 's'}</b> · you or your team are in · newest first`
+      + `<span class="print-only print-filters"> · ${esc([shown, filter.q ? `Search “${filter.q}”` : '', data.total > data.rows.length ? `rows ${data.skip + 1}–${data.skip + data.rows.length}` : ''].filter(Boolean).join(' · '))}`
+      + ` · printed ${esc(new Date().toLocaleString('en-SG', {dateStyle: 'medium', timeStyle: 'short'}))}</span>`;
     const rows = data.rows;
     const companies = r => { const n = r.companyCount ?? r.companies.length; return r.companies.length ? `${esc(r.companies[0])}${n > 1 ? ` <span class="muted">+${(n - 1).toLocaleString()} more</span>` : ''}` : '<span class="muted">–</span>'; };
     $('#rows').innerHTML = rows.length ? `<table class="data companies-table proj-table"><thead><tr><th class="proj-name">Project name</th><th>Status</th><th class="proj-cos">Companies</th>

@@ -114,6 +114,16 @@ the title says how many there are.
   **NoOfEmployees** (**Download a sample** gives one). The first active company with each BRN gets the number; rows
   with no such company are skipped and counted.
 - **Sign in as…** (administrators) opens MyCRMRecords as someone else; see [User roles](#user-roles).
+- **Download** (at the top) gives the **Company summary**, an Excel workbook of **every** company that matches the
+  search, filters and **All**, **Mine** or **No salesperson** you chose (not only the 50 on the page), as you may open
+  them: company, BRN, customer code, customer type, group name, account type, industry, salesperson, their team and
+  manager, territory, postal code, billing address (or the default address), phone, website, caretake and caretake
+  remarks, the caretakers of the company's open projects, created and updated on and by, and active. It replaces
+  MyCRM's report *Company Summary*. All companies can take a minute; a file holds at most 100,000 companies, and its
+  last line says so when there are more. Each download is recorded in the audit log.
+- **Print** (on a computer) prints the page as it is shown: the title, a line with the filters and when it was
+  printed, and the companies on the page, without the menus and filters. Choose **Save as PDF** in the print dialog
+  for a PDF. To print every company that matches, download the Company summary instead.
 
 ## A company
 
@@ -270,6 +280,23 @@ automatically each morning (the scheduled task *Projects that have ended*, once 
 date**, **End date** (after today) and **Remarks**, then **Next: add companies**: type a company's name, BRN or
 website and tick the companies (at least one). **Create project in MyCRM** creates it, with you as its owner and
 Project Manager, and opens it.
+
+**Download** (at the top) gives an Excel workbook of every project that matches **Open**, **Closed** or **All** and
+your search (not only the 50 on the page), with two sheets. It replaces MyCRM's reports *Projects* and *Caretake
+Account*:
+
+- **Projects**: each project's name, status, whether it is **Open**, **Ended** (past its end date, not closed yet) or
+  **Closed**, owner, start and end dates, number of companies, members with their roles, remarks, and when and by whom
+  it was last updated.
+- **Caretake accounts**: a line for each company of those projects: the company and BRN, its **Account owner** (the
+  salesperson of its territory) and territory, the project's **Caretakers** (members with the role Salesperson
+  (Caretaker) or Salesperson (Account Owner)) and whether each has **Temporary access** to it through the project, the
+  project, its status and end date, and the company's caretake remarks. Use it to check who looks after which account.
+
+A file holds at most 10,000 projects and 100,000 company lines (some old projects have tens of thousands of
+companies); its last line says so when there are more: search for the project to get the rest. Each download is
+recorded in the audit log. **Print** (on a computer) prints the list as shown, with a line saying which projects and
+when, without the menus; choose **Save as PDF** in the print dialog for a PDF.
 
 ### A project
 
