@@ -150,6 +150,48 @@ public sealed class ProjectTests
     }
 
     [Fact]
+    public void The_daily_task_keeps_territories_of_projects_with_no_end_date_stops_when_too_many_would_change_and_can_be_undone()
+    {
+        var (world, tan, lim, _) = Setup();
+        using var _w = world;
+        // A project made outside MyCRM's Save (the CSST part's) with no end date, and a member with a temporary territory.
+        var csst = world.Store.Insert(new Project { ProjectName = "CSSTProject A", IsActive = true, Owner = TestWorld.Mia.Login });
+        var territory = world.Store.Insert(new TemporaryTerritory { Number = 9, Owner = TestWorld.Ken.Login, IsActive = true });
+        world.Store.Insert(new ProjectMember { ProjectId = csst.Id, User = TestWorld.Ken.Login, Role = "Salesperson", TerritoryId = territory.Id, IsActive = true });
+        world.Store.Insert(new TemporaryCompanyTerritory { TerritoryId = territory.Id, CompanyId = lim.Id, IsActive = true });
+        var run = world.D.Projects.RunDaily("Scheduled");
+        Assert.False(run.Failed);
+        Assert.True(world.Store.Get<TemporaryTerritory>(territory.Id)!.IsActive);
+
+        // More orphans than the safety limit: nothing is taken away, and the run says so.
+        var orphans = Enumerable.Range(0, Projects.SafetyLimit + 1)
+            .Select(i => world.Store.Insert(new TemporaryTerritory { Number = 100 + i, Owner = TestWorld.Tom.Login, IsActive = true })).ToList();
+        run = world.D.Projects.RunDaily("Scheduled");
+        Assert.True(run.Failed);
+        Assert.Contains("Stopped before taking away", run.Summary);
+        Assert.All(orphans, o => Assert.True(world.Store.Get<TemporaryTerritory>(o.Id)!.IsActive));
+
+        // Undo: the territories a run of the task switched off today (by its records of the changes) are switched back on.
+        var start = world.Now.AddMinutes(-30);
+        world.Store.Insert(new JobRun { Job = Jobs.ProjectsEnded, StartedAt = start, FinishedAt = start.AddMinutes(10), Outcome = "Stopped", By = "Zhai Dongyu" });
+        territory.IsActive = false;
+        world.Store.Update(territory);
+        world.Store.Insert(new MyCrmChange { ChangedOn = start.AddMinutes(2), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = territory.Id, Column = "ISACTIVE", Before = "1", After = "0" });
+        // One it was right to switch off (no member has it): not switched back on.
+        orphans[1].IsActive = false;
+        world.Store.Update(orphans[1]);
+        world.Store.Insert(new MyCrmChange { ChangedOn = start.AddMinutes(3), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = orphans[1].Id, Column = "ISACTIVE", Before = "1", After = "0" });
+        // Not the task's: another day, or someone else at another time.
+        world.Store.Insert(new MyCrmChange { ChangedOn = start.AddDays(-1), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = orphans[0].Id, Column = "ISACTIVE", Before = "1", After = "0" });
+        Assert.Equal(new[] { territory.Id }, world.D.Projects.TerritoriesTakenAway(world.Now.Date));
+        Assert.Equal(ResultCodes.Forbidden, world.D.Projects.RestoreTerritoriesTakenAway(world.Actor(TestWorld.Mia), world.Now.Date).Code);
+        Assert.True(world.D.Projects.RestoreTerritoriesTakenAway(world.Actor(TestWorld.Admin), world.Now.Date).Ok);
+        Assert.True(world.Store.Get<TemporaryTerritory>(territory.Id)!.IsActive);
+        Assert.Empty(world.D.Projects.TerritoriesTakenAway(world.Now.Date));
+        Assert.False(world.Store.Get<TemporaryTerritory>(orphans[1].Id)!.IsActive);
+    }
+
+    [Fact]
     public void A_later_end_date_and_the_daily_task_follow_MyCRMs_end_date_rule()
     {
         var (world, _, lim, p) = Setup();
