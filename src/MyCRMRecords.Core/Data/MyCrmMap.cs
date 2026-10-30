@@ -224,7 +224,7 @@ public static class MyCrmMap
             .Column("Number", "TERRITORY").Person("Owner", "OWNERID", required: true).Fixed("ISTEMPORARY", true).Only(CrmRows.TemporaryTerritories).Build(),
         new Builder<TemporaryCompanyTerritory>(CompanyTerritories).Ref("TerritoryId", "CompanyId").User("CreatedBy").Only(CrmRows.LinksOfTemporaryTerritories).Build(),
         new Builder<Prospect>(Prospects)
-            .Static("Stage", "STAGEID", ProspectStages.List).Day("EstimatedOrderDate", "DateCreated", "DateClosed", "UpdatedDate").Ref("CompanyId").User("Owner", "UpdatedBy")
+            .Static("Stage", "STAGEID", ProspectStages.List).Day("EstimatedOrderDate", "DateCreated", "DateClosed", "UpdatedDate").Ref("CompanyId").Person("Owner", "OWNERID").User("UpdatedBy")
             .Static("ProspectType", "PROSPECTTYPE", ProspectTypes.List).Static("ProspectStatus", "PROSPECTSTATUSID", ProspectStatuses.List).ReadOnly().Build(),
     ];
 
