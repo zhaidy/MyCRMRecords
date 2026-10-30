@@ -70,6 +70,10 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
                 case "admin/jobs" when get:
                     BackgroundRuns.StopAbandoned(w.Store, w.Clock);
                     return Jobs();
+                case "admin/jobs/restore-territories" when get:
+                    return ApiResponse.Of(new { count = w.Projects.TerritoriesTakenAway(w.Clock().Date).Count });
+                case "admin/jobs/restore-territories" when !get:
+                    return ApiResponse.Result(w.Projects.RestoreTerritoriesTakenAway(user.ToActor(w.People), w.Clock().Date));
                 case "admin/jobs/run" when !get:
                 {
                     var job = Input.Read<NameInput>(body).Name ?? "";

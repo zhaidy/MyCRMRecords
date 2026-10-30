@@ -4,7 +4,8 @@ using MyCRMRecords.Domain;
 namespace MyCRMRecords.Data;
 
 /// <summary>What a scheduled task did.</summary>
-public sealed record JobOutcome(string Summary, int Processed = 0, DateTime? Watermark = null);
+/// <summary>What a run did; <c>Failed</c> when it stopped on purpose (a safety stop) and says why in the summary.</summary>
+public sealed record JobOutcome(string Summary, int Processed = 0, DateTime? Watermark = null, bool Failed = false);
 
 /// <summary>
 /// Runs MyCRMRecords's scheduled tasks inside the IIS application (none yet: MyCRM had no scheduled timer), and the sync with MyCRM: checks every 30 seconds and
@@ -121,7 +122,7 @@ public sealed class Scheduler(IRecordStore store, Func<CrmSettings> settings, st
         try
         {
             var outcome = work(by);
-            run.Outcome = "Done";
+            run.Outcome = outcome.Failed ? "Failed" : "Done";
             run.Summary = outcome.Summary;
             run.Processed = outcome.Processed;
             run.Watermark = outcome.Watermark;
