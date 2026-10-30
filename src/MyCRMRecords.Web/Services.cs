@@ -39,6 +39,7 @@ public static class Services
     private static readonly Lazy<OrdersApi> LazyOrdersApi = new(() => new OrdersApi(LazyApp.Value));
     private static readonly Lazy<MyFilesApi> LazyMyFilesApi = new(() => new MyFilesApi(LazyApp.Value));
     private static readonly Lazy<MachinesApi> LazyMachinesApi = new(() => new MachinesApi(LazyApp.Value));
+    private static readonly Lazy<ProjectsApi> LazyProjectsApi = new(() => new ProjectsApi(LazyApp.Value));
     private static readonly Lazy<FilesApi> LazyFilesApi = new(() => new FilesApi(LazyApp.Value));
     private static readonly Lazy<UsersApi> LazyUsersApi = new(() => new UsersApi(LazyApp.Value, Auth.DirectorySearch.Find));
 
@@ -57,6 +58,8 @@ public static class Services
     public static MyFilesApi MyFilesApi => LazyMyFilesApi.Value;
     /// <summary>The Machines pages (read only from Advance) and the Machine access page (MyMachines' temporary access).</summary>
     public static MachinesApi MachinesApi => LazyMachinesApi.Value;
+    /// <summary>The Activities and Projects pages and a company's Activities, Prospects and Projects tabs (MyCRM's tables).</summary>
+    public static ProjectsApi ProjectsApi => LazyProjectsApi.Value;
     public static FilesApi FilesApi => LazyFilesApi.Value;
     public static UsersApi UsersApi => LazyUsersApi.Value;
     public static AdminApi AdminApi => LazyAdminApi.Value;

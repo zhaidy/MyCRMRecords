@@ -66,6 +66,11 @@ public sealed class CrmApp
     /// <summary>The Machines pages, a company's Machines tab and the Machine access page.</summary>
     public Machines Machines { get; init; } = null!;
 
+    /// <summary>MyCRM's projects and their temporary territories (in MyCRM's tables).</summary>
+    public Projects Projects { get; init; } = null!;
+    /// <summary>MyCRM's sales activities (in MyCRM's tables).</summary>
+    public Activities Activities { get; init; } = null!;
+
     /// <summary>Whether MyCRMRecords may change MyCRM's data now (the administrator's switch).</summary>
     public bool CanWrite => MyCrm is null || MyCrm.CanWrite;
 }
@@ -84,14 +89,19 @@ public static class CrmFactory
     public static CrmApp Create(IRecordStore store, SettingsFile<CrmSettings> settingsFile, Func<string, DbConnection> connectionFactory,
         string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IRecordStore? myCrm = null, ITemporaryTerritories? temporary = null,
         IMyOrdersData? orders = null, string domain = "RSP", IMyFilesData? files = null,
-        IAdvanceMachines? machines = null, IMyMachinesAccess? machineAccess = null)
+        IAdvanceMachines? machines = null, IMyMachinesAccess? machineAccess = null, Func<string, long?>? outSystemsUserId = null)
     {
         Func<CrmSettings> settings = settingsFile.Load;
         var databases = new ExternalDatabases(settings, connectionFactory);
         var own = store;
         var tables = myCrm is null ? new MyCrmStore(own, databases, () => settings().Connections.CrmModule, () => settings().MyCrm.WritesEnabled, clock) : null;
-        Func<ITemporaryTerritories?> temporaryTerritories = () => temporary ?? (tables is not null && tables.Available ? tables : null);
         store = new RoutedStore(own, myCrm ?? tables!);
+        // MyCRM's tables answer which companies temporary territories give; with MyCRM's records in memory (the tests), the
+        // projects' temporary territories made there count too.
+        var inMemory = myCrm is null ? null : new StoreTemporaryTerritories(store);
+        Func<ITemporaryTerritories?> temporaryTerritories = () => inMemory is not null
+            ? temporary is null ? inMemory : new BothTemporaryTerritories(temporary, inMemory)
+            : temporary ?? (tables is not null && tables.Available ? tables : null);
         var mailer = new Mailer(store, settings, clock, emailSender);
         var people = new People(store, clock);
         var access = new Access(store, temporaryTerritories);
@@ -102,6 +112,8 @@ public static class CrmFactory
         files ??= new SqlMyFilesData(databases, () => settings().Connections);
         machines ??= new SqlAdvanceMachines(databases, () => settings().Connections);
         machineAccess ??= new SqlMyMachinesAccess(databases, () => settings().Connections, () => settings().MyMachines.WritesEnabled, own, clock, domain);
+        var projects = new Projects(store, own, access, people, territories,
+            new ProjectTerritories(outSystemsUserId ?? (login => tables is not null && tables.Available ? tables.UserIdOf(login) : null)), clock);
         return new CrmApp
         {
             Store = store,
@@ -118,7 +130,7 @@ public static class CrmFactory
             Mailer = mailer,
             Databases = databases,
             Scheduler = new Scheduler(store, settings, schedulerStateFile,
-                new Dictionary<string, Func<string, JobOutcome>> { [Jobs.CustomerNumbers] = customerNumbers.Run }, clock),
+                new Dictionary<string, Func<string, JobOutcome>> { [Jobs.CustomerNumbers] = customerNumbers.Run, [Jobs.ProjectsEnded] = projects.RunDaily }, clock),
             Clock = clock,
             OrdersData = orders,
             OrdersAccess = ordersAccess,
@@ -129,6 +141,8 @@ public static class CrmFactory
             AdvanceMachines = machines,
             MachineAccess = machineAccess,
             Machines = new Machines(machines, machineAccess, access, store, clock),
+            Projects = projects,
+            Activities = new Activities(store, access, people, territories, projects, clock),
         };
     }
 }

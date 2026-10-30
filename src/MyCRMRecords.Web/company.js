@@ -32,14 +32,17 @@
    * sections, More details first (the rest of the Overview: #more), each opening on the whole screen with a way back
    * (app.css: .section-list, .section-back, .more-details).
    */
-  const tabIds = ['overview', 'contacts', 'files', 'machines', 'costing', 'requests', 'relations'];
+  const tabIds = ['overview', 'contacts', 'activities', 'prospects', 'projects', 'files', 'machines', 'costing', 'requests', 'relations'];
   const hashTab = location.hash.slice(1);
   let tab = tabIds.includes(hashTab) || hashTab === 'more' ? hashTab : 'overview';
-  let orderCounts = {files: '', machines: '', costing: '', requests: ''};
+  let orderCounts = {activities: '', prospects: '', projects: '', files: '', machines: '', costing: '', requests: ''};
   function sections() {
     return [
       {id: 'overview', label: 'Overview', count: '', color: '#0a58f0'},
       {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0'},
+      {id: 'activities', label: 'Activities', count: orderCounts.activities, color: '#8b5cf6'},
+      {id: 'prospects', label: 'Prospects', count: orderCounts.prospects, color: '#e59a0b'},
+      {id: 'projects', label: 'Projects', count: orderCounts.projects, color: '#f2675a'},
       {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed'},
       {id: 'machines', label: 'Machines', count: orderCounts.machines, color: '#0d9488'},
       {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b'},
@@ -91,7 +94,7 @@
         <div class="heading-actions"><div class="action-capsule" role="group" aria-label="Company actions">
           <a class="capsule-button" href="companyprint.aspx?id=${id}" title="Print summary"><span data-icon="printer"></span><span class="action-label">Print summary</span></a>
           ${can.edit ? '<span class="capsule-divider" aria-hidden="true"></span><button type="button" class="capsule-button" id="edit" title="Edit company"><span data-icon="edit"></span><span class="action-label">Edit company</span></button>' : ''}
-        </div></div></div>
+        </div><button type="button" class="button primary" id="new-activity" title="New activity"><span data-icon="plus"></span><span class="action-label">New activity</span></button></div></div>
       <div class="tabs company-tabs" role="tablist" aria-label="Company sections">${sections().map(s => `<button type="button" class="tab" role="tab" id="tab-${s.id}" aria-controls="panel-${s.id}" data-tab="${s.id}">${esc(s.label)}${s.count !== '' ? ` <span class="count">${s.count}</span>` : ''}</button>`).join('')}</div>
       <button type="button" class="section-back" id="section-back"><span data-icon="arrow-left"></span>${esc(c.name)}</button>
       <div class="tab-panel overview" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
@@ -131,13 +134,15 @@
           <span class="section-count">${s.count}</span><span data-icon="arrow-right" class="section-chevron"></span></button>`).join('')}</nav>
       </div>
       <div class="stack tab-panel" role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts"><section class="card" id="contacts"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-activities" aria-labelledby="tab-activities"><section class="card" id="activities"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-prospects" aria-labelledby="tab-prospects"><section class="card" id="prospects"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-projects" aria-labelledby="tab-projects"><section class="card" id="projects"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-files" aria-labelledby="tab-files"><section class="card" id="files"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-machines" aria-labelledby="tab-machines"><section class="card" id="machines"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-costing" aria-labelledby="tab-costing"><section class="card" id="costing"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-requests" aria-labelledby="tab-requests"><section class="card" id="requests"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-relations" aria-labelledby="tab-relations"><section class="card" id="relationships"></section>
         ${d.movements ? `<section class="card"><h2>Territory Movement History</h2>${movements()}</section>` : ''}</div>`;
-    // The accent New activity button (with Activities) goes after the capsule in .heading-actions.
     employees(false);
     addresses();
     contacts();
@@ -146,7 +151,11 @@
     files(c);
     machines(false);
     copies();
+    activities();
+    prospects();
+    projectsTab();
     drawIcons(page);
+    $('#new-activity').addEventListener('click', () => window.ACT.create({companyId: id, companyName: c.name}, () => { showTab('activities'); activities(); }));
     showTab(tab);
     $('#edit')?.addEventListener('click', async () => { if (await companyForm(lists, c)) load(); });
     $('#save-remarks').addEventListener('click', async () => {
@@ -154,6 +163,80 @@
       toast(answer.result.message, !answer.result.ok);
       showErrors(page, answer.result.errors || []);
     });
+  }
+
+  /**
+   * The company's activities in MyCRM (MyCRM's Company Activities): those of the person's list and of the company's
+   * salespeople, by when and action; each opens the activity panel (activityform.js), where its owner changes it.
+   */
+  const actFilter = {when: 'all', action: ''};
+  async function activities() {
+    const box = $('#activities');
+    if (!box.innerHTML) box.innerHTML = '<h2>Activities</h2><p class="muted small">Loading…</p>';
+    const answer = await api('GET', 'activities?' + new URLSearchParams({company: String(id), when: actFilter.when, action: actFilter.action}));
+    if (!answer.result.ok) { box.innerHTML = `<h2>Activities</h2><p class="muted small">${esc(answer.result.message)}</p>`; return; }
+    if (!answer.canCreate) $('#new-activity')?.remove();
+    const rows = answer.rows;
+    box.innerHTML = `<div class="co-tab-head"><div class="tabs" role="group" aria-label="When">${[['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'All']].map(([v, l]) =>
+        `<button type="button" class="tab" data-act-when="${v}" aria-pressed="${actFilter.when === v}">${l}</button>`).join('')}</div>
+      <label><span class="sr-only">Activity Action</span><select data-act-action><option value="">Activity Action: All</option>${answer.actions.map(a =>
+        `<option value="${esc(a.code)}"${actFilter.action === a.code ? ' selected' : ''}>${esc(a.label)}</option>`).join('')}</select></label>
+      <span class="muted small">${answer.total} activit${answer.total === 1 ? 'y' : 'ies'}</span></div>
+      ${rows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Date · time</th><th>Action</th><th>Activity type</th><th>Remarks</th><th>Attendees</th><th>Owner</th><th>Status</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td class="nowrap">${esc(date(r.date))} <span class="muted small">${esc(r.start)}${r.end ? '–' + esc(r.end) : ''}</span></td><td>${esc(r.action)}</td><td>${esc(r.types.join(', '))}</td>
+          <td><button type="button" class="act-remarks" data-activity="${r.id}">${esc(r.remarks || r.action)}</button></td><td>${esc(r.contacts.join(', '))}</td><td>${esc(r.owner)}</td>
+          <td>${window.ACT.statusTag(r.status)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">No activities here yet. Use New activity to log one.</p>'}
+      <p class="muted small" style="margin:10px 0 0">Activities are saved in MyCRM. Only the owner can change an activity; others can open it to read.</p>`;
+    setCount('activities', answer.total);
+    drawIcons(box);
+    $$('[data-act-when]', box).forEach(b => b.addEventListener('click', () => { actFilter.when = b.dataset.actWhen; activities(); }));
+    $('[data-act-action]', box).addEventListener('change', event => { actFilter.action = event.target.value; activities(); });
+    $$('[data-activity]', box).forEach(b => b.addEventListener('click', () => window.ACT.open(Number(b.dataset.activity), activities)));
+  }
+
+  /** The company's prospects in MyCRM: only read here, with the chosen one's details; they are changed in MyCRM. */
+  let prospectId = 0;
+  async function prospects() {
+    const box = $('#prospects');
+    const answer = await api('GET', 'prospects?' + new URLSearchParams({company: String(id)}));
+    if (!answer.result.ok) { box.innerHTML = `<h2>Prospects</h2><p class="muted small">${esc(answer.result.message)}</p>`; return; }
+    const rows = answer.rows, chosen = rows.find(p => p.id === prospectId);
+    const link = `${esc(answer.myCrm)}CompanyDetails.aspx?CompanyId=${id}`;
+    const sum = p => [p.sumUpMonth, p.sumUpYear].filter(Boolean).join(' ');
+    box.innerHTML = `<div class="co-tab-head"><h2 style="margin:0">Prospects</h2><span class="muted small">View only here: prospects are created and changed in MyCRM.</span>
+        <a class="button secondary small-btn" href="${link}" target="_blank" rel="noopener"><span data-icon="arrow-up-right"></span>Open in MyCRM</a></div>
+      <div class="co-prospects${chosen ? '' : ' closed'}"><div>${rows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Remarks · prospect type</th><th>Stage</th><th class="num">Forecast</th><th>Sum up</th><th>Owner</th><th>Created · updated</th></tr></thead><tbody>
+        ${rows.map(p => `<tr class="co-prospect-row${p.id === prospectId ? ' chosen' : ''}" data-prospect="${p.id}" tabindex="0"><td><b>${esc(p.remarks)}</b> <span class="muted">${esc(p.type)}</span></td><td>${esc(p.stage)}</td>
+          <td class="num">${number(p.forecast)}</td><td class="muted">${esc(sum(p))}</td><td>${esc(p.owner)}</td><td class="muted nowrap">${esc(date(p.created))}${p.updated ? ' · ' + esc(date(p.updated)) : ''}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">This company has no prospects in MyCRM.</p>'}</div>
+      ${chosen ? `<aside class="card co-prospect" aria-label="Prospect"><div class="modal-head"><h2>${esc(chosen.remarks)}</h2><button type="button" class="icon-button small" data-prospect-close aria-label="Close prospect details"><span data-icon="close"></span></button></div>
+        <dl class="act-facts">${[['Stage', chosen.stage], ['Status', chosen.status], ['Prospect type', chosen.type], ['Forecast', number(chosen.forecast)], ['Total price', number(chosen.totalPrice)],
+          ['Estimated order', date(chosen.estimatedOrder)], ['Date closed', date(chosen.closed)], ['Owner', chosen.owner], ['Contact', chosen.contact], ['Date created', date(chosen.created)],
+          ['Updated', date(chosen.updated) + (chosen.updatedBy ? ' by ' + chosen.updatedBy : '')], ['Sum up', sum(chosen)]]
+          .map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${esc(v) || '<span class="muted">–</span>'}</dd></div>`).join('')}</dl>
+        <p class="muted small">Read only. Changes made in MyCRM show here straight away.</p></aside>` : ''}</div>`;
+    setCount('prospects', rows.length);
+    drawIcons(box);
+    $$('[data-prospect]', box).forEach(r => r.addEventListener('click', () => { prospectId = Number(r.dataset.prospect); prospects(); }));
+    $('[data-prospect-close]', box)?.addEventListener('click', () => { prospectId = 0; prospects(); });
+  }
+
+  /** The projects that include the company (MyCRM's projects), with their members and roles. */
+  async function projectsTab() {
+    const box = $('#projects');
+    const answer = await api('GET', 'projects?' + new URLSearchParams({company: String(id)}));
+    if (!answer.result.ok) { box.innerHTML = `<h2>Projects</h2><p class="muted small">${esc(answer.result.message)}</p>`; return; }
+    const rows = answer.rows, open = rows.filter(r => !r.closed).length;
+    box.innerHTML = `<div class="co-tab-head"><span><b>${rows.length} project${rows.length === 1 ? '' : 's'}</b> include this company · ${open} open</span>
+        ${answer.canCreate ? '<a class="button secondary small-btn" href="projects.aspx"><span data-icon="plus"></span>Create a project</a>' : ''}</div>
+      ${rows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Project</th><th>Status</th><th>Owner</th><th>Members · role</th><th>End date</th><th>Closed</th></tr></thead><tbody>
+        ${rows.map(p => `<tr><td>${p.canOpen ? `<a href="project.aspx?id=${p.id}"><b>${esc(p.name)}</b></a>` : `<b>${esc(p.name)}</b>`}</td><td>${esc(p.status)}</td><td>${esc(p.owner)}</td>
+          <td class="muted">${esc(p.members.map(m => m.name + ' ' + m.role).join(' · '))}</td><td class="nowrap">${esc(date(p.endDate))}</td><td>${p.closed ? 'Closed' : 'Open'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">This company is in no project.</p>'}
+      <p class="muted small" style="margin:10px 0 0"><b>Caretake works through projects.</b> Add a salesperson to a project with the role Salesperson (Caretaker) and they can see and work on this company until the project's end date: a temporary territory gives them access, taken away when the project closes or ends.</p>`;
+    setCount('projects', rows.length);
+    drawIcons(box);
   }
 
   /**

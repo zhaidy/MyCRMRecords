@@ -23,9 +23,10 @@ user to paste SQL into SQL Server Management Studio.
 
 ## Never change the other applications unless switched on
 
-MyCRMRecords reads and writes MyCRM's tables in the OutSystems database (the fifteen entities of `MyCrmMap`: companies,
+MyCRMRecords reads and writes MyCRM's tables in the OutSystems database (the entities of `MyCrmMap`: companies,
 addresses, contacts, phones, emails, CUser, Team, permanent territories and their company links, territory
-movements...), and reads AdvanceConnector's `Customer_Supp` (the scheduled task *Customer numbers from Advance*). Every
+movements, activities and their links, projects with their companies, members and temporary territories, and prospects
+(read only)...), and reads AdvanceConnector's `Customer_Supp` (the scheduled task *Customer numbers from Advance*). Every
 write outside MyCRMRecords is behind a switch that starts off (`MyCrmSettings.WritesEnabled`, `EmailSettings.Enabled`,
 `JobSettings.Enabled`) and is recorded (`dbo.CrChange`, `dbo.CrEmail`). No write ever deletes in another application:
 update or mark instead. A new write follows the same rules: a switch that starts off, and a record of every value written
@@ -70,10 +71,18 @@ records of MyCRM (`MyCrmMap.All`) are read and written in MyCRM's own tables by 
 - Writes happen only when *Let MyCRMRecords change MyCRM's data* is on; otherwise `MyCrmStore` refuses with
   `MyCrmRefusedException` (`WritesOff`). A batch is one transaction in MyCRM; every value written is recorded with the
   value it replaced in `dbo.CrChange`, with who made it (`MyCrmStore.As`, set by the API and the scheduled task).
-- Only MyCRM's active permanent territories (and those noted here) and the active company links of active permanent
-  territories are read (`CrmRows`): the temporary territories belong to MyCRM's Projects and CSST parts, which stay in
-  OutSystems, and the millions of inactive rows are never read. A query MyCRM's columns cannot answer (a side field, a
-  person or code searched as text) is finished in memory after the SQL part: keep such queries narrow.
+- `Territory` and `CompanyTerritory` read only MyCRM's active permanent territories (and those noted here) and the
+  active company links of active permanent territories (`CrmRows`), so no page that lists territories shows a temporary
+  one. The **projects' temporary territories** are MyCRMRecords' too (decided 2026-10-30): they are records of their
+  own, `TemporaryTerritory` and `TemporaryCompanyTerritory` (the same tables, `CrmRows.TemporaryTerritories`), written
+  only by `ProjectTerritories` (made when a member does not own a project company, taken away when the member, the
+  company or the project goes or the project ends: the scheduled task *Projects that have ended*, off at first). The
+  CSST part's temporary territories stay MyCRM's. Millions of inactive territory rows exist: read temporary ones only by
+  Id, owner, territory or as the active ones. A query MyCRM's columns cannot answer (a side field, a person or code
+  searched as text) is finished in memory after the SQL part: keep such queries narrow.
+- Activities, projects and their links are MyCRM's tables too (`MyCrmMap`); a link MyCRM deleted when taken off an
+  activity keeps its row with no activity here. **Prospects are only read** (`CrmEntity.ReadOnly`: `MyCrmStore` refuses
+  to add or change one).
 - MyCRM's static entities (`Role`, `CompanyGroup`, `AddressType`...) are matched by their label (`ChoiceList`), never
   by Id: the Ids differ between environments, and the tests give them Ids no list starts with.
 - `OldAppSync.cs`, `OldTables.cs`, `Records.cs`, `ExternalTable.cs` and `BackgroundRuns.cs` are the same in every app

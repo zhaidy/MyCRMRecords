@@ -12,6 +12,6 @@
     <div class="loading" id="loading">Loading…</div>
     <div id="page" hidden></div>
   </main>
-  <%= Scripts("crm.js", "company.js") %>
+  <%= Scripts("crm.js", "activityform.js", "company.js") %>
 </body>
 </html>

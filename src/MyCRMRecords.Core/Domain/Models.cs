@@ -476,6 +476,216 @@ public sealed class TerritoryMovement : IRecord
     [Indexed] public DateTime? UpdatedAt { get; set; }
 }
 
+// ---- MyCRM's activities, projects and prospects ----
+// Also in MyCRM's own tables (MyCrmMap). A link MyCRM deletes when it is taken off an activity (a type, an attendee, a
+// prospect) is kept here and only loses its activity (CompanyActivityId empty), so MyCRM no longer shows it.
+
+/// <summary>
+/// A sales activity with a company (MyCRM's CompanyActivity). Deleted, it is inactive (as in MyCRM). Only its owner
+/// changes it. StartTime and EndTime are "HH:mm" ("" for none).
+/// </summary>
+[Table("dbo.CrActivity")]
+public sealed class Activity : IRecord
+{
+    public long Id { get; set; }
+    /// <summary>MyCRM's old title of an activity (no screen of MyCRM sets it now); kept as it is.</summary>
+    [Len(1000)] public string ActivityDescription { get; set; } = "";
+    [Len(4000)] public string Remarks { get; set; } = "";
+    /// <summary>"Start Date" on the pages (MyCRM's VisitDate).</summary>
+    [Indexed] public DateTime? VisitDate { get; set; }
+    [Len(5)] public string StartTime { get; set; } = "";
+    [Len(5)] public string EndTime { get; set; } = "";
+    [Indexed] public long? CompanyId { get; set; }
+    public bool IsActive { get; set; } = true;
+    /// <summary>The owner's login (MyCRM's OwnerId): only they change the activity.</summary>
+    [Indexed, Len(256)] public string Owner { get; set; } = "";
+    /// <summary>"Completed" on the pages (MyCRM's IsVisited).</summary>
+    public bool IsVisited { get; set; }
+    /// <summary>MyCRM's old single attendee (the pages use the attendee links); kept as it is.</summary>
+    public long? AttendeeId { get; set; }
+    public long CrmCompanyActivityId { get; set; }
+    /// <summary><see cref="ActivityActions"/>.</summary>
+    [Len(50)] public string Action { get; set; } = "";
+    [Len(256)] public string UpdatedBy { get; set; } = "";
+    public DateTime? UpdatedDate { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    /// <summary>"End Date" on the pages.</summary>
+    public DateTime? ToDate { get; set; }
+    /// <summary><see cref="ActivityStatuses"/>; kept as it is.</summary>
+    [Len(50)] public string Status { get; set; } = "";
+    /// <summary>MyCRM's reminders (not offered here); kept as they are.</summary>
+    public bool IsNotification { get; set; }
+    public bool SendEmail { get; set; }
+    public DateTime? ReminderDate { get; set; }
+}
+
+/// <summary>One of an activity's types (MyCRM's ActivityTypeLink). Taken off, it keeps its row without its activity.</summary>
+[Table("dbo.CrActivityTypeLink")]
+public sealed class ActivityTypeLink : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public long? CompanyActivityId { get; set; }
+    /// <summary><see cref="ActivityTypes"/>.</summary>
+    [Len(50)] public string ActivityType { get; set; } = "";
+}
+
+/// <summary>A person taking part in an activity (MyCRM's ActivityParticipants). Taken off, it is inactive (as in MyCRM).</summary>
+[Table("dbo.CrActivityParticipant")]
+public sealed class ActivityParticipant : IRecord
+{
+    public long Id { get; set; }
+    /// <summary>The activity (MyCRM's CompanyEventID).</summary>
+    [Indexed] public long? CompanyEventId { get; set; }
+    [Indexed, Len(256)] public string User { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public long CrmCommunicationId { get; set; }
+    [Len(50)] public string CrmCommLinkId { get; set; } = "";
+}
+
+/// <summary>A contact attending an activity (MyCRM's CompanyActivityContactLink). Taken off, it keeps its row without its activity.</summary>
+[Table("dbo.CrActivityContact")]
+public sealed class ActivityContact : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public long? CompanyActivityId { get; set; }
+    public long? ContactId { get; set; }
+    public long CrmActivityContactLink { get; set; }
+}
+
+/// <summary>A prospect an activity relates to (MyCRM's CompanyActivityProspectLink). Taken off, it keeps its row without its activity.</summary>
+[Table("dbo.CrActivityProspect")]
+public sealed class ActivityProspect : IRecord
+{
+    public long Id { get; set; }
+    public long? ProspectId { get; set; }
+    [Indexed] public long? CompanyActivityId { get; set; }
+}
+
+/// <summary>An activity linked to a project (MyCRM's ProjectLink). Taken off, it is inactive (as in MyCRM).</summary>
+[Table("dbo.CrProjectLink")]
+public sealed class ProjectLink : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public long? CompanyActivityId { get; set; }
+    [Indexed] public long? ProjectId { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
+/// A project (MyCRM's Project): companies, members and an end date. Members who do not own a company of the project get
+/// a temporary territory with it while the project is open. Closed, it is IsClosed; deleted, inactive (as in MyCRM).
+/// </summary>
+[Table("dbo.CrProject")]
+public sealed class Project : IRecord
+{
+    public long Id { get; set; }
+    [Len(250)] public string ProjectName { get; set; } = "";
+    /// <summary><see cref="ProjectStatuses"/>.</summary>
+    [Len(50)] public string Status { get; set; } = "";
+    /// <summary>MyCRM's old single company (the first company of a project made here).</summary>
+    public long? CompanyId { get; set; }
+    [Len(2000)] public string Remarks { get; set; } = "";
+    public bool IsClosed { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    /// <summary>The owner's login (MyCRM's OwnerId): the project's Project Manager.</summary>
+    [Indexed, Len(256)] public string Owner { get; set; } = "";
+    /// <summary>MyCRM's colour of the project on its timeline (not shown here); kept as it is.</summary>
+    [Len(50)] public string Color { get; set; } = "";
+    public DateTime? DateCreated { get; set; }
+    public DateTime? UpdatedDate { get; set; }
+    [Len(256)] public string UpdatedBy { get; set; } = "";
+}
+
+/// <summary>A company of a project (MyCRM's ProjectCompany). Removed, it is inactive (as in MyCRM).</summary>
+[Table("dbo.CrProjectCompany")]
+public sealed class ProjectCompany : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public long ProjectId { get; set; }
+    [Indexed] public long CompanyId { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
+/// A member of a project (MyCRM's ProjectMembers), with their role and their temporary territory (none for the Project
+/// Manager or someone who owns every company of the project). Removed, it is inactive (as in MyCRM).
+/// </summary>
+[Table("dbo.CrProjectMember")]
+public sealed class ProjectMember : IRecord
+{
+    public long Id { get; set; }
+    /// <summary>MyCRM's old single company of a member; kept as it is.</summary>
+    public long? CompanyId { get; set; }
+    [Indexed] public long ProjectId { get; set; }
+    [Indexed, Len(256)] public string User { get; set; } = "";
+    public long? ContactId { get; set; }
+    /// <summary><see cref="ProjectRoles"/>.</summary>
+    [Len(50)] public string Role { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    public int ProjectValidPeriod { get; set; }
+    /// <summary>The member's temporary territory (MyCRM's TerritoryId), while they have one.</summary>
+    [Indexed] public long? TerritoryId { get; set; }
+}
+
+/// <summary>
+/// A temporary territory (a temporary row of MyCRM's Territory): what gives a project member a company they do not own
+/// while the project is open. MyCRMRecords reads only these through it, never the permanent ones (<see cref="Territory"/>
+/// is those), so no page that lists territories shows them. Taken away, it is inactive.
+/// </summary>
+[Table("dbo.CrTemporaryTerritory")]
+public sealed class TemporaryTerritory : IRecord
+{
+    public long Id { get; set; }
+    /// <summary>MyCRM's Territory: the member's OutSystems user Id followed by a company's Id, as MyCRM numbers them.</summary>
+    public long Number { get; set; }
+    [Indexed, Len(256)] public string Owner { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+    /// <summary>MyCRM's IsOwner: never set on a temporary territory.</summary>
+    public bool IsOwner { get; set; }
+}
+
+/// <summary>A company of a temporary territory (a row of MyCRM's CompanyTerritory). Taken away, it is inactive.</summary>
+[Table("dbo.CrTemporaryCompanyTerritory")]
+public sealed class TemporaryCompanyTerritory : IRecord
+{
+    public long Id { get; set; }
+    [Indexed] public long TerritoryId { get; set; }
+    [Indexed] public long CompanyId { get; set; }
+    public bool IsActive { get; set; } = true;
+    [Len(256)] public string CreatedBy { get; set; } = "";
+}
+
+/// <summary>A company's prospect (MyCRM's Prospect): only read, shown on the company's Prospects tab; MyCRM keeps it.</summary>
+[Table("dbo.CrProspect")]
+public sealed class Prospect : IRecord
+{
+    public long Id { get; set; }
+    [Len(4000)] public string Remarks { get; set; } = "";
+    public bool IsCancelled { get; set; }
+    public bool IsClosed { get; set; }
+    /// <summary><see cref="ProspectStages"/>.</summary>
+    [Len(50)] public string Stage { get; set; } = "";
+    public DateTime? EstimatedOrderDate { get; set; }
+    public bool IsActive { get; set; } = true;
+    [Indexed] public long CompanyId { get; set; }
+    [Len(256)] public string Owner { get; set; } = "";
+    public DateTime? DateCreated { get; set; }
+    public DateTime? DateClosed { get; set; }
+    [Len(256)] public string UpdatedBy { get; set; } = "";
+    public DateTime? UpdatedDate { get; set; }
+    public long Forecast { get; set; }
+    [Len(50)] public string SumUpMonth { get; set; } = "";
+    [Len(50)] public string SumUpYear { get; set; } = "";
+    /// <summary><see cref="ProspectTypes"/>.</summary>
+    [Len(50)] public string ProspectType { get; set; } = "";
+    /// <summary><see cref="ProspectStatuses"/>.</summary>
+    [Len(50)] public string ProspectStatus { get; set; } = "";
+    public decimal TotalPrice { get; set; }
+    [Len(250)] public string ContactName { get; set; } = "";
+}
+
 /// <summary>
 /// What MyCRMRecords keeps about a MyCRM record that MyCRM has no column for: a territory's name, when and by whom something
 /// was made or taken away here, a CRM user's former team, a group name or company address taken away (MyCRM has no mark

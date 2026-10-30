@@ -96,6 +96,9 @@ public class AppPage : Page
             .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
         html.Append(Item("./", "file", "Companies"));
+        // MyCRM's projects and sales activities: everyone sees their own and their team's.
+        html.Append(Item("projects.aspx", "briefcase", "Projects"));
+        html.Append(Item("activities.aspx", "calendar", "Activities"));
         if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
         if (IsSalesAdmin) html.Append(Item("people.aspx", "users", "CRM users"));
         // MyOrders' costing sheets and request forms, read only: everyone sees the ones MyOrders' rule lets them.

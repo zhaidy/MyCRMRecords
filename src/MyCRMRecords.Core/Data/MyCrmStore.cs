@@ -24,9 +24,11 @@ public sealed class MyCrmRefusedException(string message) : InvalidOperationExce
 /// (<see cref="As"/>). A batch is one transaction in MyCRM; its records follow once it is committed.</item>
 /// <item>Only the columns whose value changed are written, and a value that reads back the same (a person kept twice in
 /// OutSystems, text with spaces at its ends) is no change.</item>
-/// <item>Of the territories, only the permanent ones are read (the temporary ones are MyCRM's Projects and CSST parts'),
-/// and of their company links only the active ones of active permanent territories: the millions of other rows are never
-/// read.</item>
+/// <item>Of the territories, <see cref="Territory"/> reads only the permanent ones, and of their company links only the
+/// active ones of active permanent territories: the millions of other rows are never read through them. The temporary
+/// ones (projects') are a record of their own (<see cref="TemporaryTerritory"/>, <see cref="TemporaryCompanyTerritory"/>),
+/// read only by Id, by owner or territory, or as the active ones.</item>
+/// <item>A prospect is only read: adding or changing one is refused.</item>
 /// <item>What MyCRM has no column for is kept here, by MyCRM's entity and Id (<see cref="RecordNote"/>).</item>
 /// </list>
 /// </summary>
@@ -195,10 +197,20 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
             case CrmFieldKind.Ref:
                 var id = OldValues.Long(v);
                 return f.IsNullable && id == 0 ? null : id;
+            case CrmFieldKind.Time:
+                return TimeText(v);
             default:
                 return Plain(f, v);
         }
     }
+
+    /// <summary>"HH:mm" of a time MyCRM keeps (1900-01-01 with that time, or a time column); "" for none.</summary>
+    private static string TimeText(object? v) => v switch
+    {
+        DateTime d when d != NoDate && d > DateTime.MinValue => d.ToString("HH:mm", CultureInfo.InvariantCulture),
+        TimeSpan t when t > TimeSpan.Zero => new DateTime(1900, 1, 1).Add(t).ToString("HH:mm", CultureInfo.InvariantCulture),
+        _ => "",
+    };
 
     private static object? Plain(CrmField f, object? v)
     {
@@ -259,6 +271,9 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
             case CrmFieldKind.Ref:
                 var id = value is null ? 0 : Convert.ToInt64(value, CultureInfo.InvariantCulture);
                 return id == 0 ? Blank(column) : id;
+            case CrmFieldKind.Time:
+                if (value is not string time || !TimeSpan.TryParseExact(time.Trim(), "hh\\:mm", CultureInfo.InvariantCulture, out var at)) return Blank(column);
+                return column.SqlType.Equals("time", StringComparison.OrdinalIgnoreCase) ? at : NoDate.Add(at);
             default:
                 if (value is null) return Blank(column);
                 if (value is string text)
@@ -351,6 +366,10 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
                 return "x.[ISTEMPORARY] = 0 AND (x.[ISACTIVE] = 1" + (ids.Count == 0 ? "" : " OR x.[ID] IN (" + string.Join(", ", ids) + ")") + ")";
             case CrmRows.ActiveLinksOfPermanentTerritories:
                 return $"x.[ISACTIVE] = 1 AND x.[TERRITORYID] IN (SELECT t.[ID] FROM {Table(connection, MyCrmMap.Territories)} t WHERE t.[ISTEMPORARY] = 0 AND t.[ISACTIVE] = 1)";
+            case CrmRows.TemporaryTerritories:
+                return "x.[ISTEMPORARY] = 1";
+            case CrmRows.LinksOfTemporaryTerritories:
+                return $"x.[TERRITORYID] IN (SELECT t.[ID] FROM {Table(connection, MyCrmMap.Territories)} t WHERE t.[ISTEMPORARY] = 1)";
             default:
                 return "1 = 1";
         }
@@ -381,7 +400,7 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
             var column = "x.[" + f.Column + "]";
             switch (f.Kind)
             {
-                case CrmFieldKind.Side:
+                case CrmFieldKind.Side or CrmFieldKind.Time:
                     return null;
                 case CrmFieldKind.Static:
                     if (value is not string code || code.Length == 0) return $"({column} IS NULL OR {column} = 0)";
@@ -540,8 +559,9 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
 
     // ---------------------------------------------------------------- writing
 
-    private void RequireWrites()
+    private void RequireWrites(CrmEntity e)
     {
+        if (e.ReadOnly) throw new MyCrmRefusedException($"MyCRMRecords only shows MyCRM's {e.Entity} records: change them in MyCRM.");
         if (!_canWrite()) throw new MyCrmRefusedException(WritesOff);
     }
 
@@ -559,7 +579,7 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
     public T Insert<T>(T record) where T : class, IRecord, new()
     {
         var e = EntityOf<T>();
-        RequireWrites();
+        RequireWrites(e);
         return InSession(s =>
         {
             var r = new Reading(this, s.Connection, s.Transaction);
@@ -582,7 +602,7 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
     public void Update<T>(T record) where T : class, IRecord, new()
     {
         var e = EntityOf<T>();
-        RequireWrites();
+        RequireWrites(e);
         InSession(s =>
         {
             var r = new Reading(this, s.Connection, s.Transaction);
@@ -672,6 +692,9 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
     }
 
     // ---------------------------------------------------------------- MyCRM's temporary territories
+
+    /// <summary>The OutSystems user MyCRM keeps for a login (the first when OutSystems has several), or null: MyCRM numbers a temporary territory by it.</summary>
+    public long? UserIdOf(string login) => Use((connection, transaction) => UserId((login ?? "").Trim(), new Reading(this, connection, transaction)));
 
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => Use((connection, transaction) =>

@@ -360,6 +360,90 @@ public sealed class SqlServerTests
     }
 
     [Fact]
+    public void Projects_and_activities_are_written_in_MyCRMs_tables_with_their_temporary_territories_never_deleting()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var outSystems = new TestDatabase();
+        FillMyCRM(outSystems);
+        var old = FakeOldTables.MyCRM();
+        using var world = new TestWorld(crmUsers: false);
+        var d = Connected(world, outSystems, null, writes: true);
+        int Count(string table, string where = "1 = 1") => Convert.ToInt32(outSystems.Scalar($"SELECT COUNT(*) FROM dbo.[OSUSR_ab1_{table}] WHERE {where}"));
+        var tables = new[] { "TERRITORY", "COMPANYTERRITORY", "PROJECT", "PROJECTCOMPANY", "PROJECTMEMBERS", "PROJECTLINK", "COMPANYACTIVITY", "ACTIVITYTYPELINK",
+            "ACTIVITYPARTICIPANTS", "COMPANYACTIVITYCONTACTLINK", "PROSPECT" };
+        var rows = tables.ToDictionary(t => t, t => Count(t));
+        var admin = world.Actor(TestWorld.Admin);
+        using var author = MyCrmStore.As(admin.ChangedBy);
+        Assert.All(d.Databases.Test(ExternalNames.OutSystems), l => Assert.True(l.Ok, l.Line));
+
+        // A company nobody owns, and a project with it and company 7 (Sam's): Ken, a member, gets both through one temporary territory.
+        var tan = d.Companies.Save(admin, 0, new Companies.CompanyInput { Name = "Tan & Sons", Brn = "200012345K" }).Id!.Value;
+        Assert.True(d.Users.Save(admin, @"RSP\ken", new CrmUsers.ProfileInput { Role = CrmRoles.Sales, Teams = [1001] }).Ok);
+        var made = d.Projects.Create(admin, new Projects.ProjectInput { Name = "Cover", EndDate = world.Now.Date.AddDays(30).ToString("yyyy-MM-dd"), Companies = [tan, 7] });
+        Assert.True(made.Ok, made.Message);
+        var project = made.Id!.Value;
+        Assert.Equal(1, Count("PROJECT", $"ID = {project} AND PROJECTNAME = N'Cover' AND OWNERID = 1 AND ISACTIVE = 1 AND ISCLOSED = 0 AND PROJECTSTATUSID = {old.StaticId("ProjectStatus", "Conception And Initiation")}"));
+        Assert.Equal(2, Count("PROJECTCOMPANY", $"PROJECTID = {project} AND ISACTIVE = 1"));
+        Assert.Equal(1, Count("PROJECTMEMBERS", $"PROJECTID = {project} AND USERID = 1 AND PROJECTROLEID = {old.StaticId("ProjectRoles", "Project Manager")} AND TERRITORYID IS NULL"));
+        var added = d.Projects.AddMember(admin, project, new Projects.MemberInput { Login = @"RSP\ken", Role = ProjectRoles.SalespersonCaretaker });
+        Assert.True(added.Ok, added.Message);
+        var territory = Convert.ToInt64(outSystems.Scalar($"SELECT TERRITORYID FROM dbo.[OSUSR_ab1_PROJECTMEMBERS] WHERE ID = {added.Id}"));
+        Assert.Equal(1, Count("TERRITORY", $"ID = {territory} AND ISTEMPORARY = 1 AND ISACTIVE = 1 AND ISOWNER = 0 AND OWNERID = 107 AND TERRITORY = 107{tan}"));
+        Assert.Equal(2, Count("COMPANYTERRITORY", $"TERRITORYID = {territory} AND ISACTIVE = 1 AND CREATEDBY = 1"));
+        Assert.True(d.Access.CanOpen(new ApiUser(@"RSP\ken", "Ken Kwan").ToActor(d.People), d.Companies.Get(tan)!));
+        // The temporary rows are not MyCRMRecords' territories: the territory pages read only the permanent ones.
+        Assert.Equal(new[] { 1001L }, d.Store.Find<Territory>().Select(t => t.Id));
+        Assert.Equal(new[] { 7L }, d.Store.Find<CompanyTerritory>().Select(l => l.CompanyId));
+        Assert.DoesNotContain(d.Territories.All(includeInactive: true), t => t.Id == territory);
+        Assert.Equal(new[] { 1002L, territory }, d.Store.Find<TemporaryTerritory>(Query.Where("Owner", @"RSP\ken").And("IsActive", true)).Select(t => t.Id).OrderBy(i => i));
+
+        // An activity with company 7: MyCRM's static records, its time as 1900-01-01 with the time, its type and participant.
+        var saved = d.Activities.Save(admin, 0, new Activities.ActivityInput
+        {
+            CompanyId = 7, Action = ActivityActions.FaceToFace, Remarks = "Review", StartDate = "2026-10-20", StartTime = "09:15", Types = ["FollowUp", "Negotiation"],
+            Projects = [project],
+        });
+        Assert.True(saved.Ok, saved.Message);
+        var activity = saved.Id!.Value;
+        Assert.Equal(1, Count("COMPANYACTIVITY", $"ID = {activity} AND COMPANYID = 7 AND OWNERID = 1 AND ISACTIVE = 1 AND STARTTIME = '1900-01-01 09:15' AND ENDTIME = '1900-01-01 10:15' " +
+            $"AND VISITDATE = '2026-10-20' AND COMPANYACTIVITYACTIONID = {old.StaticId("CompanyActivityAction", "Face to Face")}"));
+        Assert.Equal(2, Count("ACTIVITYTYPELINK", $"COMPANYACTIVITYID = {activity}"));
+        Assert.Equal(1, Count("ACTIVITYPARTICIPANTS", $"COMPANYEVENTID = {activity} AND USERID = 1 AND ISACTIVE = 1"));
+        Assert.Equal(1, Count("PROJECTLINK", $"COMPANYACTIVITYID = {activity} AND PROJECTID = {project} AND ISACTIVE = 1"));
+        Assert.Equal("09:15", d.Activities.Read(admin, activity)!.Activity.StartTime);
+        // A type taken off keeps its row, without its activity; the activity deleted is inactive.
+        Assert.True(d.Activities.Save(admin, activity, new Activities.ActivityInput
+            { CompanyId = 7, Action = ActivityActions.FaceToFace, Remarks = "Review", StartDate = "2026-10-20", StartTime = "09:15", Types = ["FollowUp"] }).Ok);
+        Assert.Equal(1, Count("ACTIVITYTYPELINK", $"COMPANYACTIVITYID = {activity}"));
+        Assert.Equal(rows["ACTIVITYTYPELINK"] + 2, Count("ACTIVITYTYPELINK"));
+        Assert.Equal(1, Count("PROJECTLINK", $"COMPANYACTIVITYID = {activity} AND ISACTIVE = 0"));
+        Assert.True(d.Activities.Delete(admin, activity).Ok);
+        Assert.Equal(1, Count("COMPANYACTIVITY", $"ID = {activity} AND ISACTIVE = 0"));
+
+        // Closed: the temporary territory and its links are inactive.
+        Assert.True(d.Projects.Close(admin, project).Ok);
+        Assert.Equal(1, Count("PROJECT", $"ID = {project} AND ISCLOSED = 1"));
+        Assert.Equal(1, Count("TERRITORY", $"ID = {territory} AND ISACTIVE = 0"));
+        Assert.Equal(0, Count("COMPANYTERRITORY", $"TERRITORYID = {territory} AND ISACTIVE = 1"));
+        Assert.False(d.Access.CanOpen(new ApiUser(@"RSP\ken", "Ken Kwan").ToActor(d.People), d.Companies.Get(tan)!));
+
+        // A prospect is only read.
+        outSystems.Execute($"INSERT INTO dbo.[OSUSR_ab1_PROSPECT] (REMARKS, ISACTIVE, COMPANYID, STAGEID) VALUES (N'6 MFPs', 1, 7, {old.StaticId("Stages", "Negotiation")})");
+        var prospect = d.Activities.Prospects(7).Single();
+        Assert.Equal("Negotiation", prospect.Stage);
+        Assert.Throws<MyCrmRefusedException>(() => d.Store.Update(prospect));
+        Assert.Throws<MyCrmRefusedException>(() => d.Store.Insert(new Prospect { CompanyId = 7 }));
+
+        // Nothing was deleted in MyCRM; every value written is recorded with the one it replaced.
+        foreach (var t in tables) Assert.True(Count(t) >= rows[t], t + " lost rows");
+        var changes = world.Store.Find<MyCrmChange>();
+        Assert.Contains(changes, c => c.TableName == "Territory" && c.RowId == territory && c.Column == "ISACTIVE" && c.Before == "1" && c.After == "0");
+        Assert.Contains(changes, c => c.TableName == "ActivityTypeLink" && c.Column == "COMPANYACTIVITYID" && c.Before == activity.ToString() && c.After == "");
+        Assert.Contains(changes, c => c.TableName == "Project" && c.RowId == project && c.Column == "ISCLOSED" && c.After == "1");
+        Assert.Contains(d.Projects.History(project), h => h.What == "Closed the project");
+    }
+
+    [Fact]
     public void Customer_numbers_are_read_from_AdvanceConnector_by_their_real_column_names()
     {
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;

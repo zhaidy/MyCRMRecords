@@ -3,13 +3,30 @@ using MyCRMRecords.Data;
 namespace MyCRMRecords.Domain;
 
 /// <summary>
-/// MyCRM's temporary territories (its Projects and CSST parts, which stay in OutSystems): which companies people reach
-/// through them. Read live from MyCRM, never copied.
+/// MyCRM's temporary territories (its projects', which MyCRMRecords' Projects pages also make, and its CSST part's): which
+/// companies people reach through them. Read live from MyCRM, never copied.
 /// </summary>
 public interface ITemporaryTerritories
 {
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins);
+}
+
+/// <summary>The temporary territories kept with MyCRM's records in an <see cref="IRecordStore"/> (the tests' in-memory MyCRM).</summary>
+public sealed class StoreTemporaryTerritories(IRecordStore store) : ITemporaryTerritories
+{
+    public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins)
+    {
+        var territories = store.Find<TemporaryTerritory>(Query.Where("IsActive", true).In("Owner", logins.Cast<object>())).Select(t => (object)t.Id).ToList();
+        if (territories.Count == 0) return Array.Empty<long>();
+        return store.Find<TemporaryCompanyTerritory>(Query.Where("IsActive", true).In("TerritoryId", territories)).Select(l => l.CompanyId).Distinct().ToList();
+    }
+}
+
+/// <summary>The companies two sources of temporary territories give.</summary>
+public sealed class BothTemporaryTerritories(ITemporaryTerritories a, ITemporaryTerritories b) : ITemporaryTerritories
+{
+    public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => a.CompanyIds(logins).Concat(b.CompanyIds(logins)).Distinct().ToList();
 }
 
 /// <summary>
