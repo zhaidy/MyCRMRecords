@@ -45,7 +45,7 @@
           ${can.delete ? '<button type="button" class="capsule-button danger-text" id="delete"><span data-icon="trash"></span>Delete</button>' : ''}</span>` : ''}</div></div>
       ${p.closed ? '<div class="notice proj-closed">This project is closed. Members no longer have temporary access; activity links stay. Closed projects can\'t be edited or reopened.</div>' : ''}
       ${!p.closed && !p.open ? '<div class="notice proj-closed">This project has passed its end date: its members no longer have temporary access, and the daily task closes it.</div>' : ''}
-      <div class="tabs company-tabs proj-tabs" role="tablist" aria-label="Project sections">${[['companies', 'Companies', d.companies.length], ['members', 'Members', d.members.length],
+      <div class="tabs company-tabs proj-tabs" role="tablist" aria-label="Project sections">${[['companies', 'Companies', d.companyTotal ?? d.companies.length], ['members', 'Members', d.members.length],
         ['activities', 'Activities', d.activities.length], ['history', 'History', '']].map(([t, l, n]) =>
         `<button type="button" class="tab" role="tab" data-tab="${t}" id="tab-${t}" aria-controls="panel-${t}">${l}${n !== '' ? ` <span class="count">${n}</span>` : ''}</button>`).join('')}</div>
       <section class="card proj-panel" id="panel-companies" role="tabpanel" aria-labelledby="tab-companies">${companies()}</section>
@@ -69,8 +69,9 @@
   const head = (text, button = '') => `<div class="proj-panel-head"><span>${text}</span>${button}</div>`;
 
   function companies() {
-    const can = d.can.change && d.companies.length > 1;
-    return head(`<b>${plural(d.companies.length, 'company', 'companies')}</b> · members without their own territory get temporary access to each one`,
+    const total = d.companyTotal ?? d.companies.length;
+    const can = d.can.change && total > 1;
+    return head(`<b>${plural(total, 'company', 'companies')}</b> · members without their own territory get temporary access to each one${total > d.companies.length ? ` · the first ${d.companies.length.toLocaleString()} added are listed` : ''}`,
         d.can.change ? '<button type="button" class="button secondary small-btn" id="add-companies"><span data-icon="plus"></span>Add companies</button>' : '')
       + `<div class="table-wrap"><table class="data proj-inner"><thead><tr><th>Company</th><th>BRN</th><th>Salesperson · territory</th><th class="open-col"><span class="sr-only">Remove</span></th></tr></thead><tbody>
       ${d.companies.map(c => `<tr><td><a href="company.aspx?id=${c.id}"><b>${esc(c.name)}</b></a>${c.active ? '' : ' <span class="pill warn">Inactive</span>'}</td><td>${esc(c.brn)}</td>
@@ -84,7 +85,7 @@
         d.can.members ? '<button type="button" class="button secondary small-btn" id="add-member"><span data-icon="plus"></span>Add member</button>' : '')
       + `<div class="table-wrap"><table class="data proj-inner"><thead><tr><th>Name</th><th>Role</th><th>Temporary territory</th><th class="open-col"><span class="sr-only">Remove</span></th></tr></thead><tbody>
       ${d.members.map(m => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.roleLabel)}</td>
-        <td>${m.isOwner ? '<span class="muted">Project Manager: none needed</span>' : m.reached.length ? `<span class="act-status done">${plural(m.reached.length, 'company', 'companies')}</span> <span class="muted small">${esc(m.reached.join(', '))}</span>`
+        <td>${m.isOwner ? '<span class="muted">Project Manager: none needed</span>' : (m.reachedCount ?? m.reached.length) ? `<span class="act-status done">${plural(m.reachedCount ?? m.reached.length, 'company', 'companies')}</span> <span class="muted small">${esc(m.reached.join(', '))}${(m.reachedCount ?? 0) > m.reached.length ? ` and ${(m.reachedCount - m.reached.length).toLocaleString()} more` : ''}</span>`
           : `<span class="muted">${d.project.open ? 'Has own territory' : 'None (project not open)'}</span>`}</td>
         <td class="open-col">${d.can.members && !m.isOwner ? `<button type="button" class="text-button danger" data-remove-member="${m.id}" aria-label="Remove ${esc(m.name)} from the project">Remove</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div><p class="muted small proj-note">Temporary territories are taken away when the project closes or ends. Projects past their end date close automatically each morning.</p>`;

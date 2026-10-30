@@ -20,6 +20,7 @@ public sealed class ApiHandler : IHttpHandler
     public void ProcessRequest(HttpContext context)
     {
         Services.EnsureStarted();
+        var timer = RequestTimes.Start();
         var request = context.Request;
         var response = context.Response;
         response.Cache.SetCacheability(HttpCacheability.NoCache);
@@ -68,6 +69,10 @@ public sealed class ApiHandler : IHttpHandler
         {
             result = ApiResponse.Fail(500, "SERVER_ERROR", "Something went wrong: " + ex.Message);
         }
+        // How long it took: in the browser's developer tools (Server-Timing) and on the administrators' Speed tab.
+        var took = timer.Elapsed.TotalMilliseconds;
+        RequestTimes.Record(request.HttpMethod, path, took, DateTime.Now);
+        response.AppendHeader("Server-Timing", RequestTimes.Header(took));
         if (request.HttpMethod == "POST")
         {
             var (ok, message) = Outcome(result);

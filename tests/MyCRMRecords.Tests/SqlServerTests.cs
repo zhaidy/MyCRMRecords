@@ -384,6 +384,11 @@ public sealed class SqlServerTests
         var project = made.Id!.Value;
         Assert.Equal(1, Count("PROJECT", $"ID = {project} AND PROJECTNAME = N'Cover' AND OWNERID = 1 AND ISACTIVE = 1 AND ISCLOSED = 0 AND PROJECTSTATUSID = {old.StaticId("ProjectStatus", "Conception And Initiation")}"));
         Assert.Equal(2, Count("PROJECTCOMPANY", $"PROJECTID = {project} AND ISACTIVE = 1"));
+        // The Projects list counts a project's companies and names the first ones in one grouped query in MyCRM.
+        var listed = d.Projects.List(admin, "open", null, 0).Rows.Single(r => r.Project.Id == project);
+        Assert.Equal(2, listed.CompanyCount);
+        Assert.Equal(new[] { "Tan & Sons" }, listed.Companies.Take(1));
+        Assert.Equal(1, d.Projects.List(admin, "open", "tan & s", 0).Total);
         Assert.Equal(1, Count("PROJECTMEMBERS", $"PROJECTID = {project} AND USERID = 1 AND PROJECTROLEID = {old.StaticId("ProjectRoles", "Project Manager")} AND TERRITORYID IS NULL"));
         var added = d.Projects.AddMember(admin, project, new Projects.MemberInput { Login = @"RSP\ken", Role = ProjectRoles.SalespersonCaretaker });
         Assert.True(added.Ok, added.Message);
