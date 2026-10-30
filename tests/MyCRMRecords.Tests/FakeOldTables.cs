@@ -56,6 +56,29 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
         t.Define("Territory", "ID:id TERRITORY:long OWNERID:user ISACTIVE:bit ISTEMPORARY:bit ISOWNER:bit");
         t.Define("CompanyTerritory", "ID:id TERRITORYID:ref COMPANYID:ref ISACTIVE:bit CREATEDBY:user");
         t.Define("TerritoryMovement", "ID:id COMPANYID:ref FROMUSERID:user TOUSERID:user UPDATEDBY:user UPDATEDAT:datetime");
+        // Activities, projects and prospects.
+        t.Define("CompanyActivity", "ID:id ACTIVITYDESCRIPTION:1000 REMARKS:4000 VISITDATE:date STARTTIME:datetime ENDTIME:datetime COMPANYID:ref ISACTIVE:bit OWNERID:user ISVISITED:bit " +
+            "ATTENDEES:ref CRMCOMPANYACTIVITYID:long COMPANYACTIVITYACTIONID:ref UPDATEDBY:user UPDATEDDATE:date CREATEDDATE:date TODATE:date COMPANYACTIVITYSTATUSID:ref " +
+            "ISNOTIFICATION:bit SENDEMAIL:bit REMINDERDATE:date");
+        t.Define("ActivityTypeLink", "ID:id COMPANYACTIVITYID:ref ACTIVITYTYPEID:ref");
+        t.Define("ActivityParticipants", "ID:id COMPANYEVENTID:ref USERID:user ISACTIVE:bit CRMCOMMUNICATIONID:long CRMCOMMLINKID:50");
+        t.Define("CompanyActivityContactLink", "ID:id COMPANYACTIVITYID:ref CONTACTID:ref CRMACTIVITYCONTACTLINK:long");
+        t.Define("CompanyActivityProspectLink", "ID:id PROSPECTID:ref COMPANYACTIVITYID:ref");
+        t.Define("ProjectLink", "ID:id COMPANYACTIVITYID:ref PROJECTID:ref ISACTIVE:bit");
+        t.Define("Project", "ID:id PROJECTNAME:250 PROJECTSTATUSID:ref COMPANYID:ref REMARKS:2000 ISCLOSED:bit ISACTIVE:bit STARTDATE:date ENDDATE:date OWNERID:user COLOR:50 " +
+            "DATECREATED:date UPDATEDDATE:date UPDATEDBY:user");
+        t.Define("ProjectCompany", "ID:id PROJECTID:ref COMPANYID:ref ISACTIVE:bit");
+        t.Define("ProjectMembers", "ID:id COMPANYID:ref PROJECTID:ref USERID:user CONTACTID:ref PROJECTROLEID:ref ISACTIVE:bit PROJECTVALIDPERIOD:int TERRITORYID:ref");
+        t.Define("Prospect", "ID:id REMARKS:4000 ISCANCELLED:bit ISCLOSED:bit STAGEID:ref ESTIMATEDORDERDATE:date ISACTIVE:bit COMPANYID:ref OWNERID:user DATECREATED:date " +
+            "DATECLOSED:date UPDATEDBY:user UPDATEDDATE:date FORECAST:long SUMUPMONTH:50 SUMUPYEAR:50 PROSPECTTYPE:ref PROSPECTSTATUSID:ref TOTALPRICE:money CONTACTNAME:250");
+        t.Static["CompanyActivityAction"] = ActivityActions.List.All.Select((c, i) => (Id: 640L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["ActivityType"] = ActivityTypes.List.All.Select((c, i) => (Id: 670L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["CompanyActivityStatus"] = new() { [681] = "Complete", [682] = "Cancelled", [683] = "Pending" };
+        t.Static["ProjectStatus"] = new() { [691] = "Close", [692] = "Launch Or Execution", [693] = "Definition And Planning", [694] = "Conception And Initiation" };
+        t.Static["ProjectRoles"] = ProjectRoles.List.All.Select((c, i) => (Id: 720L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["Stages"] = ProspectStages.List.All.Select((c, i) => (Id: 740L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["ProspectStatus"] = ProspectStatuses.List.All.Select((c, i) => (Id: 770L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
+        t.Static["ProspectType"] = ProspectTypes.List.All.Select((c, i) => (Id: 790L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
         // Static entities: Ids unlike any list's position, in an order unlike MyCRMRecords's lists.
         t.Static["Role"] = CrmRoles.List.All.Select((c, i) => (Id: 245L - i, c.Label)).ToDictionary(x => x.Id, x => x.Label);
         t.Static["CompanyGroup"] = new() { [301] = "SME", [302] = "SMEDEA", [303] = "DEA", [304] = "JKA", [305] = "GOV", [306] = "CA", [307] = "LG", [308] = "GA", [309] = "MA", [310] = "LMA", [311] = "GMA" };
