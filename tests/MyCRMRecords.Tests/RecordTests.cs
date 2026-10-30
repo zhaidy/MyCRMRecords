@@ -310,6 +310,19 @@ public sealed class SettingsTests
 
 public sealed class SchedulerTests
 {
+    [Fact]
+    public void A_run_stopped_by_a_restart_does_not_block_Run_now()
+    {
+        using var world = new TestWorld();
+        // The website restarted while the task ran: the state file still says it is running, its run record is stopped.
+        File.WriteAllText(Path.Combine(world.Folder, "scheduled-tasks.json"),
+            "{\"" + Jobs.ProjectsEnded + "\":{\"RunningSince\":\"" + world.Now.AddMinutes(-10).ToString("s") + "\"}}");
+        world.Store.Insert(new JobRun { Job = Jobs.ProjectsEnded, StartedAt = world.Now.AddMinutes(-10), Outcome = "Running", By = "Ann" });
+        var run = world.D.Scheduler.Run(Jobs.ProjectsEnded, "Ann");
+        Assert.Equal("Done", run.Outcome);
+        Assert.Contains(world.Store.Find<JobRun>(), r => r.Outcome == BackgroundRuns.Stopped);
+    }
+
     [Theory]
     [InlineData(5, "", null, "2026-10-17 09:30", true)]
     [InlineData(5, "", "2026-10-17 09:26", "2026-10-17 09:30", false)]

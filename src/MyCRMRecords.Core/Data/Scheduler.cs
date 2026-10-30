@@ -80,10 +80,21 @@ public sealed class Scheduler(IRecordStore store, Func<CrmSettings> settings, st
         return days.Count == 0 || days.Contains((int)now.DayOfWeek);
     }
 
+    /// <summary>
+    /// Whether a run the state file says started is really still running: a run stopped by a restart (an update, a
+    /// recycle) keeps its "running since" in the file, which made Run now refuse for two hours.
+    /// </summary>
+    private bool StillRunning(string job, DateTime? since, DateTime now)
+    {
+        if (since is null || now - since.Value >= TimeSpan.FromHours(2)) return false;
+        BackgroundRuns.StopAbandoned(store, clock);
+        return store.Find<JobRun>(Query.Where("Job", job).And("Outcome", "Running")).Count > 0;
+    }
+
     private bool Claim(string job, JobSchedule schedule, DateTime now) => WithLock(states =>
     {
         var state = states.TryGetValue(job, out var found) ? found : states[job] = new State();
-        if (state.RunningSince is { } since && now - since < TimeSpan.FromHours(2)) return false;
+        if (StillRunning(job, state.RunningSince, now)) return false;
         if (!IsDue(schedule, state.LastStart, now)) return false;
         state.LastStart = now;
         state.RunningSince = now;
@@ -99,7 +110,7 @@ public sealed class Scheduler(IRecordStore store, Func<CrmSettings> settings, st
             var refused = WithLock(states =>
             {
                 var state = states.TryGetValue(job, out var found) ? found : states[job] = new State();
-                if (state.RunningSince is { } since && clock() - since < TimeSpan.FromHours(2)) return true;
+                if (StillRunning(job, state.RunningSince, clock())) return true;
                 state.RunningSince = clock();
                 return false;
             });
