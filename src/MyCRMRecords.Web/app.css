@@ -2160,3 +2160,6 @@ table.data.pros-table td.num{font-variant-numeric:tabular-nums;white-space:nowra
 .dormant-card .file-card-body{align-items:flex-start;text-align:left}
 @media(max-width:560px){.dormant-filters .companies-filter-row{flex-wrap:wrap}.dormant-filters .search-box{flex:1 1 100%}.dormant-filters .filter-capsule{flex:1 1 45%}}
 @media(max-width:900px){.dormant-filters .companies-filter-row{flex-wrap:wrap}.dormant-filters .search-box{flex:1 1 100%}.dormant-cap{flex:1 1 45%}.dormant-cap select{max-width:none;width:100%}}
+.dormant-filters .companies-filter-row{flex-wrap:wrap}
+.dormant-filters .tabs{margin:0;flex:none}
+.dormant-filters .tab{white-space:nowrap}
