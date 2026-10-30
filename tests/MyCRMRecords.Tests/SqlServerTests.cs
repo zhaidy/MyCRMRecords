@@ -618,6 +618,8 @@ public sealed class SqlServerTests
         Assert.Equal(1, store.Count<AppUser>());
         store.Insert(new MyCrmChange { ChangedOn = world.Now, TableName = "Company", RowId = 7, Column = "COMPANY", Before = "A", After = "B" });
         Assert.Equal("B", store.Find<MyCrmChange>().Single().After);
+        // Only the migrations made after this one are left (they run now); a later migration must not break this test.
+        Assert.Equal(DataMigrations.All.SkipWhile(m => m.Id != DataMigrations.MyCrmTablesDirectly).Skip(1).Select(m => m.Id), storage.RunPendingMigrations(database.Settings, "Test"));
         Assert.Empty(storage.RunPendingMigrations(database.Settings, "Test"));
     }
 }
