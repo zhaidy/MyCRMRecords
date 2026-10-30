@@ -60,6 +60,37 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
         public readonly Dictionary<string, IReadOnlyDictionary<string, OldColumn>> Columns = new(StringComparer.OrdinalIgnoreCase);
         public readonly Dictionary<string, (DateTime At, IReadOnlyDictionary<long, string> Labels)> Labels = new(StringComparer.OrdinalIgnoreCase);
         public (DateTime At, PeopleIndex People)? People;
+        /// <summary>What is being read again in the background (a label's entity, or "people").</summary>
+        public readonly HashSet<string> Refreshing = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Reads something again on its own connection, after the answer that found it out of date: the request that notices
+    /// keeps the copy it has instead of waiting (the people are thousands of rows). Once at a time for each thing.
+    /// </summary>
+    private void RefreshLater(string what, Action<DbConnection> read)
+    {
+        lock (_shared.Gate)
+            if (!_shared.Refreshing.Add(what)) return;
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            try { _databases.Use(ExternalNames.OutSystems, c => { read(c); return 0; }); }
+            catch (Exception) { /* The copy kept is used; the next request tries again. */ }
+            finally { lock (_shared.Gate) _shared.Refreshing.Remove(what); }
+        });
+    }
+
+    /// <summary>Reads the people and the static entities' labels once, so the first pages after a start do not wait for them.</summary>
+    public void WarmUp()
+    {
+        if (!Available) return;
+        Use((connection, transaction) =>
+        {
+            People(connection, transaction);
+            foreach (var entity in MyCrmMap.All.SelectMany(e => e.Fields).Where(f => f.List is not null).Select(f => f.List!.OldEntity).Distinct(StringComparer.OrdinalIgnoreCase))
+                try { Labels(connection, transaction, entity); } catch (Exception) { /* A missing entity shows on the Connections tab. */ }
+            return 0;
+        });
     }
 
     /// <summary>A batch: one connection and transaction, and what to record once it is committed.</summary>
@@ -137,8 +168,23 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
 
     private IReadOnlyDictionary<long, string> Labels(DbConnection connection, DbTransaction? transaction, string entity)
     {
+        IReadOnlyDictionary<long, string>? stale = null;
         lock (_shared.Gate)
-            if (_shared.Labels.TryGetValue(entity, out var known) && DateTime.UtcNow - known.At < TimeSpan.FromMinutes(10)) return known.Labels;
+            if (_shared.Labels.TryGetValue(entity, out var known))
+            {
+                if (DateTime.UtcNow - known.At < TimeSpan.FromMinutes(10)) return known.Labels;
+                stale = known.Labels;
+            }
+        if (stale is not null && transaction is null)
+        {
+            RefreshLater("labels:" + entity, c => ReadLabels(c, null, entity));
+            return stale;
+        }
+        return ReadLabels(connection, transaction, entity);
+    }
+
+    private IReadOnlyDictionary<long, string> ReadLabels(DbConnection connection, DbTransaction? transaction, string entity)
+    {
         var labels = Sql.Rows(connection, transaction, $"SELECT [ID], [LABEL] FROM {Table(connection, entity)}")
             .ToDictionary(r => OldValues.Long(r["ID"]), r => OutSystemsValues.Text(r["LABEL"]));
         lock (_shared.Gate) _shared.Labels[entity] = (DateTime.UtcNow, labels);
@@ -152,8 +198,24 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
     /// </summary>
     private PeopleIndex People(DbConnection connection, DbTransaction? transaction)
     {
+        PeopleIndex? stale = null;
         lock (_shared.Gate)
-            if (_shared.People is { } known && DateTime.UtcNow - known.At < TimeSpan.FromMinutes(2)) return known.People;
+            if (_shared.People is { } known)
+            {
+                if (DateTime.UtcNow - known.At < TimeSpan.FromMinutes(2)) return known.People;
+                stale = known.People;
+            }
+        // Out of date while reading: the copy kept now, read again in the background. In a change (a transaction), read now.
+        if (stale is not null && transaction is null)
+        {
+            RefreshLater("people", c => ReadPeople(c, null));
+            return stale;
+        }
+        return ReadPeople(connection, transaction);
+    }
+
+    private PeopleIndex ReadPeople(DbConnection connection, DbTransaction? transaction)
+    {
         var byEmail = _own.Find<AppUser>(Query.Where("IsActive", true)).Where(u => u.Email.Trim().Length > 0)
             .GroupBy(u => u.Email.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(u => u.LastSeenAt ?? DateTime.MinValue).ThenBy(u => u.Id).First().Login, StringComparer.OrdinalIgnoreCase);
