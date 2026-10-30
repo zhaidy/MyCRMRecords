@@ -35,7 +35,7 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 
 MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a bar at the bottom of the screen:
 **Companies**, **Files**, **Machines**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
-(Territories, CRM users, Admin…) from the bottom; tap outside it to close it.
+(Projects, Activities, Territories, CRM users, Admin…) from the bottom; tap outside it to close it.
 
 To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
 
@@ -90,7 +90,7 @@ customer code. At the top right:
   user's is not checked. Next to **Company Group Name**, **Add a group name**, **Rename** and the bin keep the list of
   group names; a group name a company still has cannot be removed.
 
-The rest is in tabs: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**, **Request forms** and
+The rest is in tabs: **Overview**, **Contacts**, **Activities**, **Prospects**, **Projects**, **Files**, **Machines**, **Costing sheets**, **Request forms** and
 **Relationships & history** (with how many there are). Clicking a tab shows it in place; the page remembers the tab,
 so coming back from a costing sheet opens the same one. On a phone the Overview shows the company's details and then
 a list of sections, **More details** first (sales notes, addresses, salesperson, copies per month and more company
@@ -145,6 +145,74 @@ machine), **Model**, **Status** (Contract, Warranty, T&M, Expired or No contract
 
 **Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
 you may see; click a number to open it. **See all** opens the list of all of them.
+
+**New activity** (top right) logs an activity with this company: see [Activities](#activities) for the form.
+
+**Activities**: the company's activities in MyCRM (from 1 April 2015) of you, your team and the company's
+salespeople. Choose **Upcoming**, **Past** or **All**, and an **Activity Action**. Click an activity's remarks to read
+it; its owner can **Edit** or **Delete** it there.
+
+**Prospects**: the company's prospects in MyCRM, **view only**: click one to see its stage, status, type, forecast,
+dates and owner beside the list. Prospects are created and changed in MyCRM: **Open in MyCRM** opens the company there.
+
+**Projects**: the projects that include the company, with their status, owner, members and roles, end date and
+whether they are closed. Click a project to open it (if you or your team are in it). A salesperson added to a project
+as **Salesperson (Caretaker)** can see and work on the company until the project's end date.
+
+## Activities
+
+The **Activities** page lists the sales activities in MyCRM that you own or take part in (**Owner: Me**), or your
+team's (**My team**, or one person of your team). Everything is saved in MyCRM.
+
+- Type in the search box to find activities by company, remarks, action or type. Choose **Upcoming** (today and
+  later), **Today**, **Past** or **All**, and a **Type**. MyCRMRecords remembers your choices.
+- **List** shows the activities by day with their time, type, remarks and action, company, contacts, owner and status:
+  **Completed**, **Pending**, or **Not completed** (its start date has passed). **Calendar** shows a month: the arrows
+  change the month and **Today** comes back; a day with more than three shows **+ more**.
+- **Download Excel** downloads the activities shown (CompanyActivity.xlsx).
+- Click an activity to read it. Only its **owner** can change it: **Edit**, or **Delete** (after asking).
+
+**New activity** opens the form (MyCRM's): **Company** (only your companies are listed; Sales Admins and the roles that
+see every company type 2 letters of its name or BRN), **Action**, **Remarks**, **Start Date**, **End Date**, **Start
+Time** and **End Time** (no time: the start is now and the end an hour later), **Owner** (you or someone in your team)
+and **Completed**. The form says how many other activities the owner has that day, with a link to the calendar. Then
+choose and **Add**:
+
+- **Activity Type** (at least one is needed), **Participants** (the salespeople of the company in your team; the
+  owner always takes part), **Project** (Managers, Admins, Sales Admins and MD: the open projects with the company),
+  **Attendees** (the company's contacts) and **Related Prospects**. The cross on a chip takes it off.
+
+Press **Save**. The Marketing role can read activities but not save them. Reminders and notifications are not kept here.
+
+## Projects
+
+The **Projects** page lists the projects in MyCRM that you or your team are in (Sales Admins see all of them):
+**Open**, **Closed** or **All**, newest first. Search by the project's name, remarks or a company. Click a project to
+open it. A project gives its members **temporary access** to its companies: a member who does not own a company through
+their own territory gets a temporary territory with it while the project is open. Projects past their end date close
+automatically each morning (the scheduled task *Projects that have ended*, once an administrator turns it on).
+
+**Create project** (Managers, Admins, Sales Admins and MD) has two steps: the **Project name**, **Status**, **Start
+date**, **End date** (after today) and **Remarks**, then **Next: add companies**: type a company's name, BRN or
+website and tick the companies (at least one). **Create project in MyCRM** creates it, with you as its owner and
+Project Manager, and opens it.
+
+### A project
+
+The project's page shows its status (**Open**, **Ended** or **Closed**), owner and end date, and four tabs:
+
+- **Companies**, with their salesperson. **Add companies** (search and tick) and **Remove** (after asking; a project
+  keeps at least one company) are for the project's owner and Sales Admins.
+- **Members**, with their role and the companies their temporary territory gives them. Only the project's owner adds
+  and removes members: **Add member**, choose the **Person** and their **Role in this project**; the box says whether
+  they get temporary access. **Remove** (after asking) takes their temporary territory away. To change a role, remove
+  the member and add them again.
+- **Activities** linked to the project (from an activity's Project field); click one to read it.
+- **History**: the changes made to the project in MyCRMRecords.
+
+At the top right, the owner and Sales Admins have **Edit** (name, status, dates, remarks), **Close project** and
+**Delete**. Both ask first and say how many members lose their temporary access. A closed project cannot be changed or
+opened again; a deleted one disappears from Projects. Activities stay on their companies either way.
 
 ## Territories
 
@@ -478,11 +546,13 @@ For administrators. Everything that sends or changes something outside MyCRMReco
 - **Scheduled tasks**: **Run the scheduled tasks** switches them on, and each task has its own **On**, time and days.
   **Customer numbers from Advance** (MyCRM's UpdateCustomerNo, daily at 02:45) gives each active company the
   customer number of Advance's customers with its BRN (with " #Multiple" after it when several share the BRN).
+  **Projects that have ended** (MyCRM's SetInactiveAllProjectThatEnds, daily at 05:30) closes the open projects whose
+  end date has come and takes away the temporary territories of members whose project is no longer open.
   **Run now** runs a task at once. Switch MyCRM's own timer off when this one runs.
 - **MyCRM**: MyCRMRecords reads and writes the CRM users and teams, the companies with their addresses, contacts,
-  phones, emails, relationships and group names, the permanent territories with their companies, and the territory
-  movements in MyCRM's own tables (**Connections**), so both always show the same data. MyCRM's temporary territories
-  (its projects and CSST) are only read, to decide who may open a company.
+  phones, emails, relationships and group names, the permanent territories with their companies, the territory
+  movements, the activities, and the projects with their temporary territories in MyCRM's own tables (**Connections**),
+  so both always show the same data. Prospects and the CSST part's temporary territories are only read.
   - **Let MyCRMRecords change MyCRM's data**: tick it and press **Save** to let people save in MyCRMRecords. Until then
     MyCRMRecords only reads. It adds and changes rows of MyCRM's tables and never deletes one: what is taken away is
     made inactive there (a company's address link or a group name, which MyCRM cannot mark, is kept and marked here).

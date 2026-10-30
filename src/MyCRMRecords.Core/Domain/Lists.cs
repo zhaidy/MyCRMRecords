@@ -211,3 +211,103 @@ public static class RelationshipTypes
     public static readonly ChoiceList List = new("CompanyRelationshipType",
         new Choice(Parent, "Parent"), new Choice("Child", "Child"), new Choice("Peer", "Peer"));
 }
+
+/// <summary>
+/// An activity's action (MyCRM's CompanyActivityAction), in MyCRM's order. The inactive ones are only shown on old
+/// activities (MyCRM's Cold Call cloning is not offered).
+/// </summary>
+public static class ActivityActions
+{
+    public const string FaceToFace = "FaceToFace";
+
+    public static readonly ChoiceList List = new("CompanyActivityAction",
+        new Choice(FaceToFace, "Face to Face"), new Choice("ByPhone", "By Phone"), new Choice("ByEmail", "By Email"), new Choice("Others", "Others"),
+        new Choice("VideoConference", "Video Conference"), new Choice("TelemarketingCall", "Telemarketing Call"),
+        new Choice("SalesNavigatorInMail", "Sales Navigator InMail"),
+        new Choice("AnnualLeave", "Annual Leave"), new Choice("MedicalLeave", "Medical Leave"), new Choice("TeamMeeting", "Team Meeting"),
+        new Choice("DivisionMeeting", "Division Meeting"), new Choice("TrainingInternal", "Training Internal"), new Choice("TrainingExternal", "Training External"),
+        new Choice("MaternityLeave", "Maternity Leave"), new Choice("PaternityLeave", "Paternity Leave"), new Choice("Reservist", "Reservist"),
+        new Choice("KeepInTouch", "Keep In Touch"), new Choice("Telesales", "Telesales"), new Choice("Update", "Update"), new Choice("KIV", "KIV"),
+        new Choice("KOT", "KOT"), new Choice("ColdCall", "Cold Call"));
+
+    /// <summary>MyCRM's inactive actions (Is_Active = False): not offered for a new choice.</summary>
+    public static readonly string[] Inactive =
+        ["AnnualLeave", "MedicalLeave", "TeamMeeting", "DivisionMeeting", "TrainingInternal", "TrainingExternal", "MaternityLeave", "PaternityLeave", "Reservist",
+         "KeepInTouch", "Telesales", "Update", "KIV", "KOT", "ColdCall"];
+}
+
+/// <summary>An activity's types (MyCRM's ActivityType, many per activity), in MyCRM's order.</summary>
+public static class ActivityTypes
+{
+    public const string FirstAppointment = "FirstAppointment";
+    /// <summary>Never offered in MyCRM's activity form (set by MyCRM's own rule).</summary>
+    public const string FirstAppointmentAttended = "FirstAppointmentAttended";
+
+    public static readonly ChoiceList List = new("ActivityType",
+        new Choice("NewCall", "New Call"), new Choice(FirstAppointment, "First Appointment"), new Choice(FirstAppointmentAttended, "First Appointment Attended"),
+        new Choice("FollowUp", "Follow Up"), new Choice("File_MediaTest", "File/Media Test"), new Choice("Demo_POC", "Demo/POC"),
+        new Choice("FirstProposalPresented", "First Proposal Presented"), new Choice("Negotiation", "Negotiation"), new Choice("CloseOrder", "Close Order"),
+        new Choice("ImplementationCall", "Implementation Call"), new Choice("ComplaintCall", "Complaint Call"), new Choice("CustomerCare", "Customer Care"),
+        new Choice("LOT", "LOT"), new Choice("KOT", "KOT"), new Choice("EventRelatedActivities", "Event Related Activities"));
+}
+
+/// <summary>MyCRM's CompanyActivityStatus (no screen of MyCRM sets it; kept as it is).</summary>
+public static class ActivityStatuses
+{
+    public static readonly ChoiceList List = new("CompanyActivityStatus",
+        new Choice("Pending", "Pending"), new Choice("Cancelled", "Cancelled"), new Choice("Complete", "Complete"));
+}
+
+/// <summary>A project's status (MyCRM's ProjectStatus).</summary>
+public static class ProjectStatuses
+{
+    public const string ConceptionAndInitiation = "ConceptionAndInitiation";
+    public const string Close = "Close";
+
+    public static readonly ChoiceList List = new("ProjectStatus",
+        new Choice(ConceptionAndInitiation, "Conception And Initiation"), new Choice("DefinitionAndPlanning", "Definition And Planning"),
+        new Choice("LaunchOrExecution", "Launch Or Execution"), new Choice(Close, "Close"));
+}
+
+/// <summary>A project member's role (MyCRM's ProjectRoles), in MyCRM's order.</summary>
+public static class ProjectRoles
+{
+    /// <summary>The project's owner: added when the project is made; needs no temporary territory.</summary>
+    public const string ProjectManager = "ProjectManager";
+    public const string SalespersonCaretaker = "SalespersonCaretaker";
+    public const string SalespersonAccountOwner = "SalespersonAccountOwner";
+
+    public static readonly ChoiceList List = new("ProjectRoles",
+        new Choice(ProjectManager, "Project Manager"), new Choice("LogisticCoordinator", "Logistic Coordinator"), new Choice("ServicesSpecialist", "Services Specialist"),
+        new Choice("PPSpecialist", "PP Specialist"), new Choice("SolutionSpecialist", "Solution Specialist"), new Choice("TechnicalSpecialist", "TechnicalSpecialist"),
+        new Choice("CSSTSpecialist", "CSST Specialist"), new Choice("BillingCoordinator", "Billing Coordinator"), new Choice("Salesperson", "Salesperson"),
+        new Choice(SalespersonCaretaker, "Salesperson (Caretaker)"), new Choice(SalespersonAccountOwner, "Salesperson (Account Owner)"),
+        new Choice("Telemarketer", "Telemarketer"));
+}
+
+/// <summary>A prospect's stage (MyCRM's Stages), shown on a company's Prospects tab (view only).</summary>
+public static class ProspectStages
+{
+    public static readonly ChoiceList List = new("Stages",
+        new Choice("Plan", "Plan"), new Choice("Create", "Create"), new Choice("Qualify", "Qualify"), new Choice("Develop", "Develop"), new Choice("Prove", "Prove"),
+        new Choice("Negotiation", "Negotiation"), new Choice("Close", "Close - Win"), new Choice("CloseLost", "Close - Lost"), new Choice("Implementation", "Implementation"));
+}
+
+/// <summary>A prospect's status (MyCRM's ProspectStatus), shown only.</summary>
+public static class ProspectStatuses
+{
+    public static readonly ChoiceList List = new("ProspectStatus",
+        new Choice("InProgress", "InProgress"), new Choice("Lost", "Lost"), new Choice("Won", "Won"), new Choice("PendingSpecialist", "Pending Specialist"),
+        new Choice("PendingEDPCode", "Pending EDP Code"), new Choice("PendingManager", "Pending Manager"), new Choice("ManagerRejected", "Manager Rejected"),
+        new Choice("PendingHead", "Pending Head"), new Choice("HeadRejected", "Head Rejected"), new Choice("PendingCreditCheck", "Pending Credit Check"),
+        new Choice("PendingCreditGMCheck", "Pending Credit GM Check"), new Choice("CreditRejected", "Credit Rejected"), new Choice("PendingInvoicing", "Pending Invoicing"),
+        new Choice("Invoiced", "Invoiced"));
+}
+
+/// <summary>A prospect's type (MyCRM's ProspectType), shown only.</summary>
+public static class ProspectTypes
+{
+    public static readonly ChoiceList List = new("ProspectType",
+        new Choice("C2R", "C2R"), new Choice("K2R", "K2R"), new Choice("NEW", "NEW"), new Choice("O2R", "O2R"), new Choice("OtoR", "OtoR"), new Choice("R2R", "R2R"),
+        new Choice("RonO", "RonO"), new Choice("RonR", "RonR"), new Choice("RtoR", "RtoR"), new Choice("T2R", "T2R"), new Choice("W2R", "W2R"), new Choice("X2R", "X2R"));
+}

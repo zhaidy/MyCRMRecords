@@ -38,6 +38,9 @@ public sealed class MyCrmSettings
 {
     /// <summary>MyCRMRecords may change MyCRM's data (off until an administrator turns it on): until then it only reads.</summary>
     public bool WritesEnabled { get; set; }
+
+    /// <summary>MyCRM's address, for the "Open in MyCRM" links (a company's prospects are changed there).</summary>
+    public string Url { get; set; } = "https://apps.ricoh.sg/MyCRM/";
 }
 
 /// <summary>MyMachines' temporary access (its entity TempAccess), which the Machine access page reads and may change.</summary>
@@ -154,18 +157,22 @@ public static class Jobs
 {
     /// <summary>MyCRM's timer UpdateCustomerNo: Advance's customer number of each company's BRN, daily at 02:45.</summary>
     public const string CustomerNumbers = "customer-numbers";
+    /// <summary>MyCRM's timer SetInactiveAllProjectThatEnds (with FixTerritory): projects past their end date close, daily at 05:30.</summary>
+    public const string ProjectsEnded = "projects-ended";
 
-    public static readonly string[] All = [CustomerNumbers];
+    public static readonly string[] All = [CustomerNumbers, ProjectsEnded];
 
     public static JobSchedule Default(string job) => job switch
     {
         CustomerNumbers => new JobSchedule { Job = job, Enabled = false, DailyAt = "02:45" },
+        ProjectsEnded => new JobSchedule { Job = job, Enabled = false, DailyAt = "05:30" },
         _ => throw new ArgumentException("No job " + job),
     };
 
     public static string Title(string job) => job switch
     {
         CustomerNumbers => "Customer numbers from Advance",
+        ProjectsEnded => "Projects that have ended",
         _ => job,
     };
 }

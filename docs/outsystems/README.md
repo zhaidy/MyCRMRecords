@@ -160,7 +160,8 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
    are to be switched off in OutSystems before MyCRMRecords' territories are used.
 2. **Only the permanent territories move.** The temporary territories MyCRM's Projects and CSST parts create (31,898
    active, with about a million company links on 2026-10-19) stay MyCRM's: MyCRMRecords reads them only to decide who may
-   see a company, and never copies or changes them. The 4 million inactive territory rows left by the Advance rebuild
+   see a company, and never copies them. Since 2026-10-30 the **projects'** temporary territories are made and taken
+   away by MyCRMRecords' Projects pages (rule 23); the CSST part's are still never changed. The 4 million inactive territory rows left by the Advance rebuild
    are neither imported nor touched.
 3. **A person's CUser records are updated, not deleted and made again.** MyCRM's user page deletes all of a person's
    CUser rows at every save and creates new ones (losing `CId`, created/updated data and `ProfileId`); MyCRMRecords
@@ -277,6 +278,40 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     company's BRN, each machine's invoices as its own page reads them (of its contract when it has one, the most copies
     of each meter type per invoice): one read-only query (`IAdvanceMachines.MonthlyCopies`).
 
+23. **Activities and projects move to MyCRMRecords, in MyCRM's tables** (decided 2026-10-30; this replaces rule 2 for
+    the projects' temporary territories). The Activities page, the Projects pages and a company's Activities, Prospects
+    and Projects tabs read and write MyCRM's `CompanyActivity`, `ActivityTypeLink`, `ActivityParticipants`,
+    `CompanyActivityContactLink`, `CompanyActivityProspectLink`, `ProjectLink`, `Project`, `ProjectCompany`,
+    `ProjectMembers` and the projects' **temporary** `Territory` and `CompanyTerritory` rows, behind the same switch
+    (*Let MyCRMRecords change MyCRM's data*), every value recorded in `dbo.CrChange`, nothing deleted. Prospects are
+    **only read** (`Prospect` is a read-only entity: an insert or update is refused). Differences from MyCRM:
+    - **What MyCRM deleted is kept.** An activity type, attendee or prospect taken off an activity keeps its row with an
+      empty `CompanyActivityId` (MyCRM deleted it); a participant or project link taken off is inactive (as in MyCRM).
+    - **The temporary territory rule, made exact.** While a project is open (active, not closed, `EndDate` today or
+      later) every active member but the Project Manager has one temporary territory (`IsTemporary` = 1, `IsOwner` = 0,
+      `Territory` = their OutSystems user Id followed by a company's Id, as MyCRM numbers them) linked to exactly the
+      project's active companies they do not own through an active permanent territory (MyCRM's
+      `CheckUserHasPermTerritory`). Adding or removing a member or a company, changing the end date, closing or deleting
+      the project keep it so; MyCRM's handlers could leave links of other members or of removed companies active.
+    - **Closing keeps the members and the activity links**: MyCRM's `DisableMembersWhenProjClose` also made the
+      participants of every activity linked to the project inactive (they disappeared from those people's activities);
+      here closing takes the temporary territories away only. Deleting marks the project, its companies, members and
+      activity links inactive and takes the temporary territories away; the activities and their participants stay.
+    - **The daily task *Projects that have ended*** (MyCRM's `SetInactiveAllProjectThatEnds` with `FixTerritory`,
+      05:30, off until an administrator turns it on): open projects whose end date has come are closed, then every active
+      temporary territory whose member is inactive, whose project is not open, or that no member has, is made
+      inactive. A project with no end date is left alone (MyCRM's Save never allowed one).
+    - **Who sees what**: the Projects list keeps MyCRM's rule (projects with an active member in the person's list)
+      and adds the projects they own; Sales Admins see every project. The activity list shows the activities owned or
+      taken part in by the person ("Me") or their list ("My team"); a company's Activities tab keeps MyCRM's rule (from
+      1 April 2015, a participant in the person's list or among the company's owners).
+    - **Not built** (decided 2026-10-30): reminders and notifications (`CompanyActivityNotification`, `IsNotification`,
+      `SendEmail`, the reminder email), the Telemarketer's Send Email and Reminder Date, Cold Call's Number Of Companies
+      (cloning), the CSST role's shorter action and type lists, project colours and the timeline chart, reports, and
+      MyCRM's First Appointment Attended adjustment (that type is not offered, as in MyCRM's form). A member's role is
+      changed by removing and adding them again. The project's **History** lists the changes made in MyCRMRecords
+      (`dbo.CrChange`), not MyCRM's own.
+
 ## 13. Production counts that shaped the design (2026-10-19)
 
 The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):
@@ -304,8 +339,9 @@ the screens by redirect). Nothing is unpublished or deleted.
 | `Team` | the legacy timer that deletes every team (it always fails, but must never succeed) |
 
 **Timers that stay on**: `CSST_Temp`, `CSST_05_AssignAllCompany`, `CSST_06_AssignUpdate`, `TelemarketerOtherComp`,
-`SetInactiveAllProjectThatEnds` (they write MyCRM's temporary territories, which MyCRMRecords only reads), and every
-timer of the parts that stay.
+and every timer of the parts that stay (they write MyCRM's CSST temporary territories). `SetInactiveAllProjectThatEnds`
+(05:30) stays on until MyCRMRecords' scheduled task *Projects that have ended* is turned on, then is switched off (both
+close the same projects and take away the same temporary territories; rule 23).
 
 **Screens sent to MyCRMRecords** (`Set-OldAppRedirects.ps1`; each screen's input to the page's parameter):
 

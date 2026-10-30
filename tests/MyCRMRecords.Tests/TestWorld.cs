@@ -72,7 +72,8 @@ public sealed class TestWorld : IDisposable
         Store = new JsonRecordStore(Path.Combine(Folder, "data"));
         D = CrmFactory.Create(store ?? Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
             Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, store ?? Store, OldApp, files: Files,
-            machines: Machines, machineAccess: MachineAccess);
+            machines: Machines, machineAccess: MachineAccess,
+            outSystemsUserId: login => OldApp.UserList.FirstOrDefault(u => string.Equals(u.Login, login, StringComparison.OrdinalIgnoreCase))?.Id);
         foreach (var user in new[] { Admin, SalesAdmin, Sam, Mia, Ken, Mark, Dina, Tom, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
         if (!crmUsers) return;
         // Straight into the records.
