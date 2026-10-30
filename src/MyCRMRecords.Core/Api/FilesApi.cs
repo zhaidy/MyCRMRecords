@@ -5,8 +5,8 @@ using MyCRMRecords.Domain;
 
 namespace MyCRMRecords.Api;
 
-/// <summary>A file to send: its name, type and bytes; or why it cannot be sent.</summary>
-public sealed record FileAnswer(int Status, string FileName, string ContentType, byte[] Content, string Error = "")
+/// <summary>A file to send: its name, type and bytes, and whether the browser shows it rather than saves it; or why it cannot be sent.</summary>
+public sealed record FileAnswer(int Status, string FileName, string ContentType, byte[] Content, string Error = "", bool Inline = false)
 {
     public const string XlsxType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -16,7 +16,8 @@ public sealed record FileAnswer(int Status, string FileName, string ContentType,
 /// <summary>
 /// The files of file.ashx: the Excel samples to fill in, downloaded; the number of employees (BRN, NoOfEmployees) and a
 /// territory's list of companies (Company, BRN) uploaded as Excel workbooks; and, read only from MyOrders, a costing
-/// sheet's or request form's attachment and the costing sheets and request forms lists as Excel workbooks.
+/// sheet's or request form's attachment and the costing sheets and request forms lists as Excel workbooks; and, read only
+/// from MyFiles, a file's PDF (files/{id}, shown in the page with ?view=1) or several as a zip (files/zip?ids=1,2).
 /// </summary>
 public sealed class FilesApi(CrmApp w)
 {
@@ -36,6 +37,9 @@ public sealed class FilesApi(CrmApp w)
     public const string RequestFormAttachment = "requestform-attachment";
     /// <summary>requestforms?&lt;the list's filters&gt;: MyOrders' Download, a row per request form and delivery or collection date.</summary>
     public const string RequestFormList = "requestforms";
+    /// <summary>files/{id} (?view=1 to show it) and files/zip?ids=1,2: MyFiles' PDFs.</summary>
+    public const string MyFilesPrefix = "files/";
+    public const string MyFilesZip = "files/zip";
 
     private static string Q(IReadOnlyDictionary<string, string> query, string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
 
@@ -53,7 +57,53 @@ public sealed class FilesApi(CrmApp w)
                 return new FileAnswer(200, "Company.xlsx", FileAnswer.XlsxType,
                     Xlsx.Create("Sheet1", [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 20)], [new object?[] { "Sample Holdings Pte Ltd", "199912345K" }]));
         }
+        if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");
+    }
+
+    /// <summary>
+    /// A file of MyFiles (files/{id}, shown in the page with ?view=1), or several as one zip (files/zip?ids=1,2): only
+    /// files the person may see (MyFiles.MaySee), checked before anything is read.
+    /// </summary>
+    private FileAnswer MyFilesFile(string kind, IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        if (!w.MyFilesData.Available) return FileAnswer.Fail(503, "MyFiles' tables cannot be read yet: an administrator has to set up the connection first.");
+        var actor = user.ToActor(w.People);
+        try
+        {
+            if (kind == MyFilesZip)
+            {
+                var ids = Q(query, "ids").Split(',')
+                    .Select(t => long.TryParse(t.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var one) ? one : 0)
+                    .Where(id => id > 0).Distinct().ToList();
+                if (ids.Count == 0) return FileAnswer.Fail(404, "Tick the files to download.");
+                if (ids.Count > MyFiles.ZipMax) return FileAnswer.Fail(400, $"At most {MyFiles.ZipMax} files are downloaded at a time.");
+                var files = ids.Select(w.MyFiles.Get).Where(f => f is not null).Select(f => f!).ToList();
+                if (files.Count == 0) return FileAnswer.Fail(404, "The files are not there.");
+                var refused = files.Count(f => !w.MyFiles.MaySee(actor, f));
+                if (refused > 0)
+                    return FileAnswer.Fail(403, refused == 1
+                        ? "One of the files belongs to a company you may not open: nothing was downloaded."
+                        : $"{refused} of the files belong to companies you may not open: nothing was downloaded.");
+                if (files.Count == 1)
+                    return w.MyFiles.Bytes(files[0]) is { } single
+                        ? new FileAnswer(200, MyFiles.NameOf(files[0]), ContentType(MyFiles.NameOf(files[0])), single)
+                        : FileAnswer.Fail(404, "MyFiles has no PDF for this file.");
+                var (name, zip) = w.MyFiles.Zip(files);
+                return new FileAnswer(200, name, "application/zip", zip);
+            }
+            var fileId = long.TryParse(kind.Substring(MyFilesPrefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+            if (w.MyFiles.Get(fileId) is not { } file) return FileAnswer.Fail(404, "The file is not there.");
+            if (!w.MyFiles.MaySee(actor, file)) return FileAnswer.Fail(403, "This file belongs to a company you may not open: it is not in your or your team's territories.");
+            if (w.MyFiles.Bytes(file) is not { } bytes) return FileAnswer.Fail(404, "MyFiles has no PDF for this file.");
+            var view = Q(query, "view") == "1";
+            var fileName = MyFiles.NameOf(file);
+            return new FileAnswer(200, fileName, view ? "application/pdf" : ContentType(fileName), bytes, Inline: view);
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "MyFiles' tables could not be read: " + ex.Message);
+        }
     }
 
     /// <summary>

@@ -17,6 +17,8 @@ public sealed class OrdersWorld : IDisposable
     public SettingsFile<CrmSettings> SettingsFile { get; }
     public JsonRecordStore Store { get; }
     public FakeMyOrders Data { get; } = new();
+    /// <summary>MyFiles' files, in the same OutSystems database as MyOrders' tables.</summary>
+    public FakeMyFiles Files { get; }
     public CrmApp D { get; }
 
     public static readonly ApiUser Admin = new(@"RSP\root", "Rob Root", "rob@example.com", IsListedAdmin: true);
@@ -48,9 +50,10 @@ public sealed class OrdersWorld : IDisposable
         SettingsFile = new SettingsFile<CrmSettings>(Path.Combine(Folder, "crm-records-settings.json"), new FakeProtector());
         if (configure is not null) SettingsFile.Change(configure);
         Store = new JsonRecordStore(Path.Combine(Folder, "data"));
+        Files = new FakeMyFiles(Data);
         // MyCRM's own records are kept in memory with MyCRMRecords' (the company pages are not what these tests look at).
         D = CrmFactory.Create(Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
-            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, new FakeEmail(), Store, orders: Data, domain: "RSP");
+            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, new FakeEmail(), Store, orders: Data, domain: "RSP", files: Files);
         foreach (var user in new[] { Admin, Sam, Mia, Ken, Cara, Hana, Carl, Sid, Dan, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
 
         // OutSystems' users: Cara's username is her email address, not her Windows login.

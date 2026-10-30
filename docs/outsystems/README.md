@@ -228,6 +228,16 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     how MyOrders' part works and the rules changed for it are in [myorders/README.md](myorders/README.md) (section 9)
     and the `myorders/request-forms-*.md` files.
 
+19. **MyFile's files are shown here too, read only** (2026-10-30): the Files page and a company's Files tab read
+    MyFiles' `File` and `FileType` entities where MyFile keeps them (the *MyFiles module* setting), a file's size as
+    `DATALENGTH` and its bytes only for one download. Who sees which follows MyFile's rule with MyCRMRecords' company
+    rule (`Access`, so territories and MyCRM's projects count): active files only; the roles that open every company
+    see every file; everyone else the files of the companies they may open and the files of no company. Differences
+    from MyFile: **MyFile's department rule is not applied** (people there see only their Active Directory department's
+    files and files of no department): MyCRMRecords does not read a person's AD department, so everyone sees the files
+    of every department; the search needs no minimum of three characters and does not look in serial numbers or tags;
+    the list is always newest first; a zip holds at most 50 files.
+
 ## 13. Production counts that shaped the design (2026-10-19)
 
 The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):

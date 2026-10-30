@@ -17,7 +17,7 @@ public sealed class OrdersSqlServerTests
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ESPACE ([ID] int NOT NULL PRIMARY KEY, [NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ENTITY ([ID] int NOT NULL PRIMARY KEY, [ESPACE_ID] int NOT NULL, [NAME] nvarchar(200) NOT NULL, [PHYSICAL_TABLE_NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_USER ([ID] int NOT NULL PRIMARY KEY, [USERNAME] nvarchar(250) NOT NULL, [NAME] nvarchar(250) NOT NULL, [EMAIL] nvarchar(250) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
-        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1);");
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1), (4, N'MyFiles', 1);");
         foreach (var u in data.UserRows)
         {
             // OutSystems keeps Cara as her email address (bug 29): MyCRMRecords finds her by it.
@@ -36,8 +36,8 @@ public sealed class OrdersSqlServerTests
         foreach (var check in entities)
         {
             var e = check.Entity;
-            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
-            var espace = e.Module == OsModule.MyOrders ? 2 : 3;
+            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : e.Module == OsModule.MyFiles ? "OSUSR_mf1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
+            var espace = e.Module == OsModule.MyOrders ? 2 : e.Module == OsModule.MyFiles ? 4 : 3;
             // An older row of the same entity, deleted from the module, is not the table.
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}_OLD', 0);");
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}', 1);");
@@ -223,6 +223,47 @@ public sealed class OrdersSqlServerTests
         Assert.Equal(MyCrmMap.Checked.Count + Entities.Checked.Count + 2, test.Count);
         world.SettingsFile.Change(s => s.Connections.OrdersModule = "MyOrdersOld");
         Assert.Contains(app.Databases.Test(ExternalNames.OutSystems), l => !l.Ok && l.Line.Contains("MyOrdersOld"));
+    }
+
+    [Fact]
+    public void MyFiles_files_are_read_where_MyFile_keeps_them_as_the_tests_read_them()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var world = new OrdersWorld();
+        var files = world.Files;
+        var pdf = new byte[] { 37, 80, 68, 70, 1, 2 };
+        var a = files.Add("INV_77%.pdf", "CostingSheet", world.Acme, "Acme Pte Ltd", "199912345K", invoice: "INV_77%", uploaded: new DateTime(2026, 10, 5, 10, 0, 0),
+            by: world.SamId, pdf: pdf);
+        // Uploaded at the same time: the newer Id first.
+        files.Add("Zen DO.pdf", "DO", world.Zen, "Zen Trading", "", doNumber: "DO-5", uploaded: new DateTime(2026, 10, 5, 10, 0, 0));
+        files.Add("walk-in.pdf", "Others", null, "Walk-in", "", contract: "C-9", uploaded: new DateTime(2025, 1, 2));
+        files.Add("gone.pdf", "FSA", world.Acme, "Acme Pte Ltd", "", active: false);
+        files.TypeId("Leasing");
+
+        using var outSystems = new TestDatabase();
+        var (app, _) = InOutSystems(world, outSystems);
+        var sql = app.MyFilesData;
+        Assert.IsType<SqlMyFilesData>(sql);
+        // More companies than an IN list or parameters could hold.
+        var many = Enumerable.Range(1, 3000).Select(i => 100000L + i).Append(world.Acme).ToList();
+        var searches = new[]
+        {
+            new FileSearch(), new FileSearch { Keyword = "inv_77%" }, new FileSearch { Keyword = "%" }, new FileSearch { Keyword = "199912345" },
+            new FileSearch { Keyword = "c-9" }, new FileSearch { FileType = "DO" }, new FileSearch { FileType = "Leasing" }, new FileSearch { FileType = "costing sheet" },
+            new FileSearch { CompanyId = world.Zen }, new FileSearch { UploadedFrom = new DateTime(2026, 1, 1) }, new FileSearch { Companies = new long[0] },
+            new FileSearch { Companies = many }, new FileSearch { Skip = 1, Take = 1 },
+        };
+        foreach (var search in searches)
+            Assert.Equal(MyCRMRecords.Json.Serialize(files.Search(search)), MyCRMRecords.Json.Serialize(sql.Search(search)));
+        Assert.Equal(3, sql.Search(new FileSearch()).Total);
+        Assert.Equal(2, sql.Search(new FileSearch { Companies = many }).Total);
+        foreach (var id in files.Tables.Tables[Entities.File].Select(r => r.Long("ID")))
+            Assert.Equal(MyCRMRecords.Json.Serialize(files.Get(id)), MyCRMRecords.Json.Serialize(sql.Get(id)));
+        Assert.Equal("Sam Sales", sql.Get(a)!.UploadedBy);
+        Assert.Equal(6L, sql.Get(a)!.Size);
+        Assert.Equal(pdf, sql.Bytes(a));
+        Assert.Null(sql.Bytes(999999));
+        Assert.Null(sql.Get(999999));
     }
 
     /// <summary>MyOrders retired: its module and entities are inactive in the catalog, but OutSystems keeps the tables.</summary>

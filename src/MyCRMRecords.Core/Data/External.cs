@@ -169,10 +169,9 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
                 case ExternalNames.OutSystems:
                     foreach (var (entity, columns) in MyCrmMap.Checked)
                         Entity(c.CrmModule, entity, columns);
-                    // What the costing sheets and request forms read (MyOrders' tables, and MyCRM's they name).
+                    // What the costing sheets and request forms read (MyOrders' tables, and MyCRM's they name), and the Files page (MyFiles').
                     foreach (var check in Entities.Checked)
-                        Entity(check.Entity.Module == OsModule.MyOrders ? c.OrdersModule : c.CrmModule, check.Entity.Name, check.Columns,
-                            check.Entity.Module == OsModule.MyOrders);
+                        Entity(Entities.ModuleName(c, check.Entity.Module), check.Entity.Name, check.Columns, Entities.ReadOnly(check.Entity.Module));
                     Check("dbo.OSSYS_USER", "ID", "USERNAME", "NAME", "EMAIL", "IS_ACTIVE");
                     break;
                 case ExternalNames.AdvanceConnector:

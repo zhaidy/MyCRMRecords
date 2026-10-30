@@ -101,6 +101,8 @@ public class AppPage : Page
         // MyOrders' costing sheets and request forms, read only: everyone sees the ones MyOrders' rule lets them.
         html.Append(Item("costingsheets.aspx", "money", "Costing sheets"));
         html.Append(Item("requestforms.aspx", "truck", "Request forms"));
+        // MyFiles' files (the PDFs MyFile keeps), read only: everyone sees those of the companies they may open.
+        html.Append(Item("files.aspx", "folder", "Files"));
         if (IsAdmin)
         {
             var adminPages = new[] { "users.aspx", "admin.aspx", "deployment.aspx", "audit.aspx" };
@@ -118,15 +120,16 @@ public class AppPage : Page
             .Append($"<span class=\"appbar-name\">{HttpUtility.HtmlEncode(DisplayName)}</span>")
             .Append("<a class=\"sign-out\" href=\"logout.aspx\" title=\"Sign out\" aria-label=\"Sign out\"><span data-icon=\"logout\"></span></a>")
             .Append("</div></header><div class=\"menu-backdrop\" id=\"menu-backdrop\"></div>");
-        // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Orders (the costing sheets and
-        // request forms) and More, which opens the rest of the menu (the links above) as a sheet.
+        // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Files, Orders (the costing sheets
+        // and request forms) and More, which opens the rest of the menu (the links above) as a sheet.
         string Tab(string href, string icon, string label, bool selected) =>
             $"<a class=\"tab-item{(selected ? " selected" : "")}\" href=\"{href}\"{(selected ? " aria-current=\"page\"" : "")}><span data-icon=\"{icon}\"></span><span>{label}</span></a>";
         var onOrders = current == "costingsheets.aspx" || current == "requestforms.aspx";
         html.Append("<nav class=\"tabbar\" aria-label=\"App menu\">")
             .Append(Tab("./", "file", "Companies", current == "./"))
+            .Append(Tab("files.aspx", "folder", "Files", current == "files.aspx"))
             .Append(Tab("costingsheets.aspx", "money", "Orders", onOrders))
-            .Append($"<button type=\"button\" class=\"tab-item{(current != "./" && !onOrders && current.Length > 0 ? " selected" : "")}\" id=\"more-button\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span><span>More</span></button>")
+            .Append($"<button type=\"button\" class=\"tab-item{(current != "./" && current != "files.aspx" && !onOrders && current.Length > 0 ? " selected" : "")}\" id=\"more-button\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span><span>More</span></button>")
             .Append("</nav>");
         if (Person?.Impersonator is { } admin)
             html.Append("<div class=\"impersonation-bar\" role=\"status\"><span>You are signed in as <strong>").Append(HttpUtility.HtmlEncode(DisplayName))
