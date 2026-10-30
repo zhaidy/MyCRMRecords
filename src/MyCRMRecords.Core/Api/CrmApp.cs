@@ -59,6 +59,13 @@ public sealed class CrmApp
     /// <summary>The Files page and a company's Files tab (MyCRMRecords' company rule decides who sees which).</summary>
     public MyFiles MyFiles { get; init; } = null!;
 
+    /// <summary>Advance's machines through AdvanceConnector: read only, never written.</summary>
+    public IAdvanceMachines AdvanceMachines { get; init; } = null!;
+    /// <summary>MyMachines' temporary access (OutSystems), changed only when switched on.</summary>
+    public IMyMachinesAccess MachineAccess { get; init; } = null!;
+    /// <summary>The Machines pages, a company's Machines tab and the Machine access page.</summary>
+    public Machines Machines { get; init; } = null!;
+
     /// <summary>Whether MyCRMRecords may change MyCRM's data now (the administrator's switch).</summary>
     public bool CanWrite => MyCrm is null || MyCrm.CanWrite;
 }
@@ -71,10 +78,13 @@ public static class CrmFactory
     /// <param name="temporary">MyCRM's temporary territories (tests); else read from the OutSystems database.</param>
     /// <param name="orders">MyOrders' and MyCRM's tables for the costing sheets (tests: in memory); else read in the OutSystems database.</param>
     /// <param name="files">MyFiles' files (tests: in memory); else read in the OutSystems database.</param>
+    /// <param name="machines">Advance's machines (tests: in memory); else read through AdvanceConnector.</param>
+    /// <param name="machineAccess">MyMachines' temporary access (tests: in memory); else in the OutSystems database.</param>
     /// <param name="domain">The Windows domain of the logins (RSP), for OutSystems' usernames.</param>
     public static CrmApp Create(IRecordStore store, SettingsFile<CrmSettings> settingsFile, Func<string, DbConnection> connectionFactory,
         string schedulerStateFile, Func<DateTime> clock, IEmailSender? emailSender = null, IRecordStore? myCrm = null, ITemporaryTerritories? temporary = null,
-        IMyOrdersData? orders = null, string domain = "RSP", IMyFilesData? files = null)
+        IMyOrdersData? orders = null, string domain = "RSP", IMyFilesData? files = null,
+        IAdvanceMachines? machines = null, IMyMachinesAccess? machineAccess = null)
     {
         Func<CrmSettings> settings = settingsFile.Load;
         var databases = new ExternalDatabases(settings, connectionFactory);
@@ -90,6 +100,8 @@ public static class CrmFactory
         orders ??= new SqlMyOrdersData(databases, () => settings().Connections, domain);
         var ordersAccess = new OrdersAccess(orders);
         files ??= new SqlMyFilesData(databases, () => settings().Connections);
+        machines ??= new SqlAdvanceMachines(databases, () => settings().Connections);
+        machineAccess ??= new SqlMyMachinesAccess(databases, () => settings().Connections, () => settings().MyMachines.WritesEnabled, own, clock, domain);
         return new CrmApp
         {
             Store = store,
@@ -114,6 +126,9 @@ public static class CrmFactory
             RequestForms = new RequestForms(orders, ordersAccess),
             MyFilesData = files,
             MyFiles = new MyFiles(files, access, store, clock),
+            AdvanceMachines = machines,
+            MachineAccess = machineAccess,
+            Machines = new Machines(machines, machineAccess, access, store, clock),
         };
     }
 }

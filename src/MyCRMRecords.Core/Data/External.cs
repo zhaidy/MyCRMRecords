@@ -176,6 +176,9 @@ public sealed class ExternalDatabases(Func<CrmSettings> settings, Func<string, D
                     break;
                 case ExternalNames.AdvanceConnector:
                     Check(c.AdvanceTables.CustomerSupp, ExternalColumns.CustomerSupp);
+                    // What the Machines pages read (MyMachines' entities), by MyMachines' names for the columns.
+                    foreach (var (table, columns) in AdvanceMachineColumns.Checked(c.AdvanceTables))
+                        Check(table, columns);
                     break;
             }
         }
@@ -205,4 +208,5 @@ public static class ExternalColumns
 {
     /// <summary>AdvanceConnector's Customer_Supp (MyCRM's entity of the same name): a customer's BRN and number.</summary>
     public static readonly string[] CustomerSupp = ["Business_reg", "Cust_no"];
+    // The machines' tables (daily_mif, serial, customer, meter_card, Service, SMeter_History, daily_TM): AdvanceMachineColumns.
 }

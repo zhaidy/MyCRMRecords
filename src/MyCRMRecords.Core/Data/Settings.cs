@@ -25,6 +25,8 @@ public sealed class CrmSettings
     public ConnectionSettings Connections { get; set; } = new();
     /// <summary>Whether MyCRMRecords may change MyCRM's data (off until an administrator turns it on).</summary>
     public MyCrmSettings MyCrm { get; set; } = new();
+    /// <summary>Whether MyCRMRecords may give and remove MyMachines' temporary access (off until an administrator turns it on).</summary>
+    public MyMachinesSettings MyMachines { get; set; } = new();
     public EmailSettings Email { get; set; } = new();
     public JobSettings Jobs { get; set; } = new();
     public string? ChangedBy { get; set; }
@@ -35,6 +37,16 @@ public sealed class CrmSettings
 public sealed class MyCrmSettings
 {
     /// <summary>MyCRMRecords may change MyCRM's data (off until an administrator turns it on): until then it only reads.</summary>
+    public bool WritesEnabled { get; set; }
+}
+
+/// <summary>MyMachines' temporary access (its entity TempAccess), which the Machine access page reads and may change.</summary>
+public sealed class MyMachinesSettings
+{
+    /// <summary>
+    /// MyCRMRecords may add and mark rows of MyMachines' TempAccess (off until an administrator turns it on): until then
+    /// the Machine access page only lists them.
+    /// </summary>
     public bool WritesEnabled { get; set; }
 }
 
@@ -55,6 +67,9 @@ public sealed class ConnectionSettings
     /// <summary>The OutSystems module with MyFiles' files (read only, the Files page), as MyFile's FilesModule.</summary>
     public string FilesModule { get; set; } = "MyFiles";
 
+    /// <summary>The OutSystems module with MyMachines' temporary access (TempAccess), for who sees a company's machines.</summary>
+    public string MachinesModule { get; set; } = "MyMachines";
+
     public AdvanceTables AdvanceTables { get; set; } = new();
 }
 
@@ -67,6 +82,27 @@ public sealed class AdvanceTables
 {
     /// <summary>MyCRM's entity Customer_Supp (Business_reg, Cust_no): Advance's customer number of each BRN.</summary>
     public string CustomerSupp { get; set; } = "dbo.Customer_Supp";
+
+    /// <summary>MyMachines' daily_mif: Advance's machines in the field, a row per machine, with its customer, BRN, contract and warranty.</summary>
+    public string DailyMif { get; set; } = "dbo.daily_mif";
+
+    /// <summary>MyMachines' serial: a machine's install date, location and Serial-stat (the finance type).</summary>
+    public string Serial { get; set; } = "dbo.serial";
+
+    /// <summary>MyMachines' customer: Advance's customers (name, address, telephone).</summary>
+    public string Customer { get; set; } = "dbo.customer";
+
+    /// <summary>MyMachines' meter_card: the copies billed per invoice and meter type.</summary>
+    public string MeterCard { get; set; } = "dbo.meter_card";
+
+    /// <summary>MyMachines' Service: the service orders (SO-status F90 a service call done, P90 a toner order).</summary>
+    public string Service { get; set; } = "dbo.Service";
+
+    /// <summary>MyMachines' SMeter_History: the meter readings taken on a service call.</summary>
+    public string SMeterHistory { get; set; } = "dbo.SMeter_History";
+
+    /// <summary>MyMachines' daily_TM: the last contract's rates of a machine now on time and materials.</summary>
+    public string DailyTm { get; set; } = "dbo.daily_TM";
 }
 
 public sealed class ExternalDatabase

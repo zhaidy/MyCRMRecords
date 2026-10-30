@@ -285,6 +285,7 @@ public sealed class SettingsTests
         Assert.False(s.Email.Enabled);
         Assert.False(s.Jobs.Enabled);
         Assert.False(s.MyCrm.WritesEnabled);
+        Assert.False(s.MyMachines.WritesEnabled);
         Assert.All(ExternalNames.All, n => Assert.False(new ExternalDatabases(() => s, _ => throw new InvalidOperationException()).IsConfigured(n)));
     }
 }

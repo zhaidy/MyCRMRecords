@@ -62,25 +62,45 @@ public sealed class Access(IRecordStore store, Func<ITemporaryTerritories?> temp
     }
 
     /// <summary>The companies the person opens; null for every company.</summary>
-    public HashSet<long>? CompanyIds(Actor actor)
+    public HashSet<long>? CompanyIds(Actor actor) => actor.SeesAllCompanies ? null : new HashSet<long>(CompanyReasons(actor).Keys);
+
+    /// <summary>What a company opened through a temporary territory (MyCRM's projects and CSST) says it was opened by.</summary>
+    public const string Project = "Project";
+
+    /// <summary>
+    /// The active companies the person opens (whatever their role: for the roles that open every company this is only what
+    /// their territories give), each with how: the name of a territory of the person or of someone in their list, else
+    /// <see cref="Project"/> for MyCRM's temporary territories.
+    /// </summary>
+    public Dictionary<long, string> CompanyReasons(Actor actor)
     {
-        if (actor.SeesAllCompanies) return null;
         var people = UserList(actor.Login, actor.CrmRole);
-        var territories = store.Find<Territory>(Query.Where("IsActive", true).In("Owner", people.Cast<object>())).Select(t => (object)t.Id).ToList();
-        var ids = new HashSet<long>();
+        var reasons = new Dictionary<long, string>();
+        var territories = store.Find<Territory>(Query.Where("IsActive", true).In("Owner", people.Cast<object>()));
         if (territories.Count > 0)
-            ids.UnionWith(store.Find<CompanyTerritory>(Query.Where("IsActive", true).In("TerritoryId", territories)).Select(ct => ct.CompanyId));
+        {
+            // The person's own territories first, then their list's.
+            var names = territories.OrderBy(t => Strings.SameText(t.Owner, actor.Login) ? 0 : 1).ThenBy(t => t.Id)
+                .Select(t => (t.Id, Name: t.Name.Trim().Length > 0 ? t.Name.Trim() : "Territory " + t.Number.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                .ToList();
+            var links = store.Find<CompanyTerritory>(Query.Where("IsActive", true).In("TerritoryId", territories.Select(t => (object)t.Id)));
+            foreach (var (territoryId, name) in names)
+                foreach (var link in links.Where(l => l.TerritoryId == territoryId))
+                    if (!reasons.ContainsKey(link.CompanyId)) reasons[link.CompanyId] = name;
+        }
         // MyCRM's temporary territories give MyCRM's company Ids, which are the companies' Ids.
-        if (temporary() is { } more) ids.UnionWith(more.CompanyIds(people.ToList()));
+        if (temporary() is { } more)
+            foreach (var id in more.CompanyIds(people.ToList()))
+                if (!reasons.ContainsKey(id)) reasons[id] = Project;
         // Only active companies, as MyCRM.
-        if (ids.Count > 0)
+        if (reasons.Count > 0)
         {
             var active = new HashSet<long>();
-            foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
+            foreach (var chunk in reasons.Keys.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
                 active.UnionWith(store.Find<Company>(Query.Where("IsActive", true).In("Id", chunk)).Select(c => c.Id));
-            ids = active;
+            foreach (var id in reasons.Keys.Where(id => !active.Contains(id)).ToList()) reasons.Remove(id);
         }
-        return ids;
+        return reasons;
     }
 
     /// <summary>

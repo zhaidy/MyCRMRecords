@@ -17,7 +17,7 @@ public sealed class OrdersSqlServerTests
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ESPACE ([ID] int NOT NULL PRIMARY KEY, [NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ENTITY ([ID] int NOT NULL PRIMARY KEY, [ESPACE_ID] int NOT NULL, [NAME] nvarchar(200) NOT NULL, [PHYSICAL_TABLE_NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_USER ([ID] int NOT NULL PRIMARY KEY, [USERNAME] nvarchar(250) NOT NULL, [NAME] nvarchar(250) NOT NULL, [EMAIL] nvarchar(250) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
-        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1), (4, N'MyFiles', 1);");
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1), (4, N'MyFiles', 1), (5, N'MyMachines', 1);");
         foreach (var u in data.UserRows)
         {
             // OutSystems keeps Cara as her email address (bug 29): MyCRMRecords finds her by it.
@@ -36,8 +36,9 @@ public sealed class OrdersSqlServerTests
         foreach (var check in entities)
         {
             var e = check.Entity;
-            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : e.Module == OsModule.MyFiles ? "OSUSR_mf1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
-            var espace = e.Module == OsModule.MyOrders ? 2 : e.Module == OsModule.MyFiles ? 4 : 3;
+            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : e.Module == OsModule.MyFiles ? "OSUSR_mf1_"
+                : e.Module == OsModule.MyMachines ? "OSUSR_mm1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
+            var espace = e.Module == OsModule.MyOrders ? 2 : e.Module == OsModule.MyFiles ? 4 : e.Module == OsModule.MyMachines ? 5 : 3;
             // An older row of the same entity, deleted from the module, is not the table.
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}_OLD', 0);");
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}', 1);");
@@ -61,9 +62,13 @@ public sealed class OrdersSqlServerTests
                         : "nvarchar(2000)",
                 };
             }
-            sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {TypeOf(c)} {(c == "ID" ? "NOT NULL PRIMARY KEY" : "NULL")}"))});");
+            // MyMachines' TempAccess is added to (the Machine access page): its Id is an identity, as OutSystems makes them.
+            var identity = e == Entities.TempAccess;
+            sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {TypeOf(c)} {(c == "ID" ? (identity ? "IDENTITY(1,1) " : "") + "NOT NULL PRIMARY KEY" : "NULL")}"))});");
+            if (identity && rows.Count > 0) sql.AppendLine($"SET IDENTITY_INSERT dbo.[{physical}] ON;");
             foreach (var row in rows)
                 sql.AppendLine($"INSERT INTO dbo.[{physical}] ({string.Join(", ", row.Keys.Select(k => "[" + k.ToUpperInvariant() + "]"))}) VALUES ({string.Join(", ", row.Values.Select(Literal))});");
+            if (identity && rows.Count > 0) sql.AppendLine($"SET IDENTITY_INSERT dbo.[{physical}] OFF;");
         }
         return sql.ToString();
     }

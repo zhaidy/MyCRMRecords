@@ -11,13 +11,15 @@ public sealed record OsEntity(OsModule Module, string Name)
     public override string ToString() => Module + "." + Name;
 }
 
-/// <summary>The OutSystems modules MyCRMRecords reads (their names are settings: MyOrders, MyCRM and MyFiles).</summary>
+/// <summary>The OutSystems modules MyCRMRecords reads (their names are settings: MyOrders, MyCRM, MyFiles and MyMachines).</summary>
 public enum OsModule
 {
     MyOrders,
     MyCRM,
     /// <summary>MyFiles' files (the PDFs MyFile keeps in MyFiles' tables), read only for the Files page.</summary>
     MyFiles,
+    /// <summary>MyMachines' temporary access (TempAccess): read for who sees a company's machines; changed only when switched on.</summary>
+    MyMachines,
 }
 
 /// <summary>
@@ -73,6 +75,9 @@ public static class Entities
     public static readonly OsEntity File = new(OsModule.MyFiles, "File");
     /// <summary>MyFiles' static entity FileType (matched by label, never by Id).</summary>
     public static readonly OsEntity FileType = new(OsModule.MyFiles, "FileType");
+
+    /// <summary>MyMachines' TempAccess: a person (OSSYS_USER) who may see the machines of a customer (by name or BRN).</summary>
+    public static readonly OsEntity TempAccess = new(OsModule.MyMachines, "TempAccess");
 
     /// <summary>Every entity read, with the columns MyCRMRecords needs from it (the Connections tab's Test checks each).</summary>
     public static readonly IReadOnlyList<(OsEntity Entity, string[] Columns)> Checked =
@@ -140,6 +145,7 @@ public static class Entities
             (File, new[] { "ID", "FILENAME", "INVOICENUMBER", "DONUMBER", "REFERENCENUMBER", "PPSNUMBER", "CONTRACTNUMBER", "SERVICENUMBER", "RMANUMBER",
                 "PSDREFNUMBER", "MSDREFNUMBER", "COMPANYID", "COMPANYNAME", "BRN", "CREATEDBY", "CREATEDAT", "ISACTIVE", "FILEBINARY", "FILETYPEID" }),
             (FileType, new[] { "ID", "LABEL" }),
+            (TempAccess, new[] { "ID", "USERID", "CUSTOMERNAME", "BRN", "DATETIME" }),
         };
 
     /// <summary>The name of a module, as set on the Connections tab.</summary>
@@ -147,14 +153,15 @@ public static class Entities
     {
         OsModule.MyOrders => connections.OrdersModule,
         OsModule.MyFiles => connections.FilesModule,
+        OsModule.MyMachines => connections.MachinesModule,
         _ => connections.CrmModule,
     }).Trim();
 
     /// <summary>
     /// Whether a module is found even after it is retired in OutSystems (its tables kept): MyOrders and MyFiles, which
-    /// MyCRMRecords only reads; never MyCRM, which it may write.
+    /// MyCRMRecords only reads; never MyCRM or MyMachines, which it may write.
     /// </summary>
-    public static bool ReadOnly(OsModule module) => module != OsModule.MyCRM;
+    public static bool ReadOnly(OsModule module) => module != OsModule.MyCRM && module != OsModule.MyMachines;
 }
 
 /// <summary>Values of an OutSystems row (column → value, case ignored): empty dates (1900-01-01) and Ids (0) read as null.</summary>

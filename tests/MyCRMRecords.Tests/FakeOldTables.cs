@@ -281,6 +281,7 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
         // and the columns the costing sheets read from MyCRM's, so the connection test passes as it does in production.
         sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (2, N'MyOrders', 1);");
         sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (3, N'MyFiles', 1);");
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (4, N'MyMachines', 1);");
         foreach (var (entity, columns) in Entities.Checked)
         {
             string Type(string column) => column == "ID" || column.EndsWith("ID", StringComparison.Ordinal) ? "bigint" : "nvarchar(2000)";
@@ -295,9 +296,10 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
                     sql.AppendLine($"ALTER TABLE dbo.[{table}] ADD [{column}] {Type(column)} NULL;");
                 continue;
             }
-            var physical = (entity.Module == OsModule.MyOrders ? "OSUSR_or1_" : entity.Module == OsModule.MyFiles ? "OSUSR_mf1_" : "OSUSR_ab1_") + entity.Name.ToUpperInvariant();
+            var physical = (entity.Module == OsModule.MyOrders ? "OSUSR_or1_" : entity.Module == OsModule.MyFiles ? "OSUSR_mf1_"
+                : entity.Module == OsModule.MyMachines ? "OSUSR_mm1_" : "OSUSR_ab1_") + entity.Name.ToUpperInvariant();
             sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {Type(c)} NULL"))});");
-            var espace = entity.Module == OsModule.MyOrders ? 2 : entity.Module == OsModule.MyFiles ? 3 : 1;
+            var espace = entity.Module == OsModule.MyOrders ? 2 : entity.Module == OsModule.MyFiles ? 3 : entity.Module == OsModule.MyMachines ? 4 : 1;
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY ([ESPACE_ID], [NAME], [PHYSICAL_TABLE_NAME], [IS_ACTIVE]) VALUES ({espace}, {Q(entity.Name)}, {Q(physical)}, 1);");
         }
         return sql.ToString();
