@@ -162,22 +162,27 @@ one territory: putting it in another moves it there. MyCRM's territories built f
 
 For Sales Admins. A person's MyCRM role and teams decide what they see and do, here and in MyCRM.
 
-- **CRM users** lists everyone with a CRM profile, with their role, teams, salesman and territory codes and number of
-  territories. Type to search by name, login, email, code or role; **Show everyone** also lists the people who are not
-  CRM users (everyone MyCRM knows, and everyone who has opened MyCRMRecords). **Find someone in Active Directory**
-  finds a person MyCRMRecords does not know yet.
-- **Edit** opens the person:
-  - **Role**: their MyCRM role.
-  - **Team**: Sales, PP Specialist and CLETrainer have one team. Manager, PP, MDS and SOL Specialist Managers and
-    CLETrainerManager are put in the team named after them: press **Create team** if it is not there. CSST has one
-    team or none. Every other role ticks any number of teams (**Select All**, **Unselect All**); with none ticked the
-    person is no longer a CRM user, as in MyCRM (the page warns you).
-  - **Designation**, **Phone Number**, **Salesman Code** and **Territory Code**.
-  - **Save** keeps the person's records and changes them (MyCRM deleted and made them again, losing their history).
-  - **Remove CRM user and territories** (after asking) makes the person no longer a CRM user and takes their
-    territories away with their companies.
-- **Teams**: **New team** and **Edit** set a team's **Name**, **Short Name** and **Active**; the **Active** box in the
-  list switches a team on or off at once. Teams are never deleted. **People** shows who is in a team.
+- **People** (the first tab) lists everyone with a CRM profile, A to Z, one line each: name and login, role, teams,
+  salesman code, territory code and number of territories. Type to search by name, login, email, code or role;
+  **Role** shows the people of one role; **Show everyone** also lists the people who are not CRM users (everyone MyCRM
+  knows, and everyone who has opened MyCRMRecords). **Find someone in Active Directory** finds a person MyCRMRecords
+  does not know yet. On a phone, **Role:** opens a list of the roles (with **Show everyone** under it).
+- **Edit** (or **Add** for someone who is not a CRM user), or a click on the person's line, opens them in a panel at
+  the side (the whole screen on a phone):
+  - **Role**: their MyCRM role; the line under it says how many teams the role takes.
+  - **Team**: Sales, PP Specialist and CLETrainer pick one team. Manager, PP, MDS and SOL Specialist Managers and
+    CLETrainerManager are put in the team named after them: press **Create team** if it is not there. CSST picks one
+    team or **None**. Every other role ticks any number of teams (**Select All**, **Unselect All**); with none ticked
+    the person is no longer a CRM user, as in MyCRM (the panel warns you).
+  - **Details**: **Designation**, **Phone Number**, **Salesman Code** and **Territory Code**, and the person's
+    territories (each opens the territory).
+  - **Save** (**Add as CRM user** for someone new) keeps the person's records and changes them (MyCRM deleted and
+    made them again, losing their history).
+  - **Remove CRM user and territories** (under **Remove access**, after asking) makes the person no longer a CRM user
+    and takes their territories away with their companies.
+- **Teams** (the second tab): **New team** and **Edit** set a team's **Name**, **Short Name** and **Active**; the
+  switch in the **Active** column switches a team on or off at once. Teams are never deleted. **People** (or the number
+  of people) shows who is in a team.
 - A change to someone's role or teams counts in MyCRMRecords at once; in MyCRM, from their next sign-in.
 
 ## Files
