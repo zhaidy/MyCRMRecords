@@ -199,7 +199,7 @@ public sealed class SettingsFile<T>(string path, ISecretProtector protector) whe
         lock (Gate)
         {
             if (!File.Exists(_path)) return new T();
-            var settings = Json.Deserialize<T>(File.ReadAllText(_path)) ?? new T();
+            var settings = Json.Deserialize<T>(Retrying(() => ReadShared(_path))) ?? new T();
             Transform(settings, protect: false);
             return settings;
         }
@@ -213,9 +213,38 @@ public sealed class SettingsFile<T>(string path, ISecretProtector protector) whe
             Transform(copy, protect: true);
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path)!);
             var temp = _path + ".tmp";
-            File.WriteAllText(temp, Json.Serialize(copy, indented: true));
-            if (File.Exists(_path)) File.Replace(temp, _path, null);
-            else File.Move(temp, _path);
+            var text = Json.Serialize(copy, indented: true);
+            Retrying(() =>
+            {
+                File.WriteAllText(temp, text);
+                if (File.Exists(_path)) File.Replace(temp, _path, null);
+                else File.Move(temp, _path);
+                return 0;
+            });
+        }
+    }
+
+    /// <summary>
+    /// Reads the file letting others write, replace or delete it meanwhile, so a reader never stops a save (File.Replace
+    /// needs the file opened with delete sharing by everyone else).
+    /// </summary>
+    private static string ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>
+    /// Tries again for up to about three seconds while another process has the file open: during a deployment the old and
+    /// the new website run side by side for a moment, and a virus scanner or backup can hold the file briefly too.
+    /// </summary>
+    private static TResult Retrying<TResult>(Func<TResult> work)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try { return work(); }
+            catch (IOException ex) when (attempt < 15 && ex is not FileNotFoundException && ex is not DirectoryNotFoundException) { Thread.Sleep(200); }
         }
     }
 
