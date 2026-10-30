@@ -669,3 +669,103 @@ table.data.files-table{table-layout:fixed}
 .file-card-line{font-size:13.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-card-line.strong{color:var(--ink)}
 }
+
+/* The Companies page (companies.js): filters as glass capsules above a one-line list, the ownership switch (.tabs),
+   heading actions as one glass capsule and an accent New company; on a phone a card per company (.file-card) and the
+   filters in a bottom sheet behind a round button */
+.companies-heading{align-items:flex-end;flex-wrap:nowrap}
+.companies-title{min-width:0}
+.companies-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.companies-title p b{color:var(--ink);font-weight:600}
+.companies-filter-button{display:none;position:relative;flex:none;width:48px;height:48px;border-radius:24px}
+.filter-dot{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:4px;background:var(--accent)}
+.action-capsule,.filter-capsule{display:inline-flex;align-items:center;border:1px solid var(--rim);background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow);color:var(--glass-fg)}
+.action-capsule{height:44px;padding:0 4px;border-radius:22px;gap:2px}
+.capsule-button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border:0;border-radius:18px;background:transparent;color:var(--glass-fg);font-weight:600;white-space:nowrap}
+.capsule-button:hover{background:rgba(var(--glass-rgb),.6);color:var(--accent)}
+.capsule-divider{width:1px;height:22px;background:var(--rim)}
+.companies-ticked{gap:8px;padding:0 4px 0 16px;white-space:nowrap}
+.companies-ticked .text-button{color:var(--glass-fg)}
+.companies-ticked .button{height:36px}
+.companies-filters{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
+.companies-filter-row{display:flex;align-items:center;gap:10px}
+.companies-filter-row .search-box{flex:1 1 auto;min-width:200px}
+.filter-capsule{flex:none;height:48px;padding:0 14px 0 16px;border-radius:24px;gap:6px;font-size:14px;cursor:pointer}
+.filter-capsule>span{color:var(--ink-2);white-space:nowrap}
+.filter-capsule select,.filter-capsule input{border:0;outline:none;background:transparent;font:inherit;font-weight:600;color:var(--glass-fg);min-width:0}
+.filter-capsule select{max-width:180px;cursor:pointer}
+.filter-capsule input{width:72px}
+.filter-capsule:focus-within{outline:2px solid var(--focus);outline-offset:1px}
+.companies-filter-row .text-button{flex:none;padding:4px 8px}
+.companies-show-row{display:flex;align-items:center;gap:14px}
+.companies-show{margin:0;flex:none}
+.companies-show .tab{white-space:nowrap}
+.companies-show-note{margin:0;font-size:14px;color:var(--ink-2)}
+.companies-list{border-radius:24px;background:var(--card);overflow:hidden}
+.companies-list .empty{border-radius:0}
+.companies-list>.pager{margin:0;padding:12px 20px;border-top:1px solid var(--line)}
+table.data.companies-table{table-layout:fixed;width:100%}
+.companies-table th,.companies-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.companies-table th{padding-top:14px;padding-bottom:14px}
+.companies-table th:first-child,.companies-table td:first-child{padding-left:24px}
+.companies-table th:last-child,.companies-table td:last-child{padding-right:24px}
+.companies-table td{height:48px;padding-top:0;padding-bottom:0;color:var(--ink-2)}
+.companies-table tbody tr{cursor:pointer}
+.companies-table tr.ticked td{background:var(--accent-tint)}
+.companies-table .tick{width:52px;padding-right:0}
+.companies-table .tick input{accent-color:var(--accent);width:16px;height:16px;margin:0;vertical-align:middle}
+.companies-table td.co-name a{color:var(--accent);font-weight:600}
+.companies-table td.co-name a:hover{text-decoration:underline}
+.companies-table .co-name{width:26%}
+.companies-table .co-brn{width:11%}
+.companies-table .co-postal{width:104px;font-variant-numeric:tabular-nums}
+.companies-table .co-territory{width:11%}
+.companies-table .co-type{width:10%}
+.companies-table td:nth-last-child(4){color:var(--ink)}
+.no-salesperson{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral)}
+.put-companies{margin:0 0 14px;padding:0;list-style:none;border-radius:16px;background:var(--surface);overflow:hidden}
+.put-companies li{padding:10px 16px;font-weight:600;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.put-companies li:last-child{border-bottom:0}
+.put-changes{margin-top:14px}
+.put-changes p{margin:4px 0 0;color:inherit}
+dialog.companies-sheet{margin:auto 8px calc(8px + env(safe-area-inset-bottom));width:calc(100vw - 16px);max-width:560px;border-radius:34px}
+@media(min-width:577px){dialog.companies-sheet{margin:auto}}
+.sheet-form{display:flex;flex-direction:column;gap:14px;padding:8px 20px 22px}
+.sheet-grabber{align-self:center;width:38px;height:5px;border-radius:3px;background:var(--rim)}
+.sheet-head{display:flex;align-items:center;gap:10px}
+.sheet-head h2{flex:1;margin:0;text-align:center;font-size:17px}
+.sheet-group{border-radius:22px;background:var(--card);overflow:hidden}
+.sheet-group label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:0 16px;color:var(--ink)}
+.sheet-group label+label{border-top:1px solid var(--line)}
+.sheet-group label>span{flex:none}
+.sheet-group select,.sheet-group input{flex:1;min-width:0;border:0;outline:none;background:transparent;font:inherit;font-size:16px;color:var(--accent);text-align:right;text-align-last:right}
+.sheet-form>.button.secondary{align-self:center}
+.company-card-owner{display:flex;align-items:center;gap:8px;margin-top:2px}
+.company-card-owner .salesperson{flex:none;max-width:60%;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;background:var(--accent-light);color:var(--accent)}
+.company-card-owner .no-salesperson{flex:none;height:24px;font-size:12px}
+.company-card-owner>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1200px) and (min-width:901px){.companies-table .co-type{display:none}}
+@media(max-width:1100px) and (min-width:901px){.companies-heading{flex-wrap:wrap}.companies-filter-row{flex-wrap:wrap}}
+@media(max-width:900px){
+.companies-heading{align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.companies-title{flex:1 0 auto}
+.companies-title h1{font-size:32px}
+.companies-title p{font-size:15px}
+.companies-heading .heading-actions{flex-wrap:nowrap;gap:6px}
+.companies-heading .action-label,.companies-ticked{display:none!important}
+.companies-heading .button.primary{width:44px;padding:0;justify-content:center}
+.capsule-button{padding:0 10px}
+.companies-filter-button{display:inline-flex}
+.companies-filters{gap:14px}
+.companies-wide{display:none!important}
+.companies-filter-row .search-box{min-width:0}
+.companies-show-row{flex-direction:column;align-items:stretch;gap:8px}
+.companies-show{display:flex;width:100%}
+.companies-show .tab{flex:1 1 0;min-width:0;padding:0 4px;font-size:13.5px;text-align:center;justify-content:center;overflow:hidden;text-overflow:ellipsis}
+.count-scope{display:none}
+.companies-show-note{margin:0 4px;font-size:13px}
+.companies-list{background:transparent;border-radius:0;overflow:visible}
+.companies-list>#rows{display:none}
+.companies-list .file-card{min-height:76px}
+.companies-list>.pager{border-top:0;padding:12px 4px}
+}

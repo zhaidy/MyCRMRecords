@@ -47,12 +47,25 @@ as on a computer; without it, the app says MyCRMRecords can't be reached, with *
 
 ## Companies
 
-The companies you may open, by name, 50 at a time; the first page shows straight away.
+The companies you may open, by name, 50 at a time, one line each; the first page shows straight away. The line under
+the title says how many there are.
 
-- Type in **Company name or BRN** to search; choose a **Customer Type** or **Group Name**, or type a **Postal Code**
-  (of any of the company's addresses), to narrow the list. **Reset** clears them.
-- Each row shows the company's BRN, the postal code of its first address, its **Salesperson** and who created it.
-  Press **Open** (or the name) to open the company.
+- Type in **Company name or BRN** to search; choose a **Customer type** or **Group name**, or type a **Postal code**
+  (of any of the company's addresses), to narrow the list. **Reset** clears them. On a phone, tap the round filter
+  button beside the search for **Customer type**, **Group name** and **Postal code**, then **Apply** (**Reset
+  filters** clears them); a dot on the button means filters are on.
+- Each row shows the company's **BRN**, the postal code of its first address, its **Salesperson** (or **No
+  salesperson**), its **Territory**, **Customer type** and who created it. Click the name, or anywhere on the row, to
+  open the company. On a phone each company is a card: tap it.
+- If you see every company (Sales Admins, for example), choose what to show above the list:
+  - **All**: every active company.
+  - **Mine**: the companies of your territories (and, by your role, your team's). MyCRM's project territories don't
+    count.
+  - **No salesperson**: active companies that are in no permanent territory.
+- **Put companies in a territory** (Sales Admins and MD): choose **No salesperson**, tick companies (the box in the
+  heading ticks all those shown), and press **Put in a territory…** at the top. Choose the **Territory**; the dialog
+  says what changes: the companies get that territory's salesperson and leave the No salesperson list, and the move is
+  recorded. Press **Put … in …** to save it in MyCRM. **Clear** unticks them. This is done on a computer.
 - **New company** (Sales Admins) opens the company form; see [A company](#a-company).
 - **Upload number of employees** (MyCRM Admins): choose an Excel workbook with the columns **BRN** and
   **NoOfEmployees** (**Download a sample** gives one). The first active company with each BRN gets the number; rows
