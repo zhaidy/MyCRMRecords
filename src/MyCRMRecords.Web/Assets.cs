@@ -42,6 +42,16 @@ public static class Brand
         "<span class=\"brand-mark\" aria-hidden=\"true\"><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>"
         + Shapes + "</svg></span>";
 
+    /// <summary>
+    /// What lets a phone or computer install MyCRMRecords as an app (manifest.json, sw.js, the Install app button in
+    /// common.js): the manifest, the home screen icon and the colour of the phone's status bar.
+    /// </summary>
+    public const string AppLinks =
+        "<link rel=\"manifest\" href=\"manifest.json\"><link rel=\"apple-touch-icon\" href=\"pwa/apple-touch-icon.png\">"
+        + "<meta name=\"theme-color\" content=\"#f2f2f7\" media=\"(prefers-color-scheme: light)\"><meta name=\"theme-color\" content=\"#000000\" media=\"(prefers-color-scheme: dark)\">"
+        + "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"mobile-web-app-capable\" content=\"yes\">"
+        + "<meta name=\"apple-mobile-web-app-title\" content=\"MyCRMRecords\"><meta name=\"apple-mobile-web-app-status-bar-style\" content=\"default\">";
+
     /// <summary>The browser tab's icon: the same picture, written into the page so there is no file to deploy.</summary>
     public static string TabIcon { get; } =
         "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml,"

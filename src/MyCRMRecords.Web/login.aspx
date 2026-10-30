@@ -2,10 +2,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Sign in · MyCRMRecords</title>
   <link rel="stylesheet" href="<%: MyCRMRecords.Web.Assets.Url("app.css") %>">
-  <%= MyCRMRecords.Web.Brand.TabIcon %>
+  <%= MyCRMRecords.Web.Brand.TabIcon %><%= MyCRMRecords.Web.Brand.AppLinks %>
 </head>
 <body class="login-body">
   <div class="login-main" role="main">
