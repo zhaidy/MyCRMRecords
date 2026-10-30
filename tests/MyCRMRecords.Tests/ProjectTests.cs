@@ -195,6 +195,13 @@ public sealed class ProjectTests
         Assert.Equal(56, world.D.Projects.List(admin, "open", "lim", 0).Total);
         Assert.Equal(7, world.D.Projects.List(admin, "open", "batch 5", 0).Total);
         Assert.Equal(new[] { "Lim" }, first.Rows[0].Companies);
+        Assert.Equal(1, first.Rows[0].CompanyCount);
+        Assert.Equal(2, world.D.Projects.List(admin, "open", "cover", 0).Rows.Single().CompanyCount);
+        // A project's page lists the first companies added and counts them all.
+        var cover = world.D.Projects.List(admin, "open", "cover", 0).Rows.Single().Project.Id;
+        var listedOne = world.D.Projects.Companies(cover, 1);
+        Assert.Equal(2, listedOne.Total);
+        Assert.Equal(new[] { "Tan" }, listedOne.Rows.Select(r => r.Name));
     }
 
     [Fact]

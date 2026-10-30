@@ -219,7 +219,7 @@ public sealed class ProjectsApi(CrmApp w)
             total, skip, take = Projects.PageSize,
             rows = rows.Select(r => new
             {
-                id = r.Project.Id, name = r.Project.ProjectName, status = ProjectStatuses.List.Label(r.Project.Status), companies = r.Companies, members = r.Members,
+                id = r.Project.Id, name = r.Project.ProjectName, status = ProjectStatuses.List.Label(r.Project.Status), companies = r.Companies, companyCount = r.CompanyCount, members = r.Members,
                 caretaker = r.Caretaker, owner = name(r.Project.Owner), endDate = Date(r.Project.EndDate), updatedDate = Date(r.Project.UpdatedDate),
                 updatedBy = name(r.Project.UpdatedBy), closed = r.Project.IsClosed,
             }),
@@ -243,6 +243,7 @@ public sealed class ProjectsApi(CrmApp w)
         if (!w.Projects.MaySee(actor, p)) return ApiResponse.Forbidden("You don't have permissions to view this project: neither you nor your team are in it.");
         var today = w.Clock().Date;
         var (losing, companyCount) = w.Projects.LosingAccess(p.Id);
+        var (companyTotal, companyRows) = w.Projects.Companies(p.Id, Projects.ListedOnPage);
         var activities = w.Projects.Activities(p.Id);
         var names = activities.Where(a => a.CompanyId is not null).Select(a => a.CompanyId!.Value).Distinct()
             .ToDictionary(c => c, c => w.Store.Get<Company>(c)?.Name.Trim() ?? "");
@@ -256,10 +257,10 @@ public sealed class ProjectsApi(CrmApp w)
                 endDate = Date(p.EndDate), owner = p.Owner, ownerName = personName(p.Owner), closed = p.IsClosed, open = ProjectTerritories.IsOpen(p, today),
                 updatedDate = Date(p.UpdatedDate), updatedBy = personName(p.UpdatedBy),
             },
-            companies = w.Projects.Companies(p.Id).Select(CompanyJson),
+            companies = companyRows.Select(CompanyJson), companyTotal,
             members = w.Projects.Members(p.Id).Select(m => new
             {
-                id = m.Member.Id, login = m.Member.User, name = m.Name, role = m.Member.Role, roleLabel = ProjectRoles.List.Label(m.Member.Role), reached = m.Reached,
+                id = m.Member.Id, login = m.Member.User, name = m.Name, role = m.Member.Role, roleLabel = ProjectRoles.List.Label(m.Member.Role), reached = m.Reached, reachedCount = m.ReachedCount,
                 isOwner = m.Member.Role == ProjectRoles.ProjectManager && Strings.SameText(m.Member.User, p.Owner),
             }),
             activities = activities.Select(a => new

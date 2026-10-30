@@ -98,6 +98,11 @@ public sealed class ProjectTerritories(Func<string, long?> userIdOf)
         s.Update(territory);
     }
 
+    /// <summary>Whether the member's temporary territory gives them a company now (one row read, not all of them).</summary>
+    public static bool ReachesAny(IRecordStore s, ProjectMember m) =>
+        m.TerritoryId is { } id && s.Get<TemporaryTerritory>(id) is { IsActive: true } territory
+        && s.FindFirst<TemporaryCompanyTerritory>(Query.Where("TerritoryId", territory.Id).And("IsActive", true)) is not null;
+
     /// <summary>The companies of the member's temporary territory now (none when it is inactive).</summary>
     public static IReadOnlyList<long> Reached(IRecordStore s, ProjectMember m)
     {
@@ -140,11 +145,31 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         public string? Role { get; set; }
     }
 
-    public sealed record Row(Project Project, IReadOnlyList<string> Companies, int Members, string Caretaker);
+    /// <summary>A project in the list: its first companies (<see cref="ListedCompanies"/>) of <c>CompanyCount</c>.</summary>
+    public sealed record Row(Project Project, IReadOnlyList<string> Companies, int CompanyCount, int Members, string Caretaker);
+
+    /// <summary>How many of a project's companies the Projects list names; the rest are counted.</summary>
+    public const int ListedCompanies = 3;
+
+    /// <summary>
+    /// Each project's count of active company links and its first <see cref="ListedCompanies"/> companies: in MyCRM one
+    /// grouped query (a project can hold tens of thousands of companies), elsewhere (tests) read from the store.
+    /// </summary>
+    private IReadOnlyDictionary<long, (int Count, IReadOnlyList<long> First)> CompanySummaries(IReadOnlyCollection<long> projectIds)
+    {
+        if (store is RoutedStore { Crm: MyCrmStore crm } && crm.Available) return crm.ProjectCompanies(projectIds, ListedCompanies);
+        return store.Find<ProjectCompany>(Query.Where("IsActive", true).In("ProjectId", projectIds.Cast<object>()))
+            .GroupBy(l => l.ProjectId)
+            .ToDictionary(g => g.Key, g => (g.Count(), (IReadOnlyList<long>)g.OrderBy(l => l.Id).Select(l => l.CompanyId).Take(ListedCompanies).ToList()));
+    }
 
     public sealed record CompanyRow(long Id, string Name, string Brn, string Salesperson, string Territory, bool Active);
 
-    public sealed record MemberRow(ProjectMember Member, string Name, IReadOnlyList<string> Reached);
+    /// <summary>A member: the first <see cref="ListedCompanies"/>·… names of the companies their temporary territory gives them, of <c>ReachedCount</c>.</summary>
+    public sealed record MemberRow(ProjectMember Member, string Name, IReadOnlyList<string> Reached, int ReachedCount);
+
+    /// <summary>How many of a project's companies its page lists (some of MyCRM's projects hold tens of thousands).</summary>
+    public const int ListedOnPage = 300;
 
     public sealed record HistoryLine(DateTime At, string What, string By);
 
@@ -230,8 +255,8 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         var page = projects.OrderByDescending(p => p.Id).Skip(Math.Max(0, skip)).Take(PageSize).ToList();
         if (page.Count == 0) return (total, Array.Empty<Row>());
         var pids = page.Select(p => (object)p.Id).ToList();
-        var links = store.Find<ProjectCompany>(Query.Where("IsActive", true).In("ProjectId", pids));
-        var names = CompanyNames(links.Select(l => l.CompanyId));
+        var summary = CompanySummaries(page.Select(p => p.Id).ToList());
+        var names = CompanyNames(summary.Values.SelectMany(x => x.First));
         var members = store.Find<ProjectMember>(Query.Where("IsActive", true).In("ProjectId", pids));
         var leads = page.Select(p =>
             {
@@ -242,20 +267,24 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         var nameOf = people.NamesOf(leads.Where(m => m is not null).Select(m => m!.User));
         var rows = page.Select((p, i) =>
             {
-                var companies = links.Where(l => l.ProjectId == p.Id).OrderBy(l => l.Id).Select(l => names.TryGetValue(l.CompanyId, out var n) ? n : "#" + l.CompanyId.ToString(CultureInfo.InvariantCulture))
-                    .Distinct().ToList();
+                var (count, firstIds) = summary.TryGetValue(p.Id, out var x) ? x : (0, (IReadOnlyList<long>)Array.Empty<long>());
+                var companies = firstIds.Select(c => names.TryGetValue(c, out var n) ? n : "#" + c.ToString(CultureInfo.InvariantCulture)).Distinct().ToList();
                 var lead = leads[i];
                 var caretaker = lead is null ? "" : nameOf(lead.User) + " (" + ProjectRoles.List.Label(lead.Role) + ")";
-                return new Row(p, companies, members.Where(m => m.ProjectId == p.Id).Select(m => m.User).Distinct(StringComparer.OrdinalIgnoreCase).Count(), caretaker);
+                return new Row(p, companies, count, members.Where(m => m.ProjectId == p.Id).Select(m => m.User).Distinct(StringComparer.OrdinalIgnoreCase).Count(), caretaker);
             }).ToList();
         return (total, rows);
     }
 
     /// <summary>The project's active companies, by name, with their salesperson and territory.</summary>
-    public IReadOnlyList<CompanyRow> Companies(long projectId)
+    public IReadOnlyList<CompanyRow> Companies(long projectId) => Companies(projectId, int.MaxValue).Rows;
+
+    /// <summary>The project's active companies (at most <paramref name="take"/>, the first added), by name, and how many it has.</summary>
+    public (int Total, IReadOnlyList<CompanyRow> Rows) Companies(long projectId, int take)
     {
-        var ids = CompanyIds(store, projectId);
-        if (ids.Count == 0) return Array.Empty<CompanyRow>();
+        var all = CompanyIds(store, projectId);
+        if (all.Count == 0) return (0, Array.Empty<CompanyRow>());
+        var ids = all.Take(take).ToList();
         var companies = new List<Company>();
         foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v)) companies.AddRange(store.Find<Company>(Query.All().In("Id", chunk)));
         var owners = territories.Owners(ids);
@@ -263,17 +292,18 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         return companies.Select(c => owners.TryGetValue(c.Id, out var o)
                 ? new CompanyRow(c.Id, c.Name.Trim(), c.Brn, nameOf(o.Owner), Territories.Title(o.Territory), c.IsActive)
                 : new CompanyRow(c.Id, c.Name.Trim(), c.Brn, "", "", c.IsActive))
-            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList() is var rows ? (all.Count, (IReadOnlyList<CompanyRow>)rows) : default;
     }
 
     /// <summary>The project's active members, the Project Manager first, with the companies their temporary territory gives them.</summary>
     public IReadOnlyList<MemberRow> Members(long projectId)
     {
-        var names = CompanyNames(CompanyIds(store, projectId));
         var members = ActiveMembers(store, projectId);
         var nameOf = people.NamesOf(members.Select(m => m.User));
+        var reached = members.ToDictionary(m => m.Id, m => ProjectTerritories.Reached(store, m));
+        var names = CompanyNames(reached.Values.SelectMany(r => r.Take(ListedCompanies * 7)));
         return members
-            .Select(m => new MemberRow(m, nameOf(m.User), ProjectTerritories.Reached(store, m).Select(c => names.TryGetValue(c, out var n) ? n : "").Where(n => n.Length > 0).ToList()))
+            .Select(m => new MemberRow(m, nameOf(m.User), reached[m.Id].Take(ListedCompanies * 7).Select(c => names.TryGetValue(c, out var n) ? n : "").Where(n => n.Length > 0).ToList(), reached[m.Id].Count))
             .OrderBy(m => m.Member.Role == ProjectRoles.ProjectManager ? 0 : 1).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -607,7 +637,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     /// <summary>Who would lose access if the project closed: the members with a temporary territory now, and the companies.</summary>
     public (int Members, int Companies) LosingAccess(long id)
     {
-        var members = ActiveMembers(store, id).Count(m => ProjectTerritories.Reached(store, m).Count > 0);
+        var members = ActiveMembers(store, id).Count(m => ProjectTerritories.ReachesAny(store, m));
         return (members, CompanyIds(store, id).Count);
     }
 

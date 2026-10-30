@@ -42,7 +42,7 @@
     $$('[data-show]', page).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.show === filter.show)));
     $('#count').innerHTML = `<b>${data.total} project${data.total === 1 ? '' : 's'}</b> · you or your team are in · newest first`;
     const rows = data.rows;
-    const companies = r => r.companies.length ? `${esc(r.companies[0])}${r.companies.length > 1 ? ` <span class="muted">+${r.companies.length - 1} more</span>` : ''}` : '<span class="muted">–</span>';
+    const companies = r => { const n = r.companyCount ?? r.companies.length; return r.companies.length ? `${esc(r.companies[0])}${n > 1 ? ` <span class="muted">+${(n - 1).toLocaleString()} more</span>` : ''}` : '<span class="muted">–</span>'; };
     $('#rows').innerHTML = rows.length ? `<table class="data companies-table proj-table"><thead><tr><th class="proj-name">Project name</th><th>Status</th><th class="proj-cos">Companies</th>
         <th class="proj-members">Members</th><th>Owner</th><th class="proj-date">End date</th><th class="proj-updated">Updated</th><th class="proj-closed">Closed</th></tr></thead><tbody>
       ${rows.map(r => `<tr data-href="project.aspx?id=${r.id}"${r.closed ? ' class="closed"' : ''}><td class="co-name"><a href="project.aspx?id=${r.id}">${esc(r.name)}</a></td><td>${esc(r.status)}</td>

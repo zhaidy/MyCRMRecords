@@ -7,7 +7,7 @@
   const {$, $$, esc, api, toast, ask, date, dateTime, dateInput, showErrors, drawIcons} = window.WH;
   const page = $('#page');
   const TABS = [['database', 'Database'], ['migrations', 'Data migrations'], ['connections', 'Connections'], ['email', 'Email'],
-    ['jobs', 'Scheduled tasks'], ['mycrm', 'MyCRM']];
+    ['jobs', 'Scheduled tasks'], ['mycrm', 'MyCRM'], ['speed', 'Speed']];
   let tab = TABS.some(([id]) => id === location.hash.slice(1)) ? location.hash.slice(1) : 'database';
 
   function shell() {
@@ -22,7 +22,7 @@
     $$('.page-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     history.replaceState(null, '', '#' + tab);
     $('#tab').innerHTML = '<div class="loading">Loading…</div>';
-    await {database, migrations, connections, email, jobs, mycrm}[tab]();
+    await {database, migrations, connections, email, jobs, mycrm, speed}[tab]();
     drawIcons($('#tab'));
   }
   page.addEventListener('click', event => { const t = event.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; show(); } });
@@ -247,6 +247,23 @@
   }
 
   // ---- MyCRM: whether MyCRMRecords may change its data, and what it changed ----
+  // How long MyCRMRecords' answers take (since the website started), the slowest first: the aim is 0.3 s.
+  async function speed() {
+    const answer = await api('GET', 'admin/speed');
+    if (!answer.result.ok) { $('#tab').innerHTML = `<div class="notice error">${esc(answer.result.message)}</div>`; return; }
+    const ms = v => v >= 1000 ? (v / 1000).toFixed(1) + ' s' : v + ' ms';
+    const slow = v => v > answer.aimMs ? ' class="speed-slow"' : '';
+    $('#tab').innerHTML = `<section class="card">
+        <div class="card-heading"><h2>Speed</h2><button type="button" class="button secondary small-btn" id="speed-clear">Start again</button></div>
+        <p class="muted">How long each kind of request took since ${esc(dateTime(answer.since))} (the website's start or <strong>Start again</strong>), the slowest first. The aim is ${ms(answer.aimMs)}.
+          <strong>Typical</strong>: half were faster; <strong>Slow</strong>: 9 in 10 were faster (of the last 50).</p>
+        ${answer.lines.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Request</th><th class="num">Times</th><th class="num">Over ${ms(answer.aimMs)}</th><th class="num">Typical</th><th class="num">Slow</th><th class="num">Slowest</th><th>Last</th></tr></thead><tbody>
+          ${answer.lines.map(l => `<tr><td><code>${esc(l.route)}</code></td><td class="num">${l.count}</td><td class="num">${l.overAim}</td><td class="num"${slow(l.typicalMs)}>${ms(l.typicalMs)}</td><td class="num"${slow(l.slowMs)}>${ms(l.slowMs)}</td><td class="num"${slow(l.maxMs)}>${ms(l.maxMs)}</td><td>${esc(dateTime(l.last))}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="muted">No requests yet.</p>'}
+      </section>`;
+    $('#speed-clear').addEventListener('click', async () => { const r = await api('POST', 'admin/speed/clear', {}); toast(r.result.message, !r.result.ok); speed(); });
+  }
+
   async function mycrm() {
     const d = await api('GET', 'admin/mycrm');
     $('#tab').innerHTML = `<section class="card"><h2>MyCRM's data</h2>
