@@ -118,9 +118,10 @@ public class AppPage : Page
             // Install app (common.js): on a computer, a QR code to open MyCRMRecords on a phone and install it there.
             .Append("<button type=\"button\" class=\"install-button\" id=\"install-button\" hidden><span data-icon=\"phone-download\"></span><span class=\"install-label\">Install app</span></button>")
             .Append($"<a class=\"help-button{(current == "guide.aspx" ? " selected" : "")}\" id=\"guide-button\" href=\"guide.aspx{(guideSection.Length > 0 ? "#" + guideSection : "")}\" title=\"User guide\" aria-label=\"User guide\"><span data-icon=\"help\"></span></a>")
-            .Append($"<span class=\"avatar\" title=\"{HttpUtility.HtmlAttributeEncode(DisplayName)} ({HttpUtility.HtmlAttributeEncode(Login)})\">{HttpUtility.HtmlEncode(InitialsOf(DisplayName))}</span>")
-            .Append($"<span class=\"appbar-name\">{HttpUtility.HtmlEncode(DisplayName)}</span>")
-            .Append("<a class=\"sign-out\" href=\"logout.aspx\" title=\"Sign out\" aria-label=\"Sign out\"><span data-icon=\"logout\"></span></a>")
+            // The person: their initials; a click shows their name and login and Sign out (common.js).
+            .Append($"<span class=\"avatar-wrap\"><button type=\"button\" class=\"avatar\" id=\"avatar-button\" aria-haspopup=\"true\" aria-expanded=\"false\" aria-controls=\"avatar-menu\" title=\"{HttpUtility.HtmlAttributeEncode(DisplayName)} ({HttpUtility.HtmlAttributeEncode(Login)})\" aria-label=\"Signed in as {HttpUtility.HtmlAttributeEncode(DisplayName)}\">{HttpUtility.HtmlEncode(InitialsOf(DisplayName))}</button>")
+            .Append($"<span class=\"avatar-menu\" id=\"avatar-menu\" hidden><span class=\"avatar-menu-name\">{HttpUtility.HtmlEncode(DisplayName)}</span><span class=\"avatar-menu-login\">{HttpUtility.HtmlEncode(Login)}</span>")
+            .Append("<a class=\"avatar-menu-item\" href=\"logout.aspx\"><span data-icon=\"logout\"></span>Sign out</a></span></span>")
             .Append("</div></header><div class=\"menu-backdrop\" id=\"menu-backdrop\"></div>");
         // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Files, Machines, Orders (the costing
         // sheets and request forms) and More, which opens the rest of the menu (the links above) as a sheet.

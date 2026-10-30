@@ -6,7 +6,7 @@
   // MyOrders' delivery form or collection form as a page. Laid out as the approved design, as a costing sheet: the key
   // details under the title, the sections as tabs (Items and Delivery, or Collection items; More details) with History
   // and Attachments beside them; on a phone every section is a card that opens and closes.
-  const {$, $$, esc, api, drawIcons, dateTime, date, param} = window.WH;
+  const {$, $$, esc, api, drawIcons, dateTime, date, param, crumbs} = window.WH;
   const page = $('#page');
   const id = Number(param('id') || 0);
   const money = (value, digits = 2) => Number(value || 0).toLocaleString('en-SG', {minimumFractionDigits: digits, maximumFractionDigits: digits});
@@ -156,7 +156,7 @@
     if (!tabs.some(t => t[0] === tab)) tab = tabs[0][0];
     page.innerHTML = `
       <div class="page-heading cs-heading"><div class="cs-title">
-          <nav class="cs-crumbs" aria-label="Breadcrumb">${f.companyId ? `<a href="company.aspx?id=${f.companyId}"><span data-icon="arrow-left"></span>Back to ${esc(f.company)}</a><span aria-hidden="true">·</span>` : ''}<a href="requestforms.aspx">${f.companyId ? '' : '<span data-icon="arrow-left"></span>'}All request forms</a></nav>
+          ${crumbs(`Request Form # ${f.id}`, [['Request forms', 'requestforms.aspx']])}
           <div class="cs-name"><h1>Request Form # ${f.id}</h1><span class="orders-status rf-type">${esc(f.type)}</span><span class="orders-status ${tone}">${esc(f.status)}</span></div>
           <p>${f.reference ? `Ref # ${esc(f.reference)} · ` : ''}${f.companyId ? `<a href="company.aspx?id=${f.companyId}">${esc(f.company)}</a>` : esc(f.company)}${f.salesman ? ' · ' + esc(f.salesman) : ''}</p>
           <p class="muted small cs-readonly">Read only, from MyOrders.</p></div>

@@ -1404,3 +1404,46 @@ dialog.users-panel{inset:0;width:100vw;max-width:none;height:100%;border-radius:
 .rf-declaration{margin:14px 0 0}
 @media(max-width:1200px) and (min-width:901px){.rf-table .c-type,.rf-table .c-rep{display:none}}
 @media(max-width:900px){.orders-card-foot .rf-pending{margin-left:0;flex:none}}
+
+/* ==== Top bar while scrolling, the person's menu and the breadcrumb (2026-10-30, the design's shell) ====
+   Scrolling down folds the menu to the page you are on and shows the page's title in the bar (common.js: body.bar-compact);
+   scrolling up opens it again. Once the page scrolls, a blurred band keeps what passes under the bar readable. */
+.sidebar>.nav-item,.sidebar>.nav-group{max-width:220px;overflow:hidden;transition:max-width .42s cubic-bezier(.34,1.2,.64,1),opacity .25s,padding .3s}
+.appbar-title{flex:1 1 auto;min-width:0;font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--glass-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s}
+@media(min-width:901px){
+  body.bar-compact .sidebar>.nav-item:not(.selected),body.bar-compact .sidebar>.nav-group:not(:has(>.nav-item.selected)){max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
+  body.bar-compact .appbar-title{opacity:1}
+  body.bar-compact .install-button .install-label{display:none}
+  body:not(.bar-compact) .appbar-title{flex:0 0 0;width:0}
+}
+body:before{content:"";position:fixed;top:0;left:0;right:0;height:84px;z-index:18;pointer-events:none;background:color-mix(in srgb,var(--bg) 55%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent);mask-image:linear-gradient(to bottom,#000 70%,transparent);opacity:0;transition:opacity .25s}
+body.bar-scrolled:before{opacity:1}
+@media print{body:before{display:none}}
+
+/* The person's menu, behind the avatar */
+.avatar-wrap{position:relative;display:inline-flex}
+button.avatar{border:0;padding:0;font:inherit;font-size:14px;font-weight:800;cursor:pointer;color:var(--accent)}
+button.avatar:hover,button.avatar[aria-expanded=true]{box-shadow:inset 0 0 0 2px var(--accent-border)}
+.avatar-menu{position:absolute;top:calc(100% + 10px);right:0;min-width:240px;display:flex;flex-direction:column;padding:8px;border-radius:24px;z-index:30;background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .35));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow);color:var(--glass-fg)}
+.avatar-menu[hidden]{display:none}
+.avatar-menu-name{padding:8px 12px 0;font-weight:700}
+.avatar-menu-login{padding:0 12px 10px;font-size:13px;color:var(--ink-2);border-bottom:1px solid var(--line);margin-bottom:6px}
+.avatar-menu-item{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:16px;color:var(--glass-fg);font-weight:600;text-decoration:none}
+.avatar-menu-item:hover{background:var(--accent-light);color:var(--accent)}
+.avatar-menu-item svg{width:18px;height:18px}
+
+/* Breadcrumb (WH.crumbs): the way you came; on a phone only the step back */
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin:0 0 8px;font-size:14px;line-height:1.4;min-width:0}
+.crumbs a{color:var(--accent);font-weight:600;text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.crumb-back{display:none;align-items:center;gap:4px}
+.crumb-back svg,.crumbs svg{width:16px;height:16px}
+.crumb-trail{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;min-width:0}
+.crumb-trail a{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crumb-sep{color:var(--ink-2)}
+.crumb-here{color:var(--ink-2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:900px){
+  .crumb-trail{display:none}
+  .crumb-back{display:inline-flex;min-height:44px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crumbs{margin:0}
+}

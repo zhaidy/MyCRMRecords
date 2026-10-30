@@ -3,7 +3,7 @@
   // machineaccess.aspx (Sales Admins): MyMachines' temporary access, which lets someone see a company's machines without
   // the company being in their territories. Listed from MyMachines' TempAccess; given (a row added) and removed (the row
   // marked, never deleted) only once an administrator lets MyCRMRecords change MyMachines' temporary access.
-  const {$, esc, api, drawIcons, date, toast, ask} = window.WH;
+  const {$, esc, api, drawIcons, date, toast, ask, crumbs} = window.WH;
   const page = $('#page');
   let d = null, chosen = null, timer = 0;
 
@@ -29,7 +29,7 @@
   function render() {
     const rows = d.rows;
     page.innerHTML = `
-      <div class="page-heading"><div><a class="crumb" href="machines.aspx"><span data-icon="arrow-left"></span>Machines</a><h1>Machine access</h1>
+      <div class="page-heading"><div>${crumbs('Machine access', [['Machines', 'machines.aspx']])}<h1>Machine access</h1>
         <p>Sales Admins · temporary access to a company's machines, kept in MyMachines</p></div></div>
       ${rule()}
       ${d.canWrite ? '' : `<div class="notice warn" style="margin:16px 0 0">${esc(d.writesOff)}</div>`}
