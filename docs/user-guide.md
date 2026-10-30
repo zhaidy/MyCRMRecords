@@ -278,12 +278,14 @@ it in MyCRM.
 
 
 **Costing sheets** in the menu lists the costing sheets you may see, newest first, 50 at a time (**Previous** and **Next** at the
-bottom).
+bottom). The line under the title says how many there are. On a phone, **Orders** in the bottom bar opens this list,
+and **Costing sheets** / **Request forms** at the top switches between the two lists.
 
 - **Search** finds a costing sheet by its number, status, reference, company, invoice number or order number. The list
   changes as you type.
-- **Costing Sheet Status**, **Sales Rep**, **Specialist** and **Has Specialist** narrow the list. **Has Specialist**
-  **Yes** shows the costing sheets with an MDS or Fusion (SOL) specialist, **No** those without, as in MyOrders.
+- **Status**, **Sales rep** and **Specialist** narrow the list. **Specialist** is **Any**, **Has specialist** (the
+  costing sheets with an MDS or Fusion (SOL) specialist, as in MyOrders), **No specialist**, or one specialist.
+  On a phone, **Status:** opens the list of statuses, and the round filter button the other filters (press **Apply**).
   Someone MyOrders knew under two usernames (for example *RSP\alfriskuay* and *RSP\AlfrisKuay@ricoh.sg*) is one
   person here: listed once under **Sales Rep** and **Specialist**, with the costing sheets of both; and they see the
   costing sheets of both themselves.
@@ -292,10 +294,11 @@ bottom).
 - **Reset** clears the search and filters. MyCRMRecords remembers your search and filters for next time.
 - Click a column heading to sort by it; click it again to reverse the order.
 - **Download** saves the list as it is filtered, every page of it, as an Excel workbook.
-- **Open** (or the number) opens the costing sheet. The printer button prints it, when MyOrders would have let you
-  (see [Printing a costing sheet](#printing-a-costing-sheet)).
-- Each row shows the reference under the number, the contact under the company, when it was created, updated and
-  printed, the achieved price, the invoice number with its date and the order number, and whether OPO checked it.
+- Click a costing sheet's number, its arrow or anywhere on its line to open it. The printer button prints it, when
+  MyOrders would have let you (see [Printing a costing sheet](#printing-a-costing-sheet)).
+- Each line shows the number, the reference, the company with its contact, the sales rep, the status, when it was
+  created (and, on wide screens, updated and printed), the achieved price, the invoice number with the order number,
+  the invoice date and (on wide screens) whether OPO checked it. On a phone each costing sheet is a card.
 - A costing sheet deleted in MyOrders is not in the list.
 - Opened from a company's page (**See all** under *Costing Sheets and Request Forms*), the list shows only that
   company's costing sheets, with no other filter; **Show every company** goes back to the whole list (and your own
@@ -305,11 +308,16 @@ bottom).
 
 ## A costing sheet
 
-A costing sheet's page shows what MyOrders' costing sheet summary showed, read only:
+A costing sheet's page shows what MyOrders' costing sheet summary showed, read only. Under the number and status are
+the reference, the company (click it to open the company; **Back to** the company goes there too, **All costing
+sheets** to the list) and the salesman. Then the key details: contact, customer number and type, billing address,
+request form, the specialists (a yellow tag while their part was still pending), the dates, who it was transferred
+from, the event tag, and the flags (ZBA, contract extension, fixed term, vital pricing, GMA pricing; those that apply
+in blue).
 
-- **Costing sheet**: reference, salesman, status, the specialists (a yellow tag while their part was still pending),
-  dates, company (click it to open the company), billing address, contact, customer number and type, and the flags (ZBA, contract extension, fixed
-  term, vital pricing, GMA pricing), with who it was transferred from.
+The tabs **Product**, **Meter charges**, **Billing**, **Variable costs & trade-ins** and **More details** show one part
+at a time, with **History** and **Attachments** beside them. On a phone each part is a card: tap it to open or close it.
+
 - **History**: when it was created, approved, head approved, sent for the credit check, endorsed by credit, checked by
   OPO, made pending invoicing, given its order number, invoiced, printed, recalled, transferred and last updated, with
   who did it when MyOrders kept the name; then the order and invoice numbers, credit terms and total approved price.
@@ -323,7 +331,7 @@ A costing sheet's page shows what MyOrders' costing sheet summary showed, read o
   monthly and thereafter copies and prices.
 - **Billing**: finance type and amounts (months, interest, down and final payment, the monthly amount, the PPP rates),
   the external finance company, lease agreement number, transaction type, trade-in, billing address and remarks.
-- **Variable Costs** and **Trade In(s)**.
+- **Variable costs & trade-ins**: the **Variable Costs** and the **Trade In(s)**.
 - **More details**: the proposal, option and request form numbers, and what MyOrders kept on the costing sheet (contact
   name, phone, email, fax, delivery address, EPP, novation, PO and receipt completed).
 - When the costing sheet has a request form whose products differ from it, a yellow note and the **Costing sheet and
@@ -333,7 +341,8 @@ A costing sheet's page shows what MyOrders' costing sheet summary showed, read o
 ## Printing a costing sheet
 
 **Print** (on a costing sheet's page, or the printer button in the list) opens MyOrders' costing sheet PDF as a page in
-a new tab. As in MyOrders, it is there once the costing sheet is **Pending Credit Check**, **Pending Credit GM Check**,
+a new tab. On the costing sheet's page, **Layout** beside **Print** chooses **New CS** or **Old CS** first (and is
+remembered); the print page can switch too. As in MyOrders, it is there once the costing sheet is **Pending Credit Check**, **Pending Credit GM Check**,
 **Pending Invoicing** or **Invoiced**, for Managers, Heads, GM, PP Specialist Managers, Specialist Senior Managers,
 Stock Allocators, AP, AP Managers, Credit GM, MD, Admins and Sales Admins.
 

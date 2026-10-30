@@ -2,8 +2,11 @@
   'use strict';
   // costingsheet.aspx?id=: one costing sheet as MyOrders' summary showed it (header, attachments, products with their
   // items, billing, variable costs, trade-ins, meter charges), read only, with its history from the dates MyOrders kept
-  // and the facts its summary did not show. Print opens print.aspx, MyOrders' costing sheet PDF as a page.
-  const {$, esc, api, drawIcons, dateTime, date, param} = window.WH;
+  // and the facts its summary did not show. Print opens print.aspx, MyOrders' costing sheet PDF as a page (New CS or
+  // Old CS, chosen beside it). Laid out as the approved design: the key details under the title, the sections as tabs
+  // (Product, Meter charges, Billing, Variable costs & trade-ins, More details) with History and Attachments beside
+  // them; on a phone every section is a card that opens and closes.
+  const {$, $$, esc, api, drawIcons, dateTime, date, param} = window.WH;
   const page = $('#page');
   const id = Number(param('id') || 0);
   const money = (value, digits = 2) => Number(value || 0).toLocaleString('en-SG', {minimumFractionDigits: digits, maximumFractionDigits: digits});
@@ -16,59 +19,58 @@
   /** A list of label: value pairs (values already HTML). */
   const facts = pairs => `<dl class="facts">${pairs.filter(Boolean).map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
   const card = (title, body, extra = '') => `<section class="card"><div class="card-heading"><h2>${esc(title)}</h2>${extra}</div>${body}</section>`;
+  /** A section: a tab's panel on a computer (or a box beside them), a card that opens and closes on a phone. */
+  const section = (key, title, summary, body, note = '') => `<section class="cs-section" data-sec="${key}" aria-labelledby="head-${key}">
+    <h2 class="cs-section-head" id="head-${key}"><button type="button" class="cs-toggle" aria-expanded="false" aria-controls="body-${key}"><span class="cs-section-title">${esc(title)}</span>
+      <span class="cs-summary">${summary}</span><span data-icon="arrow-right" class="cs-chevron"></span></button></h2>
+    <div class="cs-section-body" id="body-${key}">${note ? `<p class="muted small cs-note">${note}</p>` : ''}${body}</div></section>`;
   const empty = message => `<p class="muted">${esc(message)}</p>`;
 
-  function header(c) {
+  /** The key details under the title: everything MyOrders' summary showed at its top. */
+  function details(c) {
     const specialists = c.specialists.length
       ? c.specialists.map(s => `<span class="pill${s.pending ? ' warn' : ''}" title="${s.pending ? 'Pending' : 'Done'}">${esc(s.role)}: ${esc(s.name)}${s.pending ? ' (pending)' : ''}</span>`).join(' ')
       : '<span class="muted">-</span>';
-    return card('Costing sheet', facts([
-      ['Reference', c.reference ? '# ' + esc(c.reference) : '<span class="muted">-</span>'],
-      ['Salesman', text(c.salesman)],
-      ['Costing Sheet Status', text(c.status)],
+    const terms = [['Is ZBA', c.isZba], ['Is Contract Extension', c.isContractExtension], ['Is Fixed Term', c.isFixedTerm], ['Is Vital Pricing', c.isVitalPricing], ['GMA Pricing', c.gmaPricing]];
+    return `<section class="card cs-details" aria-label="Costing sheet details">${facts([
+      ['Contact', text(c.contact)],
+      ['Customer No', text(c.customerNo)],
+      ['Customer Type', text(c.customerType)],
+      ['Billing Address', text(c.address)],
+      ['Request Form', c.requestFormId ? `<a href="requestform.aspx?id=${c.requestFormId}"># ${esc(c.requestFormId)}</a>` : '<span class="muted">-</span>'],
       ['Specialists', specialists],
       ['Created At', when(c.createdAt)],
       ['Updated At', when(c.updatedAt)],
       ['Recall At', when(c.recallAt)],
-      // The company opens its page here (MyCRM's companies are kept in MyCRMRecords).
-      ['Company', c.companyId ? `<a href="company.aspx?id=${c.companyId}"><b>${text(c.company)}</b></a>` : `<b>${text(c.company)}</b>`],
-      ['Billing Address', text(c.address)],
-      ['Contact', text(c.contact)],
-      ['Customer No', text(c.customerNo)],
-      ['Customer Type', text(c.customerType)],
-      ['Is ZBA', yesNo(c.isZba)],
-      ['Is Contract Extension', yesNo(c.isContractExtension)],
-      ['Is Fixed Term', yesNo(c.isFixedTerm)],
-      ['Is Vital Pricing', yesNo(c.isVitalPricing)],
-      ['GMA Pricing', yesNo(c.gmaPricing)],
       ['Transferred On', when(c.transferredOn)],
       ['Original Salesman', text(c.originalSalesman)],
       ['Event Tag', text(c.eventTag)],
-    ]));
+    ])}<div class="cs-terms" aria-label="Terms">${terms.map(([label, on]) => `<span class="cs-term${on ? ' on' : ''}">${esc(label)}: ${on ? 'Yes' : 'No'}</span>`).join('')}</div></section>`;
   }
 
   function history(c) {
     const f = c.facts;
-    const steps = c.history.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Step</th><th>When</th><th>By</th><th>Detail</th></tr></thead><tbody>
-      ${c.history.map(s => `<tr><td><b>${esc(s.step)}</b></td><td class="nowrap">${when(s.at)}</td><td>${text(s.by)}</td><td>${text(s.detail)}</td></tr>`).join('')}
-      </tbody></table></div>` : empty('MyOrders kept no dates for this costing sheet.');
-    return card('History', steps + facts([
+    const steps = c.history.length ? `<ol class="cs-timeline">${c.history.map((s, i) => `<li${i === c.history.length - 1 ? ' class="last"' : ''}><span class="cs-dot" aria-hidden="true"></span>
+        <span class="cs-step"><span><b>${esc(s.step)}</b>${s.by ? ` · ${esc(s.by)}` : ''}</span><span class="cs-when">${when(s.at)}</span>${s.detail ? `<span class="muted small">${esc(s.detail)}</span>` : ''}</span></li>`).join('')}</ol>`
+      : empty('MyOrders kept no dates for this costing sheet.');
+    const last = c.history.length ? c.history[c.history.length - 1] : null;
+    return section('history', 'History', last ? `${esc(last.step)}${last.at ? ' ' + esc(date(last.at)) : ''}` : '', steps + facts([
       ['Order No', text(f.orderNo)],
       ['Invoice No', text(f.invoiceNo)],
       f.invoiceDates ? ['Invoice Dates', text(f.invoiceDates)] : null,
       ['OPO Checked', yesNo(f.isOpoChecked)],
       ['Credit Terms', text(f.creditTerms)],
       ['Total Approved Price', dollars(f.totalApprovedPrice)],
-    ]), '<span class="muted small">From the dates and names MyOrders kept on the costing sheet</span>');
+    ]), 'From the dates and names MyOrders kept on the costing sheet');
   }
 
   function attachments(c) {
-    if (!c.attachments.length) return card('Attachments', empty('No attachments to show.'));
-    const rows = c.attachments.map(a => `<tr>
-      <td class="nowrap"><a class="icon-button small" href="file.ashx/attachment?costingSheet=${c.id}&amp;id=${a.id}" title="Download ${esc(a.fileName)}" aria-label="Download ${esc(a.fileName)}"><span data-icon="download"></span></a></td>
-      <td class="wide-text"><b>${esc(a.fileName)}</b><span class="sub">${esc(size(a.size))}${a.remarks ? ' · ' + esc(a.remarks) : ''}${a.isComplex ? ' · Specialists\' attachment' : ''}</span></td>
-      <td>${text(a.uploadedBy)}<span class="sub">${a.uploadedOn ? esc(date(a.uploadedOn)) : ''}</span></td></tr>`).join('');
-    return card('Attachments', `<div class="table-wrap"><table class="data"><thead><tr><th></th><th>File</th><th>Uploaded</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+    const body = c.attachments.length ? `<ul class="cs-files">${c.attachments.map(a => `<li><span class="cs-file"><b>${esc(a.fileName)}</b>
+        <span class="muted small">${esc([size(a.size), a.uploadedBy, a.uploadedOn ? date(a.uploadedOn) : '', a.isComplex ? 'Specialists\' attachment' : ''].filter(Boolean).join(' · '))}</span>
+        ${a.remarks ? `<span class="muted small">${esc(a.remarks)}</span>` : ''}</span>
+      <a class="button secondary small-btn" href="file.ashx/attachment?costingSheet=${c.id}&amp;id=${a.id}" aria-label="Download ${esc(a.fileName)}"><span data-icon="download"></span>Download</a></li>`).join('')}</ul>`
+      : empty('No attachments to show.');
+    return section('attachments', 'Attachments', String(c.attachments.length), body);
   }
 
   function differences(c) {
@@ -86,7 +88,7 @@
         ...item.subItems.map(s => `<tr><td>${esc(s.productName)}</td><td class="num">${s.quantity}</td><td class="num">${money(s.unitPrice)}</td><td class="num">${money(s.quantity * s.unitPrice)}</td><td></td></tr>`),
         ...item.complexItems.map(x => `<tr><td>${esc(x.productName)}${x.mpgCode ? ` (${esc(x.mpgCode)})` : ''}</td><td class="num">${x.quantity}</td>
           <td class="num">${x.hasStp ? money(x.stp) : '<span class="muted">Not Available</span>'}</td><td class="num">${x.hasStp ? money(x.stp * x.quantity) : '<span class="muted">Not Available</span>'}</td><td class="num">${money(x.achievedPrice)}</td></tr>`),
-        `<tr class="total"><td colspan="3" class="num muted">Street price</td><td class="num"><b>${money(item.totalStp)}</b></td><td></td></tr>`,
+        `<tr class="total"><td colspan="3" class="num muted">Street price</td><td class="num" data-label=""><b>${money(item.totalStp)}</b></td><td data-label=""></td></tr>`,
       ].join('');
       const flags = [item.isSubscription ? '<span class="pill">Is Subscription</span>' : '', item.oaaPricing ? '<span class="pill">OAA Pricing</span>' : ''].join(' ');
       return `<div class="item-block"><div class="item-head"><h3>${esc(item.productName)}</h3>${flags}<span class="grow"></span><span>Achieved Price <b>${dollars(item.achievedPrice)}</b></span></div>
@@ -94,7 +96,7 @@
         <tbody>${lines}</tbody></table></div></div>`;
     }).join('');
     const m = c.margins;
-    return card('Product', (items || empty('No items to show.')) + facts([
+    return section('product', 'Product', `${c.items.length} · ${dollars(c.totalAchievedPrice)}`, (items || empty('No items to show.')) + facts([
       ['Request Total Street Price', dollars(c.totalStp)],
       ['Total Achieved Price', `<b>${dollars(c.totalAchievedPrice)}</b>`],
       ['Commissionable Revenue', `<b>${dollars(c.commissionableRevenue)}</b>`],
@@ -108,7 +110,7 @@
 
   function billing(c) {
     const b = c.billing;
-    return card('Billing', facts([
+    return section('billing', 'Billing', text(b.financeType), facts([
       ['Is PPP', yesNo(b.isPpp)],
       ['Finance Type', text(b.financeType)],
       ['Finance/Outright Sales Amount', dollars(b.financeOutrightAmount)],
@@ -138,13 +140,15 @@
     const tradeIns = c.tradeIns.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Trade In Item</th><th class="num">Amount</th><th>Type</th></tr></thead><tbody>
       ${c.tradeIns.map(t => `<tr><td class="wide-text"><b>${text(t.item)}</b><span class="sub">${esc([t.manufacturer, t.model, t.serialNo ? 'Serial No. ' + t.serialNo : ''].filter(Boolean).join(' · '))}</span>${t.remarks ? `<span class="sub">${esc(t.remarks)}</span>` : ''}</td>
         <td class="num nowrap">${money(t.amount)}</td><td>${esc(t.type)}</td></tr>`).join('')}</tbody></table></div>` : empty('No items to show.');
-    return card('Variable Costs', variables + `<p class="muted small" style="margin:8px 0 0">Total variable cost: ${dollars(c.facts.totalVariableCost)}</p>`) + card('Trade In(s)', tradeIns);
+    return section('costs', 'Variable costs & trade-ins', String(c.variables.length + c.tradeIns.length), `<h3 class="cs-sub">Variable Costs</h3>${variables}
+      <p class="muted small" style="margin:8px 0 0">Total variable cost: ${dollars(c.facts.totalVariableCost)}</p><h3 class="cs-sub">Trade In(s)</h3>${tradeIns}`);
   }
 
   function meters(c) {
-    if (!c.items.length) return card('Meter Charges', empty('No items to show.'));
+    if (!c.items.length) return section('meter', 'Meter charges', '0', empty('No items to show.'));
     const cents = value => money(value, 4) + ' cents';
-    return card('Meter Charges', c.items.map(item => {
+    const below = c.items.filter(item => item.meter && item.meter.belowGmCpc).length;
+    return section('meter', 'Meter charges', `${c.items.length}${below ? ` · ${below} below GM CPC` : ''}`, c.items.map(item => {
       const parts = [...item.subItems.map(s => `${esc(s.productName)} x ${s.quantity}`), ...item.complexItems.map(x => `${esc(x.productName)} x ${x.quantity}`),
         ...item.packetItems.map(p => `${esc(p.productName)} x ${p.quantity}`)];
       const m = item.meter;
@@ -163,7 +167,7 @@
 
   function more(c) {
     const f = c.facts;
-    return card('More details', facts([
+    return section('more', 'More details', f.isPoCompleted ? 'PO completed' : '', facts([
       ['Proposal', f.proposalId ? '# ' + esc(f.proposalId) : '<span class="muted">-</span>'],
       ['Option', f.optionId ? '# ' + esc(f.optionId) : '<span class="muted">-</span>'],
       ['Request Form', c.requestFormId ? `<a href="requestform.aspx?id=${c.requestFormId}"># ${esc(c.requestFormId)}</a>` : '<span class="muted">-</span>'],
@@ -176,20 +180,55 @@
       ['Email', text(f.email)],
       ['Fax', text(f.fax)],
       ['Deliver To', text(f.deliverTo)],
-    ]), '<span class="muted small">Kept on the costing sheet</span>');
+    ]), 'Kept on the costing sheet');
   }
+
+  const tabs = [['product', 'Product'], ['meter', 'Meter charges'], ['billing', 'Billing'], ['costs', 'Variable costs & trade-ins'], ['more', 'More details']];
+  let tab = 'product';
 
   function render(c) {
     document.title = `Costing sheet ${c.id} · MyCRMRecords`;
+    const tone = /invoiced/i.test(c.status) && !/pending/i.test(c.status) ? 'done' : /recall|reject|cancel/i.test(c.status) ? 'warn' : '';
+    let format = 'new';
+    try { format = localStorage.getItem('costing-sheet-format') === 'old' ? 'old' : 'new'; } catch { /* the newer layout */ }
     page.innerHTML = `
-      <div class="page-heading"><div><p class="muted small" style="margin:0"><a href="costingsheets.aspx"><span data-icon="arrow-left"></span> Costing sheets</a></p>
-        <h1>Costing Sheet # ${c.id} <span class="pill">${esc(c.status)}</span></h1><p>${esc(c.company)}${c.salesman ? ' · ' + esc(c.salesman) : ''}</p></div>
-        <div class="heading-actions">${c.canPrint ? `<a class="button primary" href="print.aspx?id=${c.id}" target="_blank" rel="noopener"><span data-icon="printer"></span>Print</a>` : ''}</div></div>
+      <div class="page-heading cs-heading"><div class="cs-title">
+          <nav class="cs-crumbs" aria-label="Breadcrumb">${c.companyId ? `<a href="company.aspx?id=${c.companyId}"><span data-icon="arrow-left"></span>Back to ${esc(c.company)}</a><span aria-hidden="true">·</span>` : ''}<a href="costingsheets.aspx">${c.companyId ? '' : '<span data-icon="arrow-left"></span>'}All costing sheets</a></nav>
+          <div class="cs-name"><h1>Costing Sheet # ${c.id}</h1><span class="orders-status ${tone}">${esc(c.status)}</span></div>
+          <p>${c.reference ? `Ref # ${esc(c.reference)} · ` : ''}${c.companyId ? `<a href="company.aspx?id=${c.companyId}">${esc(c.company)}</a>` : esc(c.company)}${c.salesman ? ' · ' + esc(c.salesman) : ''}</p>
+          <p class="muted small cs-readonly">Read only, from MyOrders; printing here doesn't change MyOrders' Printed At.</p></div>
+        <div class="heading-actions">${c.canPrint ? `<label class="filter-capsule cs-format"><span>Layout</span><select id="format" aria-label="Print layout"><option value="new"${format === 'new' ? ' selected' : ''}>New CS</option><option value="old"${format === 'old' ? ' selected' : ''}>Old CS</option></select></label>
+          <a class="button primary" id="print" href="print.aspx?id=${c.id}${format === 'old' ? '&amp;format=old' : ''}" target="_blank" rel="noopener"><span data-icon="printer"></span>Print</a>` : ''}</div></div>
       ${c.isActive ? '' : `<div class="notice error">This costing sheet was deleted in MyOrders${c.deletedAt ? ' on ' + esc(dateTime(c.deletedAt)) : ''}${c.deletedBy ? ' by ' + esc(c.deletedBy) : ''}. It is not in the list.</div>`}
+      ${details(c)}
       ${differences(c)}
-      <div class="detail-grid"><div>${header(c)}${product(c)}${meters(c)}</div><div>${history(c)}${attachments(c)}${billing(c)}${costs(c)}${more(c)}</div></div>`;
+      <div class="tabs cs-tabs" role="tablist" aria-label="Costing sheet sections">${tabs.map(([key, label]) => `<button type="button" class="tab" role="tab" data-tab="${key}" aria-controls="body-${key}" aria-selected="${tab === key}">${esc(label)}</button>`).join('')}</div>
+      <div class="cs-layout"><div class="cs-main">${product(c)}${meters(c)}${billing(c)}${costs(c)}${more(c)}</div><aside class="cs-aside">${history(c)}${attachments(c)}</aside></div>`;
     drawIcons(page);
+    showTab();
+    $('#format')?.addEventListener('change', event => {
+      const old = event.target.value === 'old';
+      try { localStorage.setItem('costing-sheet-format', old ? 'old' : 'new'); } catch { /* not kept */ }
+      $('#print').href = `print.aspx?id=${c.id}${old ? '&format=old' : ''}`;
+    });
   }
+
+  function showTab() {
+    $$('.cs-main .cs-section', page).forEach(s => s.classList.toggle('on', s.dataset.sec === tab));
+    $$('[data-tab]', page).forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  }
+
+  page.addEventListener('click', event => {
+    const t = event.target.closest('[data-tab]');
+    if (t) { tab = t.dataset.tab; showTab(); return; }
+    // On a phone each section opens and closes.
+    const toggle = event.target.closest('.cs-toggle');
+    if (toggle) {
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.closest('.cs-section').classList.toggle('open', open);
+    }
+  });
 
   (async () => {
     const answer = id ? await api('GET', 'costingsheets/' + id) : {result: {ok: false, message: 'Open a costing sheet from the list.'}};
