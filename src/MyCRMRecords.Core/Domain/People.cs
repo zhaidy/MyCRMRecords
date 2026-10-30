@@ -128,6 +128,7 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
         if (user is null)
         {
             store.Insert(new AppUser { Login = login, DisplayName = Strings.Shorten(displayName, 256), Email = Strings.Shorten(email, 256), LastSeenAt = now });
+            NamesChanged();
             return;
         }
         if (user.LastSeenAt is { } seen && now - seen < TimeSpan.FromHours(1) && (displayName.Length == 0 || user.DisplayName == displayName)) return;
@@ -135,6 +136,7 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
         if (displayName.Length > 0) user.DisplayName = Strings.Shorten(displayName, 256);
         if (email.Length > 0) user.Email = Strings.Shorten(email, 256);
         store.Update(user);
+        NamesChanged();
     }
 
     /// <summary>Gives or takes away roles. Only administrators give Admin, and nobody takes their own Admin role away.</summary>
@@ -150,6 +152,7 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
         {
             if (s.FindFirst<AppUser>(Query.Where("Login", login)) is null)
                 s.Insert(new AppUser { Login = login, DisplayName = Strings.Shorten(displayName ?? login, 256), Email = Strings.Shorten(email ?? "", 256) });
+            NamesChanged();
             // A role taken away is marked, never deleted: who had which role, and until when, stays known.
             var active = s.Find<UserRole>(Query.Where("Login", login).And("IsActive", true));
             foreach (var role in active.Where(r => !wanted.Contains(r.Role) || active.First(a => a.Role == r.Role) != r))
@@ -185,8 +188,32 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     public string NameOf(string login)
     {
         if (string.IsNullOrWhiteSpace(login)) return "";
-        var user = User(login);
-        return user is not null && user.DisplayName.Length > 0 ? user.DisplayName : login;
+        return Names().TryGetValue(login.Trim(), out var name) ? name : login;
+    }
+
+    // Everyone's name, read at once and kept a minute: the pages name dozens of people each (salesperson, created by,
+    // updated by…), which read one by one took a query each. Read again after a change made here.
+    private readonly object _namesGate = new();
+    private Dictionary<string, string>? _names;
+    private DateTime _namesAt;
+
+    private Dictionary<string, string> Names()
+    {
+        lock (_namesGate)
+        {
+            if (_names is not null && DateTime.UtcNow - _namesAt < TimeSpan.FromMinutes(1)) return _names;
+            var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var u in store.Find<AppUser>())
+                if (u.Login.Trim().Length > 0 && u.DisplayName.Length > 0 && !names.ContainsKey(u.Login.Trim())) names[u.Login.Trim()] = u.DisplayName;
+            _names = names;
+            _namesAt = DateTime.UtcNow;
+            return names;
+        }
+    }
+
+    private void NamesChanged()
+    {
+        lock (_namesGate) _names = null;
     }
 
     /// <summary>
@@ -195,12 +222,8 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
     /// </summary>
     public Func<string, string> NamesOf(IEnumerable<string> logins)
     {
-        var wanted = logins.Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (wanted.Count > 0)
-            foreach (var u in store.Find<AppUser>(Query.All().In("Login", wanted.Cast<object>())))
-                if (u.DisplayName.Length > 0 && !names.ContainsKey(u.Login.Trim())) names[u.Login.Trim()] = u.DisplayName;
-        return login => string.IsNullOrWhiteSpace(login) ? "" : names.TryGetValue(login.Trim(), out var n) ? n : NameOf(login);
+        var names = Names();
+        return login => string.IsNullOrWhiteSpace(login) ? "" : names.TryGetValue(login.Trim(), out var n) ? n : login;
     }
 
     /// <summary>The person's email address as last seen, or "".</summary>
@@ -227,6 +250,7 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
             }
             return known;
         }
+        NamesChanged();
         return store.Insert(new AppUser { Login = login, DisplayName = Strings.Shorten(displayName.Trim().Length > 0 ? displayName.Trim() : login, 256), Email = Strings.Shorten(email.Trim(), 256) });
     }
 }
