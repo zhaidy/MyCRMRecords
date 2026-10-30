@@ -99,7 +99,7 @@
         <div class="heading-actions"><div class="action-capsule" role="group" aria-label="Company actions">
           <a class="capsule-button" href="companyprint.aspx?id=${id}" title="Print summary"><span data-icon="printer"></span><span class="action-label">Print summary</span></a>
           ${can.edit ? '<span class="capsule-divider" aria-hidden="true"></span><button type="button" class="capsule-button" id="edit" title="Edit company"><span data-icon="edit"></span><span class="action-label">Edit company</span></button>' : ''}
-        </div><button type="button" class="button primary" id="new-activity" title="New activity"><span data-icon="plus"></span><span class="action-label">New activity</span></button></div></div>
+        </div><button type="button" class="button primary phone-fab" id="new-activity" title="New activity"><span data-icon="plus"></span><span class="action-label">New activity</span></button></div></div>
       <div class="tabs company-tabs" role="tablist" aria-label="Company sections">${sections().map(s => `<button type="button" class="tab" role="tab" id="tab-${s.id}" aria-controls="panel-${s.id}" data-tab="${s.id}">${esc(s.label)}${s.count !== '' ? ` <span class="count">${s.count}</span>` : ''}</button>`).join('')}</div>
       <button type="button" class="section-back" id="section-back"><span data-icon="arrow-left"></span>${esc(c.name)}</button>
       <div class="tab-panel overview" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">

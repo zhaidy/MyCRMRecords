@@ -24,7 +24,7 @@
     page.innerHTML = `
       <div class="page-heading companies-heading"><div class="companies-title"><h1>Projects</h1>
           <p>Projects give people temporary access to companies, for example to caretake an account. Saved in MyCRM.</p></div>
-        <div class="heading-actions">${answer.canCreate ? '<button type="button" class="button primary" id="create"><span data-icon="plus"></span><span class="action-label">Create project</span></button>' : ''}</div></div>
+        <div class="heading-actions">${answer.canCreate ? '<button type="button" class="button primary phone-fab" id="create" title="Create project"><span data-icon="plus"></span><span class="action-label">Create project</span></button>' : ''}</div></div>
       <div class="companies-filters" role="search"><div class="companies-filter-row">
         <label class="search-box"><span data-icon="search"></span><span class="sr-only">Search projects</span>
           <input id="q" type="search" placeholder="Project name, remarks or company" aria-label="Search projects"></label>
