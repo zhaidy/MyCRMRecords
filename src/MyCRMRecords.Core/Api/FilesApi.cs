@@ -45,6 +45,10 @@ public sealed class FilesApi(CrmApp w)
     public const string ActivitiesList = "activities";
     /// <summary>dormant: the Dormant opportunities page's Download Excel (all): everything in the person's scope, whatever the filters.</summary>
     public const string DormantList = "dormant";
+    /// <summary>companies?&lt;the Companies page's search, filters and show&gt;: the Company summary (MyCRM's report 09).</summary>
+    public const string CompanySummary = "companies";
+    /// <summary>projects?show=&amp;q=: the Projects page's projects and their companies' caretakers (MyCRM's reports 17 and 08).</summary>
+    public const string ProjectsReport = "projects";
     /// <summary>usage?company=&amp;months=N (or from=yyyy-MM&amp;to=yyyy-MM): a company's Usage &amp; history page as an Excel workbook.</summary>
     public const string Usage = "usage";
 
@@ -170,6 +174,88 @@ public sealed class FilesApi(CrmApp w)
         }
     }
 
+    private static object? Day(DateTime? d) => d is { } x && x.Year > 1900 ? x : null;
+
+    private static string Cut(int shown, int total, string what, string where) =>
+        $"Only the first {shown.ToString("N0", CultureInfo.InvariantCulture)} of {total.ToString("N0", CultureInfo.InvariantCulture)} {what} are in this file. Search or filter {where} to download the rest.";
+
+    /// <summary>
+    /// The Company summary (MyCRM's report 09): every company of the Companies page's search, filters and All, Mine or No
+    /// salesperson, as the person may open them, with its salesperson, team, territory, addresses, caretake and caretakers.
+    /// </summary>
+    private FileAnswer CompanySummaryFile(IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        var actor = user.ToActor(w.People);
+        try
+        {
+            var filter = new Companies.ListFilter(Q(query, "q"), Q(query, "customerType"),
+                long.TryParse(Q(query, "groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q(query, "postalCode"), 0, Q(query, "show"));
+            var (total, lines) = w.Reports.CompanySummary(actor, filter);
+            static string YesNo(bool b) => b ? "Yes" : "No";
+            IEnumerable<object?[]> rows = lines.Select(l => new object?[]
+            {
+                l.Company.Name.Trim(), l.Company.Brn, l.Company.CustomerNo, l.CustomerType, l.GroupName, l.AccountType, l.Industry, l.Salesperson, l.Team, l.Manager,
+                l.Territory, l.PostalCode, l.BillingAddress, l.Company.Phone, l.Company.Website, YesNo(l.Company.IsCaretake), l.CaretakeRemarks, l.Caretakers,
+                Day(l.Company.CreatedDate), l.CreatedBy, Day(l.Company.UpdatedDate), l.UpdatedBy, YesNo(l.Company.IsActive),
+            });
+            if (lines.Count < total) rows = rows.Concat(new[] { new object?[] { Cut(lines.Count, total, "companies", "the Companies page") } });
+            return new FileAnswer(200, $"CompanySummary-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create("Company summary",
+                [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Customer code", 14), new Xlsx.ColumnSpec("Customer type", 18),
+                 new Xlsx.ColumnSpec("Group name", 24), new Xlsx.ColumnSpec("Account type", 12), new Xlsx.ColumnSpec("Industry", 22), new Xlsx.ColumnSpec("Salesperson", 24),
+                 new Xlsx.ColumnSpec("Team", 20), new Xlsx.ColumnSpec("Manager", 24), new Xlsx.ColumnSpec("Territory", 18), new Xlsx.ColumnSpec("Postal code", 11),
+                 new Xlsx.ColumnSpec("Billing address", 44), new Xlsx.ColumnSpec("Phone", 14), new Xlsx.ColumnSpec("Website", 24), new Xlsx.ColumnSpec("Caretake", 9),
+                 new Xlsx.ColumnSpec("Caretake remarks", 36), new Xlsx.ColumnSpec("Caretakers (open projects)", 40), new Xlsx.ColumnSpec("Created on", 12, "date"),
+                 new Xlsx.ColumnSpec("Created by", 22), new Xlsx.ColumnSpec("Updated on", 12, "date"), new Xlsx.ColumnSpec("Updated by", 22), new Xlsx.ColumnSpec("Active", 7)],
+                rows));
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "MyCRM's companies could not be read: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// The Projects page's projects (Open, Closed or All, and its search, as the person sees them; MyCRM's report 17) and,
+    /// on a second sheet, a line for each of their companies with its account owner and the project's caretakers (report 08).
+    /// </summary>
+    private FileAnswer ProjectsFile(IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        var actor = user.ToActor(w.People);
+        try
+        {
+            var (total, projects, companies, _) = w.Reports.ProjectsReport(actor, Q(query, "show"), Q(query, "q"));
+            IEnumerable<object?[]> projectRows = projects.Select(p => new object?[]
+            {
+                p.Project.ProjectName.Trim(), p.Status, p.State, p.Owner, Day(p.Project.StartDate), Day(p.Project.EndDate), (decimal)p.Companies, p.Members,
+                p.Project.Remarks.Trim(), Day(p.Project.UpdatedDate), p.UpdatedBy,
+            });
+            if (projects.Count < total) projectRows = projectRows.Concat(new[] { new object?[] { Cut(projects.Count, total, "projects", "the Projects page") } });
+            IEnumerable<object?[]> companyRows = companies.Select(c => new object?[]
+            {
+                c.Company, c.Brn, c.AccountOwner, c.Territory, c.Caretakers, c.TemporaryAccess, c.Project.ProjectName.Trim(), c.ProjectStatus, Day(c.Project.EndDate), c.CaretakeRemarks,
+            });
+            var listed = projects.Sum(p => p.Companies);
+            if (companies.Count < listed) companyRows = companyRows.Concat(new[] { new object?[] { Cut(companies.Count, listed, "projects' companies", "the Projects page (or open the project)") } });
+            return new FileAnswer(200, $"Projects-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create(
+            [
+                new Xlsx.Sheet("Projects",
+                    [new Xlsx.ColumnSpec("Project", 36), new Xlsx.ColumnSpec("Status", 24), new Xlsx.ColumnSpec("Open / Ended / Closed", 12), new Xlsx.ColumnSpec("Owner", 22),
+                     new Xlsx.ColumnSpec("Start date", 12, "date"), new Xlsx.ColumnSpec("End date", 12, "date"), new Xlsx.ColumnSpec("Companies", 11, "number"),
+                     new Xlsx.ColumnSpec("Members", 50), new Xlsx.ColumnSpec("Remarks", 40), new Xlsx.ColumnSpec("Updated on", 12, "date"), new Xlsx.ColumnSpec("Updated by", 22)],
+                    projectRows),
+                new Xlsx.Sheet("Caretake accounts",
+                    [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Account owner", 24), new Xlsx.ColumnSpec("Territory", 18),
+                     new Xlsx.ColumnSpec("Caretakers", 40), new Xlsx.ColumnSpec("Temporary access", 16), new Xlsx.ColumnSpec("Project", 36), new Xlsx.ColumnSpec("Project status", 30),
+                     new Xlsx.ColumnSpec("End date", 12, "date"), new Xlsx.ColumnSpec("Caretake remarks", 36)],
+                    companyRows),
+            ]));
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "MyCRM's projects could not be read: " + ex.Message);
+        }
+    }
+
     private static string Q(IReadOnlyDictionary<string, string> query, string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
 
     private static long Id(IReadOnlyDictionary<string, string> query, string name) =>
@@ -188,6 +274,8 @@ public sealed class FilesApi(CrmApp w)
         }
         if (kind == ActivitiesList) return ActivitiesFile(query, user);
         if (kind == DormantList) return DormantFile(user);
+        if (kind == CompanySummary) return CompanySummaryFile(query, user);
+        if (kind == ProjectsReport) return ProjectsFile(query, user);
         if (kind == Usage) return UsageFile(query, user);
         if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");

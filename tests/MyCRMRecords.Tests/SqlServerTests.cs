@@ -380,6 +380,49 @@ public sealed class SqlServerTests
     }
 
     [Fact]
+    public void The_company_summary_and_the_projects_download_read_MyCRMs_tables_in_bulk_and_write_nothing()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var outSystems = new TestDatabase();
+        FillMyCRM(outSystems);
+        using var world = new TestWorld(crmUsers: false);
+        var d = Connected(world, outSystems, null, writes: true);
+        var admin = world.Actor(TestWorld.Admin);
+        using var author = MyCrmStore.As(admin.ChangedBy);
+        // Company 7 (Sam's territory 1203, billing address), a company nobody owns, and a project with both: Ken its caretaker.
+        var tan = d.Companies.Save(admin, 0, new Companies.CompanyInput { Name = "Tan & Sons", Brn = "200012345K" }).Id!.Value;
+        Assert.True(d.Users.Save(admin, @"RSP\ken", new CrmUsers.ProfileInput { Role = CrmRoles.Sales, Teams = [1001] }).Ok);
+        var project = d.Projects.Create(admin, new Projects.ProjectInput { Name = "Cover", EndDate = world.Now.Date.AddDays(30).ToString("yyyy-MM-dd"), Companies = [tan, 7] }).Id!.Value;
+        Assert.True(d.Projects.AddMember(admin, project, new Projects.MemberInput { Login = @"RSP\ken", Role = ProjectRoles.SalespersonCaretaker }).Ok);
+        var written = world.Store.Count<MyCrmChange>();
+
+        var (total, lines) = d.Reports.CompanySummary(admin, new Companies.ListFilter());
+        Assert.Equal(2, total);
+        var lim = lines.Single(l => l.Company.Id == 7);
+        Assert.Equal(("Territory 1203", "Mia Manager", "654321", "2 Lim Street, 654321"), (lim.Territory, lim.Team, lim.PostalCode, lim.BillingAddress));
+        Assert.Equal(("SME", "Lim Group", "Non-User"), (lim.CustomerType, lim.GroupName, lim.AccountType));
+        Assert.EndsWith("(Cover)", lim.Caretakers);
+        Assert.EndsWith("(Cover)", lines.Single(l => l.Company.Id == tan).Caretakers);
+        Assert.Equal(new[] { tan }, d.Reports.CompanySummary(admin, new Companies.ListFilter(Show: Companies.NoSalesperson)).Lines.Select(l => l.Company.Id));
+        Assert.Equal(new[] { 7L }, d.Reports.CompanySummary(admin, new Companies.ListFilter(PostalCode: "654321")).Lines.Select(l => l.Company.Id));
+        Assert.Single(d.Reports.CompanySummary(admin, new Companies.ListFilter(), max: 1).Lines);
+
+        // The project and a line per company; Ken reaches both through his temporary territory.
+        var report = d.Reports.ProjectsReport(admin, "open", null);
+        var p = report.Projects.Single(x => x.Project.Id == project);
+        Assert.Equal(("Open", 2), (p.State, p.Companies));
+        var companies = report.Companies.Where(c => c.Project.Id == project).ToList();
+        Assert.Equal(new[] { tan, 7L }, companies.Select(c => c.CompanyId));
+        Assert.All(companies, c => Assert.Equal("Yes", c.TemporaryAccess));
+        Assert.Equal("Territory 1203", companies[1].Territory);
+        Assert.Single(d.Reports.ProjectsReport(admin, "open", null, maxCompanies: 1).Companies);
+        // Both downloads only read.
+        Assert.Equal(written, world.Store.Count<MyCrmChange>());
+        Assert.Equal(200, new FilesApi(d).Download(FilesApi.ProjectsReport, new Dictionary<string, string> { ["show"] = "all" }, TestWorld.Admin).Status);
+        Assert.Equal(200, new FilesApi(d).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Admin).Status);
+    }
+
+    [Fact]
     public void Projects_and_activities_are_written_in_MyCRMs_tables_with_their_temporary_territories_never_deleting()
     {
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;

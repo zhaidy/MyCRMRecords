@@ -90,7 +90,11 @@
   function actions() {
     const can = data.can;
     const signIn = session && session.can.actAs && !session.impersonating;
+    // Download: the Company summary of every company that matches (not just this page); Print: the page as shown.
+    const download = new URLSearchParams({q: filter.q, customerType: filter.customerType, groupName: filter.groupName, postalCode: filter.postalCode, show: filter.show});
     const more = [
+      `<a class="capsule-button" id="download" href="file.ashx/companies?${esc(download.toString())}" title="Download the Company summary of every company that matches (Excel)"><span data-icon="excel"></span><span class="action-label">Download</span></a>`,
+      '<button type="button" class="capsule-button companies-wide" id="print" title="Print this page"><span data-icon="printer"></span><span class="action-label">Print</span></button>',
       signIn ? '<button type="button" class="capsule-button" id="act-as" title="Sign in as…"><span data-icon="users"></span><span class="action-label">Sign in as…</span></button>' : '',
       can.uploadEmployees ? '<button type="button" class="capsule-button" id="employees" title="Upload number of employees"><span data-icon="upload"></span><span class="action-label">Upload number of employees</span></button>' : '',
     ].filter(Boolean);
@@ -102,6 +106,8 @@
       ${can.create ? '<button type="button" class="button primary" id="new-company" title="New company"><span data-icon="plus"></span><span class="action-label">New company</span></button>' : ''}`;
     drawIcons($('#actions'));
     $('#act-as')?.addEventListener('click', actAs);
+    $('#print').addEventListener('click', () => window.print());
+    $('#download').addEventListener('click', () => toast(data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…'));
     $('#new-company')?.addEventListener('click', async () => {
       const id = await companyForm(lists, null);
       if (id) location.href = 'company.aspx?id=' + id;
@@ -122,10 +128,24 @@
     return seesAll() ? 'every active company' : "of your and your team's territories (and of MyCRM's projects you are in)";
   }
 
+  /** The filters in words, shown only on paper (the filter row is not printed). */
+  function printFilters() {
+    const label = (list, code, key) => ((list || []).find(x => String(x[key]) === String(code)) || {})[key === 'code' ? 'label' : 'groupName'] || code;
+    const parts = [
+      filter.q ? `Search “${filter.q}”` : '',
+      filter.customerType ? `Customer type ${label(lists && lists.companyGroups, filter.customerType, 'code')}` : '',
+      filter.groupName ? `Group name ${label(lists && lists.groupNames, filter.groupName, 'id')}` : '',
+      filter.postalCode ? `Postal code ${filter.postalCode}` : '',
+      filter.show === 'mine' ? 'Mine' : filter.show === 'none' ? 'No salesperson' : '',
+      data && data.total > data.rows.length ? `rows ${data.skip + 1}–${data.skip + data.rows.length}` : '',
+    ].filter(Boolean);
+    return `<span class="print-only print-filters"> · ${esc(parts.length ? parts.join(' · ') : 'No filters')} · printed ${esc(new Date().toLocaleString('en-SG', {dateStyle: 'medium', timeStyle: 'short'}))}</span>`;
+  }
+
   function render() {
     actions();
     const rows = data.rows;
-    $('#count').innerHTML = `<b>${companies(data.total)}</b>${filtered() ? ' match' : ''}<span class="count-scope"> · ${esc(scope())}</span>`;
+    $('#count').innerHTML = `<b>${companies(data.total)}</b>${filtered() ? ' match' : ''}<span class="count-scope"> · ${esc(scope())}</span>${printFilters()}`;
     $('#filter-dot').hidden = !(filter.customerType || filter.groupName || filter.postalCode);
     $('#open-filters').setAttribute('aria-label', $('#filter-dot').hidden ? 'Filters' : 'Filters (on)');
     $$('[data-show]', page).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.show === filter.show)));

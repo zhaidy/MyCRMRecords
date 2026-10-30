@@ -164,7 +164,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     /// Each project's count of active company links and its first <see cref="ListedCompanies"/> companies: in MyCRM one
     /// grouped query (a project can hold tens of thousands of companies), elsewhere (tests) read from the store.
     /// </summary>
-    private IReadOnlyDictionary<long, (int Count, IReadOnlyList<long> First)> CompanySummaries(IReadOnlyCollection<long> projectIds)
+    internal IReadOnlyDictionary<long, (int Count, IReadOnlyList<long> First)> CompanySummaries(IReadOnlyCollection<long> projectIds)
     {
         if (store is RoutedStore { Crm: MyCrmStore crm } && crm.Available) return crm.ProjectCompanies(projectIds, ListedCompanies);
         return store.Find<ProjectCompany>(Query.Where("IsActive", true).In("ProjectId", projectIds.Cast<object>()))
@@ -232,6 +232,15 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     /// </summary>
     public (int Total, IReadOnlyList<Row> Rows) List(Actor actor, string? show, string? q, int skip)
     {
+        var (total, page) = Matching(actor, show, q, Math.Max(0, skip), PageSize);
+        return (total, RowsOf(page));
+    }
+
+    /// <summary>The list's projects (its Open, Closed or All and its search, as the person sees them), newest first, at most <paramref name="max"/>; and how many match.</summary>
+    public (int Total, IReadOnlyList<Project> Projects) ForDownload(Actor actor, string? show, string? q, int max) => Matching(actor, show, q, 0, max);
+
+    private (int Total, List<Project> Page) Matching(Actor actor, string? show, string? q, int skip, int take)
+    {
         List<Project> projects;
         var text = (q ?? "").Trim();
         if (actor.IsSalesAdmin && text.Length == 0)
@@ -241,8 +250,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             if ((show ?? "open") == "closed") shown = shown.And("IsClosed", true);
             else if ((show ?? "open") != "all") shown = shown.And("IsClosed", false);
             var count = store.Count<Project>(shown);
-            var onPage = store.Find<Project>(shown.Newest().Page(Math.Max(0, skip), PageSize));
-            return (count, RowsOf(onPage));
+            return (count, store.Find<Project>(shown.Newest().Page(skip, take)));
         }
         if (actor.IsSalesAdmin) projects = store.Find<Project>(Query.Where("IsActive", true));
         else
@@ -258,7 +266,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             "all" => projects,
             _ => projects.Where(p => !p.IsClosed).ToList(),
         };
-        if (projects.Count == 0) return (0, Array.Empty<Row>());
+        if (projects.Count == 0) return (0, projects);
         // Searched by name or remarks on the projects read, and by company: the companies whose name has the text, then
         // their projects. Only the page shown reads its companies, members and names (one query each, not one per project).
         if (text.Length > 0)
@@ -270,8 +278,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 foreach (var l in store.Find<ProjectCompany>(Query.Where("IsActive", true).In("CompanyId", found))) match.Add(l.ProjectId);
             projects = projects.Where(p => match.Contains(p.Id)).ToList();
         }
-        var total = projects.Count;
-        return (total, RowsOf(projects.OrderByDescending(p => p.Id).Skip(Math.Max(0, skip)).Take(PageSize).ToList()));
+        return (projects.Count, projects.OrderByDescending(p => p.Id).Skip(skip).Take(take).ToList());
     }
 
     /// <summary>The list's rows of these projects (a page): their first companies and count, members and caretaker.</summary>

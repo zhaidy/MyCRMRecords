@@ -140,6 +140,19 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
     /// </summary>
     public (int Total, IReadOnlyList<Row> Rows) List(Actor actor, ListFilter filter)
     {
+        var (total, page) = Matching(actor, filter, Math.Max(0, filter.Skip), PageSize);
+        return (total, Rows(page));
+    }
+
+    /// <summary>
+    /// Every active company of the list's search, filters and Show, as the person may open them, by name (at most
+    /// <paramref name="max"/>; the total says how many match): the Company summary download.
+    /// </summary>
+    public (int Total, IReadOnlyList<Company> Companies) ForDownload(Actor actor, ListFilter filter, int max) => Matching(actor, filter, 0, max);
+
+    /// <summary>The list's companies <paramref name="skip"/>…<paramref name="skip"/>+<paramref name="take"/>, by name, and how many match.</summary>
+    private (int Total, List<Company> Page) Matching(Actor actor, ListFilter filter, int skip, int take)
+    {
         var query = Query.Where("IsActive", true).Search(filter.Q, "Name", "Brn");
         if (!string.IsNullOrWhiteSpace(filter.CustomerType)) query = query.And("CompanyGroup", filter.CustomerType!.Trim());
         if (filter.GroupNameId is { } group && group != 0) query = query.And("CompanyGroupNameId", group);
@@ -167,19 +180,18 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
         }
         int total;
         List<Company> page;
-        var skip = Math.Max(0, filter.Skip);
         if (ids is null && assigned is not null)
         {
             // Every active company that matches, less those with a salesperson: the filters run in SQL, the rest here.
             var withSalesperson = assigned;
             var found = store.Find<Company>(query.Unpaged()).Where(c => !withSalesperson.Contains(c.Id)).ToList();
             total = found.Count;
-            page = found.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Skip(skip).Take(PageSize).ToList();
+            page = found.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Skip(skip).Take(take).ToList();
         }
         else if (ids is null)
         {
             total = store.Count<Company>(query.Unpaged());
-            page = store.Find<Company>(query.Sort("Name").Page(skip, PageSize));
+            page = store.Find<Company>(query.Sort("Name").Page(skip, take));
         }
         else
         {
@@ -192,9 +204,9 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
                 found.AddRange(store.Find<Company>(part));
             }
             total = found.Count;
-            page = found.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Skip(skip).Take(PageSize).ToList();
+            page = found.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Skip(skip).Take(take).ToList();
         }
-        return (total, Rows(page));
+        return (total, page);
     }
 
     private IReadOnlyList<Row> Rows(IReadOnlyList<Company> page)

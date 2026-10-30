@@ -7,7 +7,8 @@ namespace MyCRMRecords.Web;
 /// <summary>
 /// Serves <c>file.ashx/&lt;kind&gt;</c>: GET downloads an Excel sample to fill in (<c>sample?of=employees</c> or
 /// <c>sample?of=territory</c>), a costing sheet's or request form's attachment, or a file of MyFiles (<c>files/{id}</c>,
-/// shown in the page with <c>?view=1</c>; <c>files/zip?ids=</c> for several, recorded in the audit log); POST uploads an Excel workbook (<c>employees</c>, or <c>territory-list?territory=</c>)
+/// shown in the page with <c>?view=1</c>; <c>files/zip?ids=</c> for several, recorded in the audit log), the Company summary
+/// (<c>companies?</c>) or the projects and caretake accounts (<c>projects?</c>), both recorded in the audit log; POST uploads an Excel workbook (<c>employees</c>, or <c>territory-list?territory=</c>)
 /// as multipart form data with an
 /// <c>X-MyCRMRecords</c> header. Browsers cannot add that header cross-site without a CORS preflight, which is never
 /// granted, so other sites cannot upload.
@@ -41,6 +42,10 @@ public sealed class FileHandler : IHttpHandler
         if (request.HttpMethod == "GET")
         {
             var file = Services.FilesApi.Download(kind, query, user);
+            // The Company summary and the projects download hold whole lists of MyCRM's companies: recorded, done or refused.
+            if (kind is FilesApi.CompanySummary or FilesApi.ProjectsReport)
+                Services.Record(context, user, kind == FilesApi.CompanySummary ? "Download the Company summary" : "Download the projects and caretake accounts",
+                    "file.ashx/" + kind, file.Status == 200, file.Status == 200 ? file.FileName : file.Error, request.Url.Query, method: "GET", status: file.Status);
             if (file.Status != 200)
             {
                 response.StatusCode = file.Status;
