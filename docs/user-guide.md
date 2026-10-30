@@ -115,7 +115,8 @@ details): tap one to open it on the whole screen, and the company's name at the 
   last updated (with by whom). Change them with **Edit company**.
 - **Copies per month**: the black (teal) and colour (coral) copies billed on all the company's machines in Advance
   (found by its BRN) in each of the last 12 months, each machine's of its contract as on its own page. Point at a
-  month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab.
+  month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab and **Usage &
+  history ›** the company's [usage and history](#a-companys-usage-and-history).
 - The four tiles count the company's **Machines** (contract or warranty running), **Files**, **Contacts** and
   **Costing sheets**; click one to open its tab.
 - **Salesperson**: the company's owner and their territory.
@@ -154,6 +155,8 @@ whose contract or warranty has ended and those with none. Each row shows the **S
 machine), **Model**, **Status** (Contract, Warranty, T&M, Expired or No contract), **Contract** number and type,
 **Contract start** and **end**, **Warranty start** and **end** (dates already past are grey) and **Finance type**
 (Internal lease, External lease, Outright or Dealer). On a phone each machine is a card. See [Machines](#machines).
+**Usage & history ›** opens the company's [usage and history](#a-companys-usage-and-history) and **Grouped by
+coverage ›** its [machines by coverage](#a-companys-machines-by-coverage).
 
 **Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
 you may see; click a number to open it. **See all** opens the list of all of them.
@@ -345,6 +348,34 @@ A machine's page: its serial number and coverage, its model, company and how you
 - **Meter readings**: each invoice of the last 12 months with its black and white and colour copies.
 - **Last contract** (a machine on time and materials that had one): its last contract's dates and, per meter type, the
   minimum bill, minimum copies, minimum rate and the rate thereafter.
+
+## A company's usage and history
+
+**Usage & history** (from a company's Overview or Machines tab) shows the copies billed on all the company's machines
+in Advance (found by its BRN), each machine's of its contract as on its own page. Only those who may see the company's
+machines see it. Nothing is changed in Advance.
+
+- **Usage trends**: choose **Black & white** or **Colour**, and a **Range**: **6**, **12**, **24**, **48** or **96
+  months**, or **Choose dates…** to pick a **From** and **To** month. The chart shows each month's copies (the darker
+  bar) beside the same month a year before (the lighter bar); point at a month to see its numbers. The table below
+  lists each month's copies, the year before's and the **Change**. The meter and range are kept for next time.
+- **Yearly history**: the copies of each of the last six years (this one so far), black and white and colour, with
+  how many of the company's machines were billed that year. On a phone each year is a card.
+- **Export to Excel** downloads an Excel workbook with the months of the range chosen (both meters, with the year
+  before and the change) and the copies of each year.
+- **Grouped by coverage** opens the company's [machines by coverage](#a-companys-machines-by-coverage).
+
+## A company's machines by coverage
+
+**Grouped by coverage** (from a company's Machines tab) lists every machine of the company in Advance in groups:
+**On contract** (under each contract's number, type and dates), **Warranty** (with its dates), **Time & material**
+(with the last service, last invoice and last contract), **Contract expired** (the contract and when it ended) and
+**No contract**. The line at the top counts them.
+
+- Click a serial number to open the machine. **Rates** beside a last contract opens the machine with its last
+  contract's rates.
+- The arrow on a group folds it or opens it again; **Collapse all** folds every group (**Expand all** opens them).
+- **Usage & history** opens the company's [usage and history](#a-companys-usage-and-history).
 
 ## Machine access
 

@@ -1611,3 +1611,98 @@ button.avatar:hover,button.avatar[aria-expanded=true]{box-shadow:inset 0 0 0 2px
   .crumb-back{display:inline-flex;min-height:44px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .crumbs{margin:0}
 }
+
+/* ==== A company's Usage & history (usage.js) and its machines by coverage (companymachines.js), 2026-10-30 ====
+   Usage: view tabs, then the meter switch and the range in glass capsules; the chart pairs each month with the same month
+   a year before (the lighter bar). By coverage: a card per group that folds, a contract's machines under its line. */
+.usage-views{position:sticky;top:84px;z-index:3;margin-bottom:16px}
+.usage-views .tabs,.usage-controls .tabs{margin:0;flex-wrap:nowrap}
+.usage-views .tab,.usage-controls .tab{white-space:nowrap}
+.usage-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+.usage-controls[hidden],.usage-dates[hidden]{display:none}
+.usage-dates{display:inline-flex;gap:8px;flex-wrap:wrap}
+.usage-dates input{width:auto}
+.usage-controls select{color:var(--accent)}
+.usage-span{font-size:14px}
+#usage-body{display:flex;flex-direction:column;gap:18px}
+#usage-body[aria-busy=true]{opacity:.55;transition:opacity .2s}
+#usage-body>.card{margin:0}
+.usage-chart-card{--this:var(--teal)}
+.usage-chart-card.meter-colour{--this:var(--coral)}
+.usage-chart-card .card-heading{align-items:baseline}
+.usage-legend{margin:0;display:flex;gap:14px;font-size:13px;color:var(--ink-2)}
+.usage-legend span{display:inline-flex;align-items:center;gap:6px}
+.usage-legend i{width:9px;height:9px;border-radius:5px;display:inline-block}
+.usage-legend i.this,.usage-bars .this{background:var(--this)}
+.usage-legend i.before,.usage-bars .before{background:color-mix(in srgb,var(--this) 38%,transparent)}
+.usage-chart{height:210px;display:flex;align-items:flex-end;gap:14px}
+.usage-chart.many{gap:3px}
+.usage-month{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px}
+.usage-bars{flex:1;width:100%;max-width:48px;display:flex;align-items:flex-end;gap:4px}
+.usage-chart.many .usage-bars{gap:1px}
+.usage-bars span{flex:1 1 0;min-width:0;border-radius:7px 7px 3px 3px}
+.usage-chart.many .usage-bars span{border-radius:3px 3px 1px 1px}
+.usage-label{font-size:12px;color:var(--ink-2);text-align:center;white-space:nowrap;min-height:1.2em}
+.usage-note{margin:14px 0 0}
+.usage-table-card,.usage-years{padding:0;overflow:hidden}
+.usage-table-card .table-wrap,.usage-years .table-wrap{border:0;border-radius:0;margin:0}
+.usage-table{font-variant-numeric:tabular-nums}
+.usage-change{font-weight:600}
+.usage-change.up{color:var(--teal)}
+.usage-change.down{color:var(--red)}
+.usage-years-head{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:18px 24px 8px;margin:0}
+.usage-years-head p{margin:0}
+.usage-year-cards{display:none}
+.usage-year-card h2{margin:0 0 10px;font-size:20px;font-variant-numeric:tabular-nums}
+.usage-year-card dl{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-variant-numeric:tabular-nums}
+.usage-year-card dt{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.usage-year-card dd{margin:0;font-size:17px;font-weight:700}
+.cm-summary{margin:0 0 18px;font-size:15px;color:var(--ink-2)}
+.cm-summary b{color:var(--ink)}
+.cm-group{padding:0;overflow:hidden;margin-bottom:18px}
+.cm-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 12px 24px;margin:0}
+.cm-head h2{margin:0}
+.cm-sub{font-size:14px;font-weight:500;letter-spacing:0}
+.cm-fold svg{transition:transform .25s}
+.cm-group.folded .cm-fold svg{transform:rotate(180deg)}
+.cm-group.folded .cm-head{padding-bottom:16px}
+.cm-group .table-wrap{border:0;border-radius:0;margin:0}
+.cm-table td,.cm-table th{white-space:nowrap}
+.cm-contract-row th{background:var(--surface);text-align:left;font-weight:500;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.cm-contract-row th b{font-variant-numeric:tabular-nums;margin-right:8px}
+.cm-last{display:inline-flex;gap:12px}
+.cm-last a,.cm-table .serial{font-weight:600}
+.cm-contract{display:inline-flex;align-items:center;gap:8px}
+@media(max-width:900px){
+.usage-views{top:76px}
+.usage-views .tabs,.usage-controls .tabs{display:flex;width:100%}
+.usage-views .tab,.usage-controls .tab{flex:1 1 0}
+.usage-controls .filter-capsule{width:100%;box-sizing:border-box}
+.usage-controls .filter-capsule select{flex:1;max-width:none;text-align:right}
+.usage-dates{width:100%}
+.usage-dates .filter-capsule{flex:1 1 140px}
+.usage-span{margin:-4px 0 0 16px;font-size:13px}
+.usage-chart{height:170px;gap:4px}
+.usage-bars{max-width:22px;gap:2px}
+.usage-bars span{border-radius:4px 4px 2px 2px}
+.usage-label{font-size:10.5px}
+.usage-years{display:none}
+.usage-year-cards{display:flex;flex-direction:column;gap:14px}
+.usage-year-cards .card{margin:0}
+.cm-head{padding:14px 14px 10px 18px}
+.cm-table td,.cm-table th{white-space:normal}
+}
+.cm-table a,.cm-last a{color:var(--accent)}
+.cm-head{background:transparent}
+@media(max-width:560px){
+/* The months stay a four-column table on a phone, as the design. */
+table.data.usage-table{display:table;width:100%}
+table.data.usage-table thead{display:table-header-group}
+table.data.usage-table tbody{display:table-row-group}
+table.data.usage-table tr{display:table-row;padding:0}
+table.data.usage-table th,table.data.usage-table td{display:table-cell;width:auto;padding:12px 10px;border-bottom:1px solid var(--line);font-size:14px}
+table.data.usage-table td.num,table.data.usage-table th.num{text-align:right;white-space:nowrap}
+table.data.usage-table th:first-child,table.data.usage-table td:first-child{padding-left:16px}
+table.data.usage-table th:last-child,table.data.usage-table td:last-child{padding-right:16px}
+.cm-contract-row th{display:block;padding:10px 14px}
+}
