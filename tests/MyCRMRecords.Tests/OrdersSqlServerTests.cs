@@ -322,6 +322,13 @@ public sealed class OrdersSqlServerTests
         Assert.Equal(J(fake.MonthlyCopies(tan, from)), J(sql.MonthlyCopies(tan, from)));
         Assert.Equal(5000L, sql.MonthlyCopies(tan, from).Single(m => m.Month == 9).BlackWhite);
         Assert.Empty(sql.MonthlyCopies(new[] { new MeterMachine("NOPE", "") }, from));
+        // A company's copies per year, with how many of its machines were billed each year.
+        var years = new DateTime(2024, 1, 1);
+        Assert.Equal(J(fake.YearlyCopies(listed, years)), J(sql.YearlyCopies(listed, years)));
+        Assert.Equal(J(fake.YearlyCopies(tan, years)), J(sql.YearlyCopies(tan, years)));
+        Assert.Equal(new[] { 2025, 2026 }, sql.YearlyCopies(tan, years).Select(y => y.Year));
+        Assert.Equal(2, sql.YearlyCopies(tan, years).Single(y => y.Year == 2026).Machines);
+        Assert.Empty(sql.YearlyCopies(new[] { new MeterMachine("NOPE", "") }, years));
         Assert.Null(sql.Get("NOPE", "", today));
         Assert.Equal(41882L, sql.Services("3100R0001", "C1", "CT-1", from).Single().BlackWhite);
         Assert.Equal("Mei", sql.Get("3100R0002", "", today)!.Contact);

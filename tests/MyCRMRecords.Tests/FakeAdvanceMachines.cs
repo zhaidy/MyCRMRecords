@@ -167,6 +167,22 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
             }))
             .ToList();
 
+    public IReadOnlyList<YearCopies> YearlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from) =>
+        Rows("meter_card").Where(r => r.Date("Invoice_date") is { } at && at >= from
+                                      && machines.Any(m => Same(r["serial_no"], m.Serial) && (m.ContractNo.Trim().Length == 0 || Same(r["Contract_no"], m.ContractNo))))
+            .GroupBy(r => (Serial: r.Text("serial_no"), No: r.Long("Invoice_no"), At: r.Date("Invoice_date")!.Value))
+            .Select(g => (g.Key.Serial, g.Key.At,
+                BlackWhite: g.Max(r => r.Text("Meter_Type").StartsWith("B", StringComparison.OrdinalIgnoreCase) ? r.Long("Copies") : 0),
+                Colour: g.Max(r => r.Text("Meter_Type").StartsWith("C", StringComparison.OrdinalIgnoreCase) ? r.Long("Copies") : 0)))
+            .GroupBy(i => i.At.Year)
+            .OrderBy(g => g.Key)
+            .Select(g => SqlAdvanceMachines.YearOf(new Dictionary<string, object?>
+            {
+                ["Year"] = g.Key, ["Machines"] = g.Select(i => i.Serial.ToUpperInvariant()).Distinct().Count(),
+                ["BlackWhite"] = g.Sum(i => i.BlackWhite), ["Colour"] = g.Sum(i => i.Colour),
+            }))
+            .ToList();
+
     public IReadOnlyList<ServiceCall> Services(string serial, string customerNo, string contractNo, DateTime from) =>
         Rows("Service").Where(r => Same(r["Serial_no"], serial) && (customerNo.Trim().Length == 0 || Same(r["Cust_no"], customerNo))
                                    && (contractNo.Trim().Length == 0 || Same(r["Contract_no"], contractNo)) && Same(r["SO_status"], "F90")
