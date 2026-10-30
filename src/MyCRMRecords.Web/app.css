@@ -1404,3 +1404,167 @@ dialog.users-panel{inset:0;width:100vw;max-width:none;height:100%;border-radius:
 .rf-declaration{margin:14px 0 0}
 @media(max-width:1200px) and (min-width:901px){.rf-table .c-type,.rf-table .c-rep{display:none}}
 @media(max-width:900px){.orders-card-foot .rf-pending{margin-left:0;flex:none}}
+/* ==== Activities and Projects (activities.js, activityform.js, projects.js, project.js) and a company's Activities,
+   Prospects and Projects tabs: MyCRM's activities and projects. The status tags, the activity panel (a glass dialog with
+   solid cards inside), the month calendar, the project's sections. Two more menu links: the menu compacts sooner. ==== */
+@media(min-width:901px) and (max-width:1640px){.brand>span:last-child{display:none}.install-label{display:none}.install-button{width:44px;padding:0;justify-content:center}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 9px}}
+@media(min-width:901px) and (max-width:1420px){.appbar{gap:8px}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 6px;font-size:14px}.appbar-name{display:none}.sidebar .nav-item>[data-icon]{display:none}}
+@media(min-width:901px) and (max-width:1120px){.sidebar>.nav-item,.nav-group>.nav-item{padding:0 4px;font-size:12.5px}.appbar{gap:4px}.help-button,.sign-out{width:36px}}
+.act-status{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap}
+.act-status.done{background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
+.act-status.late{background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral)}
+.act-status.pending{background:color-mix(in srgb,var(--ink-2) 14%,transparent);color:var(--ink-2)}
+.act-type{display:inline-flex;align-items:center;height:24px;max-width:100%;padding:0 10px;border-radius:12px;background:color-mix(in srgb,var(--ink-2) 12%,transparent);color:var(--ink);font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.act-remarks{padding:0;border:0;background:none;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-align:left}
+.act-remarks:hover{color:var(--accent);text-decoration:underline}
+.danger-text{color:var(--coral)!important}
+.button.danger-btn.solid{background-color:#d63c2f;color:#fff;border-color:rgba(0,0,0,.18)}
+.act-filters .tabs,.proj-show{margin:0;flex:none}
+.act-filters .tab,.proj-show .tab{white-space:nowrap}
+.act-filters .filter-capsule select{max-width:170px}
+table.data.act-table .act-time{width:132px;font-variant-numeric:tabular-nums}
+table.data.act-table .act-types{width:190px}
+table.data.act-table .act-company{width:20%}
+table.data.act-table .act-contacts{width:13%}
+table.data.act-table .act-owner-col{width:11%}
+table.data.act-table .act-status-col{width:132px}
+table.data.act-table td:nth-child(3){color:var(--ink)}
+table.data.act-table tr[data-open]{cursor:pointer}
+.act-day th{padding:10px 24px!important;text-align:left;font-size:14px;font-weight:700;color:var(--ink)!important;background:var(--surface)!important;border-bottom:1px solid var(--line)}
+.act-day.today th{color:var(--accent)!important}
+.act-card-day{padding:14px 6px 6px;font-size:14px;font-weight:700;color:var(--ink-2)}
+.act-card-row{width:100%;border:0;background:var(--card);font:inherit;text-align:left;cursor:pointer;border-radius:0}
+.act-card-row+.act-card-day{margin-top:6px}
+/* The month calendar */
+.act-cal{border-radius:24px;background:var(--card);overflow:hidden}
+.act-cal-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px 12px;flex-wrap:wrap}
+.act-cal-nav{display:flex;align-items:center;gap:8px}
+.act-cal-nav h2{margin:0;min-width:170px;text-align:center;font-size:19px}
+.act-legend{display:flex;gap:16px;font-size:13px;color:var(--ink-2)}
+.act-legend span{display:inline-flex;align-items:center;gap:6px}
+.act-legend i{width:9px;height:9px;border-radius:5px;background:#8e8e93}
+.act-legend i.done{background:var(--teal)}.act-legend i.late{background:var(--coral)}
+.act-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line)}
+.act-wd{padding:10px 12px;font-size:13px;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--line)}
+.act-cell{min-width:0;min-height:112px;padding:8px 8px 10px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+.act-cell:nth-child(7n+7){border-right:0}
+.act-cell.out{background:var(--surface)}
+.act-cell.out .act-num{opacity:.55;font-weight:500}
+.act-cell.today{background:color-mix(in srgb,var(--accent) 7%,var(--card));box-shadow:inset 0 0 0 2px var(--accent)}
+.act-num{align-self:flex-start;min-width:26px;height:26px;padding:0 7px;display:inline-flex;align-items:center;justify-content:center;border-radius:13px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.act-cell.today .act-num{background:var(--accent);color:#fff;font-weight:700}
+.act-chip-cal{--c:#8e8e93;display:block;width:100%;padding:3px 8px;border:0;border-left:3px solid var(--c);border-radius:8px;background:color-mix(in srgb,var(--c) 14%,transparent);font:inherit;font-size:12.5px;line-height:1.4;color:var(--ink);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.act-chip-cal.done{--c:var(--teal)}.act-chip-cal.late{--c:var(--coral)}
+.act-more{align-self:flex-start;padding:0 4px;font-size:13px}
+/* The activity panel and the project dialogs: glass, with the fields on solid cards */
+dialog.act-panel{width:min(640px,calc(100vw - 24px));max-height:calc(100vh - 48px);padding:0}
+dialog.act-panel.wide{width:min(940px,calc(100vw - 24px))}
+.act-panel-in{display:flex;flex-direction:column;gap:14px;padding:18px 22px;max-height:calc(100vh - 48px);box-sizing:border-box}
+.act-panel-head{flex:none;display:flex;align-items:center;gap:12px}
+.act-panel-title{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
+.act-panel-title h2{margin:0;max-width:100%;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-panel-action{flex:none;min-width:44px;display:flex;justify-content:flex-end}
+.act-panel-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.act-panel-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+.act-panel-foot:empty{display:none}
+.act-panel .notice{margin:0}
+.act-locked{display:flex;align-items:center;gap:10px;background:color-mix(in srgb,#e59a0b 16%,var(--card));border:0}
+.act-locked [data-icon]{color:#e59a0b}
+dl.act-facts{margin:0;border-radius:22px;background:var(--card);overflow:hidden}
+dl.act-facts>div{display:flex;align-items:baseline;justify-content:space-between;gap:20px;min-height:46px;padding:12px 18px;border-bottom:1px solid var(--line)}
+dl.act-facts>div:last-child{border-bottom:0}
+dl.act-facts dt{flex:none;color:var(--ink-2)}
+dl.act-facts dd{margin:0;min-width:0;font-weight:500;text-align:right}
+dl.act-facts dd.pre{white-space:pre-wrap}
+.act-confirm{font-weight:600;color:var(--coral)}
+.act-confirm-buttons{display:flex;gap:8px;flex:none}
+.act-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+.act-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.act-card{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:22px;background:var(--card)}
+.act-panel .act-card .field input,.act-panel .act-card .field select,.act-panel .act-card .field textarea{background-color:var(--surface)}
+.act-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.act-note{margin:0}
+.act-note a{color:var(--accent);font-weight:600}
+.act-owner{display:flex;align-items:flex-end;gap:16px}
+.act-owner .field{flex:1}
+.act-done{height:44px;display:inline-flex;align-items:center;gap:8px}
+.act-fixed{min-height:44px;display:flex;align-items:center;padding:0 12px;border-radius:12px;background:var(--surface);font-weight:600}
+.act-suggest{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:220px;overflow-y:auto}
+.act-suggest button{padding:9px 12px;border:0;background:var(--card);font:inherit;text-align:left;cursor:pointer}
+.act-suggest button+button{border-top:1px solid var(--line)}
+.act-suggest button:hover{background:var(--row-tint)}
+.act-picker+.act-picker{padding-top:12px;border-top:1px solid var(--line)}
+.act-picker-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.act-picker-head a{font-size:14px;font-weight:600;color:var(--accent)}
+.act-picker-label{font-weight:600}
+.act-picker-label .req{color:var(--coral)}
+.act-picker-row{display:flex;gap:8px}
+.act-picker-row select{flex:1;min-width:0;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface) var(--select-arrow) no-repeat right 12px center;font:inherit;color:var(--ink);appearance:none}
+.act-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.act-chip{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 6px 0 12px;border-radius:15px;background:var(--accent-light);color:var(--accent-dark);font-size:14px;font-weight:600}
+.act-chip button{width:22px;height:22px;display:grid;place-items:center;padding:0;border:0;border-radius:11px;background:transparent;color:inherit;cursor:pointer}
+.act-chip button:hover{background:rgba(0,0,0,.08)}
+.act-chip svg{width:12px;height:12px}
+.act-picker.invalid select{border-color:var(--coral)}
+.act-picker .field-error{display:block}
+/* Projects */
+table.data.proj-table .proj-name{width:20%}
+table.data.proj-table .proj-cos{width:19%}
+table.data.proj-table .proj-members{width:15%}
+table.data.proj-table .proj-date{width:110px}
+table.data.proj-table .proj-updated{width:15%}
+table.data.proj-table .proj-closed{width:90px}
+table.data.proj-table tbody tr{cursor:pointer}
+table.data.proj-table tr.closed td{color:var(--muted)}
+.proj-count{margin-left:4px}
+.proj-foot{margin:0;padding:10px 24px 14px}
+.proj-who{margin:0;padding:12px 16px;border-radius:18px;background:var(--accent-tint);font-size:14.5px}
+.proj-co-search{flex:none}
+.proj-pick{display:flex;flex-direction:column;border-radius:18px;background:var(--card);overflow:hidden;min-height:60px}
+.proj-pick>p{padding:14px 16px;margin:0}
+.proj-pick-row{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;cursor:pointer}
+.proj-pick-row+.proj-pick-row{border-top:1px solid var(--line)}
+.proj-pick-row input{accent-color:var(--accent);width:18px;height:18px;margin:0}
+.proj-pick-name{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-picked{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.proj-heading h1{margin-top:4px}
+.proj-sub{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:6px 0 0}
+.proj-remarks{margin:6px 0 0;color:var(--ink-2);max-width:820px}
+.proj-closed{margin:0 0 14px;background:color-mix(in srgb,var(--ink-2) 10%,var(--card));border:0}
+.proj-tabs{margin:0 0 16px}
+.proj-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;color:var(--ink-2)}
+.proj-panel-head b{color:var(--ink)}
+.proj-inner td{vertical-align:middle}
+.proj-inner a{color:var(--accent)}
+.proj-note{margin:12px 0 0}
+.proj-info{margin:0;background:var(--accent-tint);border:0}
+/* A company's Prospects tab: the list and the chosen prospect beside it */
+.co-prospects{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.co-prospects.closed{grid-template-columns:minmax(0,1fr)}
+.co-prospect-row{cursor:pointer}
+.co-prospect-row.chosen td{background:var(--accent-tint)}
+.co-tab-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.co-tab-head .tabs{margin:0}
+.co-tab-head select{height:40px;border-radius:20px;padding:0 34px 0 14px;border:1px solid var(--line);background:var(--surface) var(--select-arrow) no-repeat right 12px center;font:inherit;appearance:none}
+@media(max-width:900px){
+.act-filters .companies-filter-row{flex-wrap:wrap}
+.act-filters .search-box{flex:1 1 100%}
+.act-filters .tabs{display:flex;flex:1 1 auto}
+.act-filters .tabs .tab{flex:1 1 0;min-width:0;padding:0 6px}
+.act-wide{display:none!important}
+.act-list>#rows{display:none}
+.act-calendar-view .act-list>#rows{display:none}
+.act-form{grid-template-columns:minmax(0,1fr)}
+.act-panel-in{padding:14px}
+.proj-show{display:flex;flex:1 1 100%}
+.proj-show .tab{flex:1 1 0}
+.proj-count{flex:1 1 100%;margin:0 4px}
+.companies-list>.proj-foot{padding:10px 4px}
+.proj-heading .action-capsule .capsule-button{padding:0 8px}
+.proj-tabs{display:flex;position:static}
+.proj-tabs .tab{flex:1 1 0;min-width:0;padding:0 4px;font-size:13.5px}
+.proj-tabs .count{display:none}
+.proj-panel-head{flex-direction:column;align-items:flex-start}
+.co-prospects{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:560px){.act-dates{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.act-owner{flex-direction:column;align-items:stretch}}

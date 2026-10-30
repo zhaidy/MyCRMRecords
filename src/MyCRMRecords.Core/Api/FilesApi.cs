@@ -40,6 +40,29 @@ public sealed class FilesApi(CrmApp w)
     /// <summary>files/{id} (?view=1 to show it) and files/zip?ids=1,2: MyFiles' PDFs.</summary>
     public const string MyFilesPrefix = "files/";
     public const string MyFilesZip = "files/zip";
+    /// <summary>activities?&lt;the Activities page's filters&gt;: MyCRM's Download (CompanyActivity.xls), every activity shown.</summary>
+    public const string ActivitiesList = "activities";
+
+    /// <summary>The Activities page's activities as an Excel workbook, as the list shows them (up to <see cref="Activities.MaxRows"/>).</summary>
+    private FileAnswer ActivitiesFile(IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        var actor = user.ToActor(w.People);
+        try
+        {
+            var rows = w.Activities.ForDownload(actor, ProjectsApi.Filter(query));
+            static DateTime? D(DateTime? d) => d is { } x && x.Year > 1900 ? x : null;
+            return new FileAnswer(200, "CompanyActivity.xlsx", FileAnswer.XlsxType, Xlsx.Create("Activities",
+                [new Xlsx.ColumnSpec("Remarks", 50), new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("Action", 20), new Xlsx.ColumnSpec("Activity Type", 30),
+                 new Xlsx.ColumnSpec("Start Date", 12, "date"), new Xlsx.ColumnSpec("End Date", 12, "date"), new Xlsx.ColumnSpec("Start Time", 10), new Xlsx.ColumnSpec("End Time", 10),
+                 new Xlsx.ColumnSpec("Owner", 24), new Xlsx.ColumnSpec("Contacts", 30), new Xlsx.ColumnSpec("Status", 14)],
+                rows.Select(r => new object?[] { r.Activity.Remarks, r.Company, ActivityActions.List.Label(r.Activity.Action), string.Join(", ", r.Types),
+                    D(r.Activity.VisitDate), D(r.Activity.ToDate), r.Activity.StartTime, r.Activity.EndTime, r.OwnerName, string.Join(", ", r.Contacts), r.Status })));
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "MyCRM's activities could not be read: " + ex.Message);
+        }
+    }
 
     private static string Q(IReadOnlyDictionary<string, string> query, string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
 
@@ -57,6 +80,7 @@ public sealed class FilesApi(CrmApp w)
                 return new FileAnswer(200, "Company.xlsx", FileAnswer.XlsxType,
                     Xlsx.Create("Sheet1", [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 20)], [new object?[] { "Sample Holdings Pte Ltd", "199912345K" }]));
         }
+        if (kind == ActivitiesList) return ActivitiesFile(query, user);
         if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");
     }
