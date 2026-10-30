@@ -88,11 +88,14 @@ public sealed class ProjectTerritories(Func<string, long?> userIdOf)
 
     private static void TakeAway(IRecordStore s, TemporaryTerritory territory)
     {
-        foreach (var link in s.Find<TemporaryCompanyTerritory>(Query.Where("TerritoryId", territory.Id).And("IsActive", true)))
-        {
-            link.IsActive = false;
-            s.Update(link);
-        }
+        // In MyCRM in one statement (a territory can hold tens of thousands of companies); elsewhere (tests) one by one.
+        if (s is RoutedStore { Crm: MyCrmStore crm }) crm.DeactivateTemporaryLinks(territory.Id);
+        else
+            foreach (var link in s.Find<TemporaryCompanyTerritory>(Query.Where("TerritoryId", territory.Id).And("IsActive", true)))
+            {
+                link.IsActive = false;
+                s.Update(link);
+            }
         if (!territory.IsActive) return;
         territory.IsActive = false;
         s.Update(territory);
@@ -648,7 +651,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         foreach (var m in s.Find<ProjectMember>(Query.Where("ProjectId", projectId)))
             if (m.TerritoryId is not null)
             {
-                if (ProjectTerritories.Reached(s, m).Count > 0) count++;
+                if (ProjectTerritories.ReachesAny(s, m)) count++;
                 ProjectTerritories.TakeAway(s, m);
             }
         return count;

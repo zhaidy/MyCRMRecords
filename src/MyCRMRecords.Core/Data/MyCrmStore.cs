@@ -782,6 +782,25 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
         return (IReadOnlyDictionary<long, (int, IReadOnlyList<long>)>)result;
     });
 
+    /// <summary>
+    /// Takes every active company link of a temporary territory away (ISACTIVE = 0) in one statement, each link recorded
+    /// as a change: a project's territory can hold tens of thousands of links, which one by one took minutes and held
+    /// MyCRM's locks all that time. Part of the batch it is called in.
+    /// </summary>
+    public int DeactivateTemporaryLinks(long territoryId)
+    {
+        var e = EntityOf<TemporaryCompanyTerritory>();
+        RequireWrites(e);
+        return InSession(s =>
+        {
+            var ids = Sql.Rows(s.Connection, s.Transaction,
+                    $"UPDATE {Table(s.Connection, e.Entity)} SET [ISACTIVE] = 0 OUTPUT inserted.[ID] WHERE [TERRITORYID] = @t AND [ISACTIVE] = 1", ("@t", territoryId))
+                .Select(r => OldValues.Long(r["ID"])).ToList();
+            foreach (var id in ids) s.Changes.Add(Change(e, id, "ISACTIVE", true, false));
+            return ids.Count;
+        });
+    }
+
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => Use((connection, transaction) =>
     {
