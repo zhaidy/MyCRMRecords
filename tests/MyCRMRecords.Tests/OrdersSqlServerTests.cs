@@ -303,7 +303,7 @@ public sealed class OrdersSqlServerTests
             new() { Brn = "T1000ABC" }, new() { Brn = "T1000ABC", Coverage = Coverages.Active }, new() { Coverage = Coverages.Active },
             new() { Finance = FinanceTypes.NoneKey }, new() { Finance = "SALCAS" }, new() { Brns = many }, new() { Brns = new string[0] },
             new() { Brns = new[] { "T1000ABC" }, Names = new[] { "Zen Trading" } }, new() { Brns = new string[0], Names = new[] { "LIM PTE LTD" } },
-            new() { Skip = 2, Take = 3 },
+            new() { Skip = 2, Take = 3 }, new() { LastServiced = true }, new() { Keyword = "3100R", LastServiced = true, Skip = 0, Take = 2 },
         };
         searches.AddRange(Coverages.All.Select(c => new MachineSearch { Coverage = c.Code }));
         foreach (var search in searches)
@@ -318,6 +318,7 @@ public sealed class OrdersSqlServerTests
         foreach (var company in new long[] { 7, 8, 9 })
             Assert.Equal(J(fake.CustomerEmails(company)), J(sql.CustomerEmails(company)));
         Assert.Equal(2, sql.CustomerEmails(7).Count);
+        Assert.Equal(new DateTime(2026, 10, 1), sql.Search(new MachineSearch { Today = today, LastServiced = true, Keyword = "3100R0001" }).Rows.Single().LastServiced);
         var from = Machines.From(today, 12);
         foreach (var row in fake.Search(new MachineSearch { Today = today, Take = 500 }).Rows)
         {

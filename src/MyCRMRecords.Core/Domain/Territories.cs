@@ -96,6 +96,23 @@ public sealed class Territories(IRecordStore store, People people, Func<DateTime
     public IReadOnlyList<TerritoryMovement> Movements(long companyId) =>
         store.Find<TerritoryMovement>(Query.Where("CompanyId", companyId)).OrderByDescending(m => m.UpdatedAt).ThenByDescending(m => m.Id).ToList();
 
+    /// <summary>At most this many moves on a territory's History tab.</summary>
+    public const int HistoryMax = 200;
+
+    /// <summary>
+    /// A territory's History: the territory movements to or from its salesperson (MyCRM records a move by person, not by
+    /// territory), newest first, at most <see cref="HistoryMax"/>; none for a territory with no salesperson.
+    /// </summary>
+    public IReadOnlyList<TerritoryMovement> History(Territory territory)
+    {
+        var owner = (territory.Owner ?? "").Trim();
+        if (owner.Length == 0) return Array.Empty<TerritoryMovement>();
+        return store.Find<TerritoryMovement>(Query.Where("FromUser", owner).Sort("UpdatedAt", descending: true).Page(0, HistoryMax))
+            .Concat(store.Find<TerritoryMovement>(Query.Where("ToUser", owner).Sort("UpdatedAt", descending: true).Page(0, HistoryMax)))
+            .GroupBy(m => m.Id).Select(g => g.First())
+            .OrderByDescending(m => m.UpdatedAt).ThenByDescending(m => m.Id).Take(HistoryMax).ToList();
+    }
+
     /// <summary>The active companies of a territory, by name, searched by name or BRN.</summary>
     public (int Total, IReadOnlyList<Company> Rows) Companies(long territoryId, string? q, int skip, int take = PageSize)
     {

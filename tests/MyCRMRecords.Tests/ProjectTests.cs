@@ -139,6 +139,14 @@ public sealed class ProjectTests
         Assert.All(world.Store.Find<ProjectMember>(), m => Assert.False(m.IsActive));
         Assert.False(world.Store.Find<ProjectLink>().Single().IsActive);
         Assert.True(world.Store.Get<Activity>(activity.Id)!.IsActive);
+        // Its page says it was deleted: when and by whom to its owner and Sales Admins, only that to others.
+        Newtonsoft.Json.Linq.JObject Page(ApiUser user) => Newtonsoft.Json.Linq.JObject.Parse(
+            new ProjectsApi(world.D).Handle("GET", "projects/" + p.Id, "", new Dictionary<string, string>(), user).Json);
+        Assert.Equal("DELETED", (string)Page(TestWorld.Mia)["result"]!["code"]!);
+        Assert.Equal("The project Cover was deleted on 17 Oct 2026 by Sara Admin.", (string)Page(TestWorld.Mia)["result"]!["message"]!);
+        Assert.Equal("This project was deleted.", (string)Page(TestWorld.Ken)["result"]!["message"]!);
+        Assert.Equal("NOT_FOUND", (string)Newtonsoft.Json.Linq.JObject.Parse(
+            new ProjectsApi(world.D).Handle("GET", "projects/999999", "", new Dictionary<string, string>(), TestWorld.Mia).Json)["result"]!["code"]!);
     }
 
     [Fact]
