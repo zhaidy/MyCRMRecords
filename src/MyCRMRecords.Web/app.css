@@ -1707,3 +1707,87 @@ table.data.usage-table th:first-child,table.data.usage-table td:first-child{padd
 table.data.usage-table th:last-child,table.data.usage-table td:last-child{padding-right:16px}
 .cm-contract-row th{display:block;padding:10px 14px}
 }
+/* ==== The company page's design gaps (company.js, 2026-10-30): Invoice / SOA emails, salesperson and caretakers,
+   recent activities, machines sold by dealer, addresses by type, contacts that open, related companies by kind, files
+   by number; on a phone the Details and Sections labels and a call and mail button on each contact ==== */
+.group-label{display:none}
+.ov-facts-list .ov-fact:nth-child(-n+3){grid-column:1/-1}
+.dealer-line{display:block}
+.dealer-line a{color:var(--accent)}
+.ov-owner .owner-row+.owner-row{margin-top:14px}
+.owner-avatar.caretaker{background:var(--coral)}
+.owner-note{margin:12px 0 0}
+.owner-note .text-button{font-size:13px;padding:0}
+.ov-recent .card-heading,.ov-owner .card-heading{margin-bottom:6px}
+.recent-list{display:flex;flex-direction:column}
+.recent-row{display:flex;flex-direction:column;gap:2px;min-height:56px;padding:8px 0;border:0;border-top:1px solid var(--line);background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.recent-row:hover .recent-top b{color:var(--accent)}
+.recent-top{display:flex;justify-content:space-between;gap:10px;min-width:0}
+.recent-top b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recent-top>span{flex:none}
+.recent-note{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.soa-table td.wide-text{overflow-wrap:anywhere}
+.address-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;min-width:0}
+.address-types{margin:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.address-types::-webkit-scrollbar{display:none}
+.address-types .tab{white-space:nowrap}
+.address-rows{display:flex;flex-direction:column}
+.address-row{display:grid;grid-template-columns:96px minmax(0,1fr) 64px auto;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-top:1px solid var(--line)}
+.tag.address-type{justify-self:start;background:var(--grey-bg);color:var(--ink)}
+.address-text{min-width:0;overflow-wrap:anywhere}
+.address-text .sub{display:block;font-size:13px;color:var(--ink-2)}
+.address-default{font-size:13px;font-weight:700;color:var(--accent)}
+.row-buttons{display:inline-flex;gap:6px}
+.address-foot{margin:10px 0 0}
+.contact-list{display:flex;flex-direction:column}
+.contact-row{display:grid;grid-template-columns:40px minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.3fr) auto;align-items:center;gap:12px;min-height:56px;padding:6px 0;border-top:1px solid var(--line)}
+.contact-th{min-height:36px;border-top:0;font-size:13px;font-weight:600;color:var(--ink-2)}
+.contact-row>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contact-toggle svg{transition:transform .2s}
+.contact-item.open .contact-toggle svg{transform:rotate(90deg)}
+.contact-name .pill{margin-left:4px}
+.contact-email a{color:var(--accent)}
+.contact-actions{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.round-action{display:none;width:44px;height:44px;flex:none;place-items:center;border-radius:22px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+.contact-detail{margin:0 0 6px;padding:10px 16px 16px 52px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;background:var(--surface);border-radius:16px}
+.contact-detail dt{font-size:13px;color:var(--ink-2)}
+.contact-detail dd{margin:2px 0 0;overflow-wrap:anywhere}
+.contact-detail a{color:var(--accent)}
+.rel-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.rel-group{min-width:0;padding:0 20px;display:flex;flex-direction:column;gap:6px}
+.rel-group:first-child{padding-left:0}
+.rel-group+.rel-group{border-left:1px solid var(--line)}
+.rel-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;min-height:40px}
+.rel-group-head h3{margin:0;font-size:15px}
+.rel-row{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-height:44px;padding:8px 0;border-top:1px solid var(--line)}
+.rel-row a{color:var(--accent);font-weight:600;min-width:0;overflow-wrap:anywhere}
+.rel-row .text-button{margin-left:auto}
+.rel-none{margin:0;min-height:44px;display:flex;align-items:center;border-top:1px solid var(--line)}
+.file-groups{display:flex;flex-direction:column;gap:14px}
+.file-group{border:1px solid var(--line);border-radius:18px;padding:12px 16px}
+.file-group-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.file-group-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.file-group-title h3{margin:0;font-size:16px;overflow-wrap:anywhere}
+.tag.file-kind{background:var(--accent-light);color:var(--accent-dark)}
+.file-group-list{list-style:none;margin:8px 0 0;padding:0}
+.file-group-list li{display:flex;align-items:center;gap:10px;min-height:44px;border-top:1px solid var(--line)}
+.file-badge{flex:none;font-size:10.5px;font-weight:800;padding:3px 6px;border-radius:6px;background:var(--coral);color:#fff}
+.file-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent);font-weight:600}
+@media(max-width:1180px){.rel-groups{grid-template-columns:minmax(0,1fr)}.rel-group{padding:0}.rel-group+.rel-group{border-left:0;margin-top:12px}}
+@media(max-width:900px){
+.group-label{display:block;margin:0 0 -12px 16px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.group-details{order:0}.group-sections{order:1}
+#page.more-details .group-label{display:none}
+#soa{order:4}.ov-owner{order:5}.ov-copies{order:6}.ov-recent{order:7}.ov-side>.card.ov-more{order:8}
+.address-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"type buttons" "text text" "default default";gap:4px 10px}
+.address-type{grid-area:type}.address-text{grid-area:text}.address-default{grid-area:default}.row-buttons{grid-area:buttons}
+.address-default:empty{display:none}
+.contact-th{display:none}
+.contact-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name actions" "role actions" "phone actions";gap:0 8px;padding:8px 0}
+.contact-toggle,.contact-email{display:none}
+.contact-name{grid-area:name}.contact-role{grid-area:role;font-size:13px}.contact-phone{grid-area:phone;font-size:13px;color:var(--ink-2)}.contact-actions{grid-area:actions}
+.round-action{display:grid}
+.contact-detail{display:none}
+.file-group-list li{flex-wrap:wrap;padding:6px 0}
+}
+@media(max-width:560px){.soa-table thead{display:none}}

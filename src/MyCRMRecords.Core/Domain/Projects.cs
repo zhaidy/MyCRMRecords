@@ -279,6 +279,21 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             .ToList();
     }
 
+    /// <summary>
+    /// The company's caretakers (MyCRM's companyOwnerCaretake): the active members with the role Salesperson (Caretaker)
+    /// or Salesperson (Account Owner) of its active projects that are not closed, each once per project, skipping anyone
+    /// whose name is the owner's.
+    /// </summary>
+    public IReadOnlyList<(Project Project, ProjectMember Member)> Caretakers(long companyId, string owner)
+    {
+        var ownerName = people.NameOf(owner);
+        return ForCompany(companyId).Where(x => !x.Project.IsClosed)
+            .SelectMany(x => x.Members.Where(m => m.Role is ProjectRoles.SalespersonCaretaker or ProjectRoles.SalespersonAccountOwner).Select(m => (x.Project, m)))
+            .Where(x => ownerName.Length == 0 || !Strings.SameText(people.NameOf(x.m.User), ownerName))
+            .GroupBy(x => (x.Project.Id, x.m.User.ToUpperInvariant())).Select(g => g.First())
+            .ToList();
+    }
+
     /// <summary>The open projects of a company an activity can be linked to (MyCRM's activity form).</summary>
     public IReadOnlyList<Project> OpenForCompany(long companyId) =>
         ForCompany(companyId).Select(x => x.Project).Where(p => !p.IsClosed).ToList();

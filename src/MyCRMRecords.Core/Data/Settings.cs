@@ -106,6 +106,12 @@ public sealed class AdvanceTables
 
     /// <summary>MyMachines' daily_TM: the last contract's rates of a machine now on time and materials.</summary>
     public string DailyTm { get; set; } = "dbo.daily_TM";
+
+    /// <summary>MyCRM's entity CustomerMapping: Advance's customer number (Cust_No) of each MyCRM company (Company_ID, MyCRM's Company Id).</summary>
+    public string CustomerMapping { get; set; } = "dbo.CustomerMapping";
+
+    /// <summary>MyCRM's entity Email_Master: where a customer's invoices and statements (SOA) are e-mailed, per contract.</summary>
+    public string EmailMaster { get; set; } = "dbo.Email_Master";
 }
 
 public sealed class ExternalDatabase

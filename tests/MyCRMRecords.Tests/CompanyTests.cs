@@ -178,6 +178,11 @@ public sealed class CompanyTests
         Assert.Equal(holding.Id, parent!.CompanyId);
         Assert.Equal(lim.Id, siblings.Single().RelatedCompanyId);
         Assert.Empty(subsidiaries);
+        // The company page shows each related company's territory beside its name.
+        world.Territory("North", 1, TestWorld.Sam, holding.Id);
+        var shown = world.Json(world.Call("GET", "companies/" + tan.Id, user: TestWorld.Admin))["relationships"]!;
+        Assert.Equal("North", (string)shown["parent"]!["territory"]!);
+        Assert.Equal("", (string)shown["siblings"]![0]!["territory"]!);
         // The holding cannot be put below Tan (it is above it), nor Lim (it has a parent).
         Assert.False(world.D.Companies.AddRelationship(admin, tan.Id, As(holding.Id, "subsidiary")).Ok);
         Assert.False(world.D.Companies.AddRelationship(admin, tan.Id, As(lim.Id, "subsidiary")).Ok);

@@ -214,7 +214,10 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
 15. **MD keeps the territories like a Sales Admin** (MyCRM let MD only use the bulk transfer screen), and **only
     administrators sign in as someone else**.
 16. **Not carried over**: the postal-code look-up from Google on the address form (not wanted, decided 2026-10-19); the company list's contract-date filters (they read `ExpireMachine`, which stays in MyCRM); the
-    caretakers from projects and the MSD sales rep on the company page (Projects and MyCRMMSD stay in MyCRM); the
+    MSD sales rep on the company page (MyCRMMSD stays in MyCRM; the caretakers from projects are shown again since
+    the projects are read here, as MyCRM's companyOwnerCaretake did); the company page's Competitors and Purchase
+    History tabs (`CompanyCompetitorsMIF`, `MachinesByCompany`, other parts of MyCRM); "Add email" for the Invoice /
+    SOA emails (it would write to Advance: they are only read); the
     recent-items log; MyCRM's raw Territories list and TerritoryDetail flags (replaced by the named territories); the
     Admin page's developer tools and Month Coverage (MIF, stays in MyCRM); "Customer code" falls back no more to a live
     look-up in Advance by name (it shows `CustomerNo`, which the scheduled task fills); `AddressContactLink` (never
@@ -323,6 +326,14 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     by contract, Warranty, Time & material, Contract expired, No contract); a T&M machine's **Rates** open its last
     contract on its own page. Installed date, location and last service of every machine are not shown there (they are
     read one machine at a time, on its page).
+26. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
+    (`MyCustomerEmails`: AdvanceConnector's `CustomerMapping` with `Company_ID` = the company, joined to `Email_Master`
+    by customer number, each row once; read only, its tables are settings and in the connection test), *Machines sold by
+    dealer* (`DealerSoldMachines`: `daily_mif` of the BRN with `serial-stat` SALDLR and `mif-type` MTR), the caretakers
+    (`companyOwnerCaretake`) with the owner's manager (the team name, as the Territory Movement block) and the three
+    latest past activities. MyCRM showed the emails under the contacts and the caretakers in the header. Differences:
+    an address's type is changed in the address form only (no longer in the list), and a contact is deleted from its
+    form only (no bin in the list); related companies show their territory.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 
