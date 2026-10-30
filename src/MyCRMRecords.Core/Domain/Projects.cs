@@ -227,6 +227,17 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     public (int Total, IReadOnlyList<Row> Rows) List(Actor actor, string? show, string? q, int skip)
     {
         List<Project> projects;
+        var text = (q ?? "").Trim();
+        if (actor.IsSalesAdmin && text.Length == 0)
+        {
+            // Every project, unsearched: counted and paged in SQL, not read whole (MyCRM keeps thousands).
+            var shown = Query.Where("IsActive", true);
+            if ((show ?? "open") == "closed") shown = shown.And("IsClosed", true);
+            else if ((show ?? "open") != "all") shown = shown.And("IsClosed", false);
+            var count = store.Count<Project>(shown);
+            var onPage = store.Find<Project>(shown.Newest().Page(Math.Max(0, skip), PageSize));
+            return (count, RowsOf(onPage));
+        }
         if (actor.IsSalesAdmin) projects = store.Find<Project>(Query.Where("IsActive", true));
         else
         {
@@ -244,7 +255,6 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         if (projects.Count == 0) return (0, Array.Empty<Row>());
         // Searched by name or remarks on the projects read, and by company: the companies whose name has the text, then
         // their projects. Only the page shown reads its companies, members and names (one query each, not one per project).
-        var text = (q ?? "").Trim();
         if (text.Length > 0)
         {
             var match = new HashSet<long>(projects.Where(p => p.ProjectName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
@@ -255,8 +265,13 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             projects = projects.Where(p => match.Contains(p.Id)).ToList();
         }
         var total = projects.Count;
-        var page = projects.OrderByDescending(p => p.Id).Skip(Math.Max(0, skip)).Take(PageSize).ToList();
-        if (page.Count == 0) return (total, Array.Empty<Row>());
+        return (total, RowsOf(projects.OrderByDescending(p => p.Id).Skip(Math.Max(0, skip)).Take(PageSize).ToList()));
+    }
+
+    /// <summary>The list's rows of these projects (a page): their first companies and count, members and caretaker.</summary>
+    private IReadOnlyList<Row> RowsOf(IReadOnlyList<Project> page)
+    {
+        if (page.Count == 0) return Array.Empty<Row>();
         var pids = page.Select(p => (object)p.Id).ToList();
         var summary = CompanySummaries(page.Select(p => p.Id).ToList());
         var names = CompanyNames(summary.Values.SelectMany(x => x.First));
@@ -276,7 +291,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 var caretaker = lead is null ? "" : nameOf(lead.User) + " (" + ProjectRoles.List.Label(lead.Role) + ")";
                 return new Row(p, companies, count, members.Where(m => m.ProjectId == p.Id).Select(m => m.User).Distinct(StringComparer.OrdinalIgnoreCase).Count(), caretaker);
             }).ToList();
-        return (total, rows);
+        return rows;
     }
 
     /// <summary>The project's active companies, by name, with their salesperson and territory.</summary>

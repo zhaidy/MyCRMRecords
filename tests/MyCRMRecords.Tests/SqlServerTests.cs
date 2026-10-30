@@ -416,6 +416,13 @@ public sealed class SqlServerTests
         Assert.Equal(1, Count("ACTIVITYPARTICIPANTS", $"COMPANYEVENTID = {activity} AND USERID = 1 AND ISACTIVE = 1"));
         Assert.Equal(1, Count("PROJECTLINK", $"COMPANYACTIVITYID = {activity} AND PROJECTID = {project} AND ISACTIVE = 1"));
         Assert.Equal("09:15", d.Activities.Read(admin, activity)!.Activity.StartTime);
+        // The Activities page finds it in MyCRM's tables (owner or participant, by date), counts and pages in SQL.
+        var mineListed = d.Activities.List(admin, new Activities.Filter("all", Owner: "me"));
+        Assert.Contains(mineListed.Rows, r => r.Activity.Id == activity);
+        Assert.Equal(mineListed.Total, mineListed.Rows.Count);
+        Assert.Empty(d.Activities.List(admin, new Activities.Filter("all", Owner: "me", Skip: 50)).Rows);
+        Assert.Contains(d.Activities.List(admin, new Activities.Filter("upcoming", Owner: "me")).Rows, r => r.Activity.Id == activity);
+        Assert.DoesNotContain(d.Activities.List(admin, new Activities.Filter("past", Owner: "me")).Rows, r => r.Activity.Id == activity);
         // A type taken off keeps its row, without its activity; the activity deleted is inactive.
         Assert.True(d.Activities.Save(admin, activity, new Activities.ActivityInput
             { CompanyId = 7, Action = ActivityActions.FaceToFace, Remarks = "Review", StartDate = "2026-10-20", StartTime = "09:15", Types = ["FollowUp"] }).Ok);
