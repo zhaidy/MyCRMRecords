@@ -1073,6 +1073,181 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
 @media(max-width:900px){.machines-wide{display:none}.machine-cards .file-card,.access-cards .file-card{padding-left:0;padding-right:0}.machine-cards,.access-cards{background:none}}
 .machine-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.machine-tabs .tab{white-space:nowrap}
 
+/* MyOrders' lists (costingsheets.js; the request forms can share it): a large title with the count, glass filter
+   capsules above a one-line list sorted by its headings, Download in a glass capsule; on a phone the Costing sheets /
+   Request forms switch, a card per row, the status in a sheet and the other filters in another (.companies-sheet). */
+.orders-heading{align-items:flex-end;flex-wrap:nowrap}
+.orders-title{min-width:0}
+.orders-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.orders-title p{font-size:16px}
+.orders-title p b{color:var(--ink);font-weight:600}
+.orders-kinds,.orders-status-button,.orders-filter-button{display:none}
+.orders-filters{display:flex;flex-direction:column;gap:12px;margin-bottom:18px}
+.orders-filter-row{display:flex;align-items:center;gap:10px}
+.orders-filter-row .search-box{flex:1 1 auto;min-width:220px;max-width:520px}
+.orders-filter-row .filter-capsule select{max-width:170px}
+.orders-filter-row button.filter-capsule{font:inherit;font-size:14px;font-weight:600}
+.orders-filter-row button.filter-capsule svg{width:16px;height:16px}
+.orders-filter-row button.filter-capsule[aria-expanded=true]{color:var(--accent)}
+.orders-filter-row .text-button{flex:none;padding:4px 8px}
+.orders-dates{flex-wrap:wrap}
+.orders-dates[hidden]{display:none}
+.cs-date input{width:132px}
+.orders-company{margin:0}
+.orders-list{border-radius:24px;background:var(--card);overflow:hidden}
+.orders-list .empty{border-radius:0}
+.orders-list>.pager{margin:0;padding:12px 24px;border-top:1px solid var(--line)}
+table.data.orders-table{table-layout:fixed;width:100%}
+.orders-table th,.orders-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.orders-table th{padding-top:14px;padding-bottom:14px}
+.orders-table th button{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer}
+.orders-table th[aria-sort] button{color:var(--accent)}
+.orders-table th[aria-sort=descending] button:after{content:" ↓"}
+.orders-table th[aria-sort=ascending] button:after{content:" ↑"}
+.orders-table th:first-child,.orders-table td:first-child{padding-left:24px}
+.orders-table th:last-child,.orders-table td:last-child{padding-right:20px}
+.orders-table td{height:52px;padding-top:0;padding-bottom:0;color:var(--ink-2)}
+.orders-table tbody tr[data-href]{cursor:pointer}
+.orders-table td.c-no a{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+.orders-table td.c-company b{color:var(--ink);font-weight:600}
+.orders-table .c-no{width:112px}
+.orders-table .c-ref{width:11%}
+.orders-table .c-rep{width:9%}
+.orders-table .c-status{width:168px}
+.orders-table .c-date{width:112px;font-variant-numeric:tabular-nums}
+.orders-table .c-money{width:110px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.orders-table .c-invoice{width:10%;font-variant-numeric:tabular-nums}
+.orders-table .c-opo{width:56px}
+.orders-table .c-open{width:108px;text-align:right;overflow:visible;text-overflow:clip}
+.orders-table .c-open .icon-button{margin-left:4px}
+.cs-printed{display:none}
+.orders-status{display:inline-flex;align-items:center;max-width:100%;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);vertical-align:middle}
+.orders-status.done{background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
+.orders-status.warn{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+.orders-sheet-row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;font-size:16px;color:var(--ink);text-align:left;cursor:pointer}
+.orders-sheet-row:last-child{border-bottom:0}
+.orders-sheet-row>span:first-child{flex:1;min-width:0}
+.orders-sheet-row[aria-checked=true]{color:var(--accent);font-weight:600}
+.orders-check{visibility:hidden}
+.orders-check svg{width:18px;height:18px}
+.orders-sheet-row[aria-checked=true] .orders-check{visibility:visible}
+.orders-sheet-list{max-height:60vh;overflow-y:auto}
+.orders-sheet-spacer{flex:none;width:44px}
+@media(max-width:1600px) and (min-width:901px){.orders-table .c-updated,.orders-table .c-opo{display:none}}
+@media(max-width:1350px) and (min-width:901px){.orders-filter-row{flex-wrap:wrap}}
+@media(max-width:1100px) and (min-width:901px){.orders-table .c-ref,.orders-table .c-rep{display:none}}
+@media(max-width:900px){
+.orders-heading{align-items:center;gap:10px;margin-bottom:14px;flex-wrap:nowrap}
+.orders-title h1{font-size:32px}
+.orders-title p{font-size:15px}
+.orders-note,.orders-wide{display:none!important}
+.orders-heading .action-label{display:none}
+.orders-heading .capsule-button{padding:0 10px}
+.orders-kinds{display:flex;width:100%;margin:0 0 14px}
+.orders-kinds .tab{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;font-size:14px;text-decoration:none}
+.orders-filters{gap:12px;margin-bottom:14px}
+.orders-filter-row .search-box{min-width:0;max-width:none}
+.orders-filter-button{display:inline-flex;position:relative;flex:none;width:48px;height:48px;border-radius:24px}
+.orders-status-button{display:inline-flex;width:100%;justify-content:flex-start;font:inherit;font-size:15px}
+.orders-status-button b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--accent)}
+.orders-caret{margin-left:auto;transform:rotate(90deg);color:var(--ink-2)}
+.orders-caret svg{width:16px;height:16px}
+.orders-list{background:transparent;border-radius:0;overflow:visible}
+.orders-list>#rows{display:none}
+.orders-list>.empty{border-radius:22px}
+.orders-list .file-cards{display:block;border-radius:22px;background:var(--card);overflow:hidden}
+.orders-list>.pager{border-top:0;padding:12px 4px}
+.orders-card .file-card-top b{font-variant-numeric:tabular-nums}
+.orders-money{flex:none;font-weight:700;font-variant-numeric:tabular-nums}
+.orders-card-foot{display:flex;align-items:center;gap:8px;min-width:0}
+.orders-card-foot .orders-status{flex:0 1 auto;min-width:0;height:22px;font-size:12px}
+.orders-card-foot .file-card-line{flex:none}
+.orders-card-foot .orders-card-right{flex:1 1 auto;min-width:0;text-align:right}
+}
+
+/* A costing sheet's page (costingsheet.js): the key details under the title, the sections as tabs with History and
+   Attachments beside them; on a phone every section is a card that opens and closes */
+.cs-heading{align-items:flex-end;flex-wrap:nowrap}
+.cs-title{min-width:0}
+.cs-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 6px;font-size:14px}
+.cs-crumbs a{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-weight:600}
+.cs-crumbs svg{width:15px;height:15px}
+.cs-crumbs>span{color:var(--ink-2)}
+.cs-name{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cs-name h1{margin:0;font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.cs-title p{font-size:16px}
+.cs-title p a{font-weight:600}
+.cs-title p.cs-readonly{margin-top:2px;font-size:13.5px}
+.cs-format select{max-width:120px}
+.cs-details{margin:0 0 16px;padding:20px 24px}
+.cs-details dl.facts{margin:0}
+.cs-terms{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.cs-term{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;font-size:13px;font-weight:600;background:var(--surface-2);color:var(--ink-2)}
+.cs-term.on{background:var(--accent-light);color:var(--accent)}
+.cs-tabs{position:sticky;top:84px;z-index:20;margin:4px 0 16px}
+.cs-tabs .tab{white-space:nowrap}
+.cs-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+.cs-main,.cs-aside{min-width:0;display:flex;flex-direction:column;gap:18px}
+.cs-section{border-radius:24px;background:var(--card);padding:20px 24px}
+.cs-main .cs-section{display:none}
+.cs-main .cs-section.on{display:block}
+.cs-main .cs-section-head{display:none}
+.cs-section-head{margin:0 0 10px;font-size:19px}
+.cs-toggle{display:flex;align-items:center;gap:10px;width:100%;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;pointer-events:none}
+.cs-section-title{flex:1;min-width:0}
+.cs-summary,.cs-chevron{display:none}
+.cs-note{margin:0 0 10px}
+.cs-sub{margin:16px 0 8px;font-size:16px}
+.cs-sub:first-of-type{margin-top:0}
+.cs-timeline{list-style:none;margin:0 0 6px;padding:0}
+.cs-timeline li{position:relative;display:flex;gap:12px;padding:0 0 14px}
+.cs-timeline li:not(.last):before{content:"";position:absolute;left:4px;top:14px;bottom:0;width:2px;background:var(--line)}
+.cs-dot{flex:none;width:10px;height:10px;margin-top:6px;border-radius:50%;border:2px solid var(--ink-2);background:var(--card);box-sizing:border-box}
+.cs-timeline li.last .cs-dot{background:var(--accent);border-color:var(--accent)}
+.cs-step{min-width:0;display:flex;flex-direction:column;gap:1px;font-size:15px}
+.cs-when{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.cs-files{list-style:none;margin:0;padding:0}
+.cs-files li{display:flex;align-items:center;gap:12px;padding:10px 0}
+.cs-files li+li{border-top:1px solid var(--line)}
+.cs-file{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cs-file b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.cs-aside .cs-section{padding:18px 20px}
+.cs-aside dl.facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1100px) and (min-width:901px){.cs-layout{grid-template-columns:minmax(0,1fr)}.cs-heading{flex-wrap:wrap}}
+@media(max-width:900px){
+.cs-heading{flex-wrap:wrap;align-items:flex-start;gap:12px;margin-bottom:14px}
+.cs-name h1{font-size:30px}
+.cs-title p{font-size:15px}
+.cs-crumbs{font-size:13.5px}
+.cs-heading .heading-actions{width:100%;flex-wrap:nowrap}
+.cs-heading .heading-actions .button{flex:1;justify-content:center}
+.cs-details{padding:16px}
+.cs-details dl.facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cs-tabs{display:none}
+.cs-layout{grid-template-columns:minmax(0,1fr);gap:12px}
+.cs-main,.cs-aside{gap:12px}
+.cs-main .cs-section,.cs-section{display:block;padding:0;border-radius:22px;overflow:hidden}
+.cs-main .cs-section-head,.cs-section-head{display:block;margin:0;font-size:17px}
+.cs-toggle{min-height:56px;padding:0 16px;pointer-events:auto;cursor:pointer}
+.cs-summary{display:block;flex:0 1 auto;min-width:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;color:var(--ink-2)}
+.cs-chevron{display:inline-flex;color:var(--ink-2);transform:rotate(90deg);transition:transform .15s}
+.cs-chevron svg{width:16px;height:16px}
+.cs-section.open .cs-chevron{transform:rotate(-90deg)}
+.cs-section-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line)}
+.cs-section.open .cs-section-body{display:block;padding-top:12px}
+.cs-section-body .table-wrap{border-radius:0}
+.cs-aside dl.facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cs-aside .cs-section{padding:0}
+}
+@media(max-width:560px){
+.cs-details dl.facts,.cs-section-body dl.facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cs-section-body table.data tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;padding:10px 0}
+.cs-section-body table.data td:first-child{grid-column:1/-1}
+.cs-section-body table.data td:empty{display:none}
+.cs-section-body table.data tr.total{display:flex;justify-content:space-between;padding:10px 12px}
+.cs-section-body table.data tr.total{background:var(--surface);border-radius:12px}
+.cs-section-body table.data tr.total td{width:auto;background:none}
+}
 /* The CRM users page (people.js): a large title with the count, the tabs People and Teams and the filters (search,
    Role, Show everyone) as glass capsules in one bar under the top bar, one line per person or team in a solid card, and
    the person edited in a glass panel at the side. On a phone: a card per person and team, the role in a bottom sheet
