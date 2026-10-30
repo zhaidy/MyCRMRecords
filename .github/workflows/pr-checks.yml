@@ -35,7 +35,7 @@ jobs:
         # LocalDB takes about 15 seconds to start; it starts while the next steps run, and the database step below
         # waits until it answers.
         shell: powershell
-        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { Start-Process SqlLocalDB -ArgumentList 'start', 'MSSQLLocalDB' -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
+        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { $instance = (($env:GITHUB_REPOSITORY -split '/')[-1] -replace '[^A-Za-z0-9]', '') + 'CI'; if (-not ((SqlLocalDB info) -contains $instance)) { SqlLocalDB create $instance | Out-Null }; Start-Process SqlLocalDB -ArgumentList 'start', $instance -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
