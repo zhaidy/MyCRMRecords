@@ -568,6 +568,26 @@ svg.qr path{fill:#000;stroke:none}
 .install-steps{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
 .install-steps [data-icon]{vertical-align:-3px;color:var(--accent)}
 
+/* A company's sections (company.js): tabs on a computer; on a phone a list under the company's details, each row
+   opening its section on the whole screen with a way back */
+.company-tabs{margin:0 0 16px;position:sticky;top:84px;z-index:20}
+.section-list,.section-back{display:none}
+.section-row{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:0 16px;border:0;background:none;font:inherit;font-size:16px;color:var(--ink);text-align:left;cursor:pointer}
+.section-row+.section-row{border-top:1px solid var(--line)}
+.section-row:hover{background:var(--row-tint)}
+.section-dot{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700;background:var(--dot)}
+.section-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.section-count{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.section-chevron{color:var(--ink-2);opacity:.6}
+.section-chevron svg{width:16px;height:16px}
+.section-back{align-items:center;gap:4px;height:44px;padding:0 16px 0 10px;margin:0 0 14px;border-radius:22px;font:inherit;font-weight:600;color:var(--accent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow)}
+@media(max-width:900px){
+.company-tabs{display:none}
+.section-list{display:block;border-radius:22px;background:var(--card);overflow:hidden}
+#page.in-section .page-heading{display:none}
+#page.in-section .section-back{display:inline-flex}
+}
+
 /* The phone's bottom bar: hidden on wider screens */
 .tabbar{display:none}
 @media(max-width:900px){
@@ -593,4 +613,5 @@ body.menu-open .menu-backdrop{background:var(--scrim);z-index:40}
 .toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 }
 @media(max-width:560px){.install-qr-row{flex-direction:column}}
+@media(max-width:560px){.data td[data-label]:not([data-label=""])::before{font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-2)}}
 @media(prefers-reduced-motion:reduce){.button,.icon-button,.install-button,.tab,.tab-item{transition:none}.button:hover:not(:disabled),.icon-button:hover,.install-button:hover,.button:active:not(:disabled),.icon-button:active,.install-button:active,.tab-item:active{transform:none}}

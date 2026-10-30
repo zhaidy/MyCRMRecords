@@ -60,7 +60,12 @@ The companies you may open, by name, 50 at a time; the first page shows straight
 
 ## A company
 
-The company's page has everything about it in one place.
+The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Costing sheets**,
+**Request forms** and **Relationships & history** (with how many there are). Clicking a tab shows it in place; the
+page remembers the tab, so coming back from a costing sheet opens the same one. On a phone the tabs are a list under
+the company's details: tap one to open it on the whole screen, and the company's name at the top to go back.
+
+**Overview**:
 
 - **Company**: BRN, A/C Type, Customer Code (Advance's customer number), the **Salesperson** with their territory,
   Customer Type, Company Group, Advance Customer Type, Industry, Website, created and last updated, and the billing
@@ -78,21 +83,26 @@ The company's page has everything about it in one place.
   Number**, **Building Name**, **City**, **State / Province** and **Country**. A company has one default address: tick
   **Is Default** on another only after unticking it on the default one. Change an address's type straight in the list.
   The bin deletes an address (after asking).
-- **Contacts**: the primary contact first, with their phones and emails. **Create Contact** and **Edit** open the
-  contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
-  **Department**, **Designation**, **Is Default** (the company's primary contact: ticking it takes it off any other),
-  **Is Sales Navigator** and **Is Eq. List** (only for a contact with an email). Under **Email** and **Phone**, **Add
-  Email** and **Add Phone** add a row; the bin takes a row off. Nothing is saved until **Save**. **Delete Contact** (or
-  the bin in the list) deletes the contact, after asking.
+- **More Company Details**: remarks, caretake remarks and the other facts MyCRM keeps.
+
+**Contacts**: the primary contact first, with their phones and emails. **Create Contact** and **Edit** open the
+contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
+**Department**, **Designation**, **Is Default** (the company's primary contact: ticking it takes it off any other),
+**Is Sales Navigator** and **Is Eq. List** (only for a contact with an email). Under **Email** and **Phone**, **Add
+Email** and **Add Phone** add a row; the bin takes a row off. Nothing is saved until **Save**. **Delete Contact** (or
+the bin in the list) deletes the contact, after asking.
+
+**Relationships & history**:
+
 - **Company Relationships**: the parent company, the siblings (the parent's other subsidiaries) and the subsidiaries.
   **Add Parent**, **Add Sibling** and **Add Subsidiary** open a search: type a company's name or BRN and choose it. A
   company has one parent at most, and a company cannot be related to itself or put below a company that is below it.
   **Remove** takes a relationship away (after asking); both companies stay.
 - **Territory Movement History** (not shown to Sales and Telemarketers): every change of the company's salesperson,
   newest first, with their teams, who made it and when.
-- **More Company Details**: remarks, caretake remarks and the other facts MyCRM keeps.
-- **Costing Sheets and Request Forms**: the company's newest costing sheets and request forms from MyOrders, of those
-  you may see; click a number to open it. **See all** opens the list of all of them.
+
+**Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
+you may see; click a number to open it. **See all** opens the list of all of them.
 
 ## Territories
 
