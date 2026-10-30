@@ -177,6 +177,24 @@ public sealed class RecordTests
     }
 
     [Fact]
+    public void The_machines_have_no_way_to_change_Advance()
+    {
+        // Advance's machines are only read: IAdvanceMachines has no method that writes, and its SQL has no statement that could.
+        Assert.Equal(new[] { "Get", "LastContract", "Meters", "Search", "Services", "Toner", "get_Available" },
+            typeof(IAdvanceMachines).GetMethods().Select(m => m.Name).OrderBy(n => n, StringComparer.Ordinal));
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Core"))) root = root.Parent;
+        Assert.NotNull(root);
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "src", "MyCRMRecords.Core", "Data", "AdvanceMachines.cs"));
+        foreach (var word in new[] { "INSERT ", "UPDATE ", "DELETE ", "MERGE ", "TRUNCATE ", "BeginTransaction", "Execute(", "MyCrmStore", ".Insert(", ".Update(", "Batch(" })
+            Assert.DoesNotContain(word, source, StringComparison.OrdinalIgnoreCase);
+        // MyMachines' temporary access is only added to and marked: nothing there deletes.
+        var access = File.ReadAllText(Path.Combine(root.FullName, "src", "MyCRMRecords.Core", "Data", "MyMachinesAccess.cs"));
+        Assert.DoesNotContain("DELETE ", access, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("TRUNCATE ", access, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Every_property_of_MyCRMs_records_has_a_place_in_MyCRM_of_its_own()
     {
         foreach (var e in MyCrmMap.All)

@@ -44,6 +44,9 @@ public sealed class TestWorld : IDisposable
     public FakeOldTables OldApp { get; }
     /// <summary>MyFiles' files, in memory.</summary>
     public FakeMyFiles Files { get; } = new();
+    /// <summary>Advance's machines and MyMachines' temporary access, in memory.</summary>
+    public FakeAdvanceMachines Machines { get; } = new();
+    public FakeMyMachinesAccess MachineAccess { get; } = new();
 
     public static readonly ApiUser Admin = new(@"RSP\root", "Rob Root", "rob@example.com", IsListedAdmin: true);
     public static readonly ApiUser SalesAdmin = new(@"RSP\sara", "Sara Admin", "sara@example.com");
@@ -68,7 +71,8 @@ public sealed class TestWorld : IDisposable
         if (configure is not null) SettingsFile.Change(configure);
         Store = new JsonRecordStore(Path.Combine(Folder, "data"));
         D = CrmFactory.Create(store ?? Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
-            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, store ?? Store, OldApp, files: Files);
+            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, Email, store ?? Store, OldApp, files: Files,
+            machines: Machines, machineAccess: MachineAccess);
         foreach (var user in new[] { Admin, SalesAdmin, Sam, Mia, Ken, Mark, Dina, Tom, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
         if (!crmUsers) return;
         // Straight into the records.

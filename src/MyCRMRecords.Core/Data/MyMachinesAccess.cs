@@ -1,4 +1,5 @@
 using System.Data.Common;
+using MyCRMRecords.Domain;
 using System.Globalization;
 
 namespace MyCRMRecords.Data;
