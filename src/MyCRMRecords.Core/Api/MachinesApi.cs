@@ -6,7 +6,8 @@ namespace MyCRMRecords.Api;
 
 /// <summary>
 /// The Machines pages' API (api.ashx/machines..., api.ashx/machineaccess...), as the signed-in person: Advance's machines
-/// they see (read only), a company's (machines?company=) and its copies per month (machines/copies?company=), a machine's page (machines/detail?serial=&amp;item=), and for
+/// they see (read only), a company's (machines?company=) and its copies per month (machines/copies?company=), the machines it sold as a dealer (machines/dealer?company=), its Invoice / SOA
+/// emails (machines/invoiceemails?company=), a machine's page (machines/detail?serial=&amp;item=), and for
 /// Sales Admins MyMachines' temporary access, given and removed only when switched on.
 /// </summary>
 public sealed class MachinesApi(CrmApp w)
@@ -57,6 +58,17 @@ public sealed class MachinesApi(CrmApp w)
                     machines = copies.Machines,
                     months = copies.Months.Select(m => new { year = m.Year, month = m.Month, blackWhite = m.BlackWhite, colour = m.Colour }),
                 });
+            }
+            if (parts.Length == 2 && parts[1] is "dealer" or "invoiceemails")
+            {
+                if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
+                if (parts[1] == "dealer")
+                    return w.Machines.DealerSold(actor, ofCompany) is { } sold
+                        ? ApiResponse.Of(new { rows = sold.Select(m => Row(new MachineListRow(m, "", ofCompany))) })
+                        : ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+                return w.Machines.CustomerEmails(actor, ofCompany) is { } emails
+                    ? ApiResponse.Of(new { rows = emails.Select(e => new { contractType = e.ContractType, contractNo = e.ContractNo, email = e.Email, ccEmail = e.CcEmail }) })
+                    : ApiResponse.Forbidden("You don't have permissions to view this company.");
             }
             if (parts.Length != 1) return ApiResponse.NotFound();
             if (long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var companyId) && companyId > 0)

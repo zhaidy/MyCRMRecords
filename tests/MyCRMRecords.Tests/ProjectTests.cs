@@ -187,4 +187,26 @@ public sealed class ProjectTests
         Assert.Equal(2, world.Json(answer)["members"]!.Count());
         Assert.Equal(403, ActivityTests.Api(world, "projects/" + p.Id, TestWorld.Olga).Status);
     }
+
+    [Fact]
+    public void The_company_page_shows_the_caretakers_of_its_open_projects_but_not_its_salesperson()
+    {
+        var (world, tan, lim, p) = Setup();
+        using var _ = world;
+        var mia = world.Actor(TestWorld.Mia);
+        Assert.True(world.D.Projects.AddMember(mia, p.Id, new Projects.MemberInput { Login = TestWorld.Ken.Login, Role = ProjectRoles.SalespersonCaretaker }).Ok);
+        Assert.True(world.D.Projects.AddMember(mia, p.Id, new Projects.MemberInput { Login = TestWorld.Sam.Login, Role = ProjectRoles.SalespersonAccountOwner }).Ok);
+        Assert.True(world.D.Projects.AddMember(mia, p.Id, new Projects.MemberInput { Login = TestWorld.Tom.Login, Role = "BillingCoordinator" }).Ok);
+        // Sam owns Tan: he is its salesperson, not a caretaker; Tom's role takes no care of the company; Mia is the Project Manager.
+        var detail = world.Json(world.Call("GET", "companies/" + tan.Id, user: TestWorld.SalesAdmin));
+        var caretakers = detail["caretakers"]!.ToList();
+        Assert.Single(caretakers);
+        Assert.Equal("Ken Kwan", (string)caretakers[0]["name"]!);
+        Assert.Equal("Salesperson (Caretaker)", (string)caretakers[0]["role"]!);
+        Assert.Equal("Cover", (string)caretakers[0]["project"]!);
+        Assert.Equal(new[] { "Ken Kwan", "Sam Sales" }, world.D.Projects.Caretakers(lim.Id, "").Select(x => world.D.People.NameOf(x.Member.User)).OrderBy(n => n).ToArray());
+        // A closed project has no caretakers.
+        Assert.True(world.D.Projects.Close(mia, p.Id).Ok);
+        Assert.Empty(world.Json(world.Call("GET", "companies/" + tan.Id, user: TestWorld.SalesAdmin))["caretakers"]!);
+    }
 }

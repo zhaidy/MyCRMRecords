@@ -69,6 +69,11 @@
     const stat = $(`.stat-tile[data-tab="${id}"] .stat-n`, page);
     if (stat) stat.textContent = number(count);
   }
+  /** The line under a tile's number (2 upcoming, 1 open…). */
+  function setSub(id, text) {
+    const sub = $(`.stat-tile[data-tab="${id}"] .stat-sub`, page);
+    if (sub) sub.textContent = text;
+  }
 
   /** A row of the company's details: its label, value and, smaller, what goes with it. */
   const detail = (label, value, sub = '') => `<div class="ov-fact"><dt>${esc(label)}</dt><dd>${value || '<span class="muted">-</span>'}${sub ? `<span class="ov-sub">${sub}</span>` : ''}</dd></div>`;
@@ -79,14 +84,14 @@
     const territory = d.owner ? (can.territories ? `<a href="territories.aspx?id=${d.owner.territoryId}">${esc(d.owner.territory)}</a>` : esc(d.owner.territory)) : '';
     const info = [d.owner ? 'Territory ' + esc(d.owner.territory) : '', d.owner ? esc(d.owner.name || 'Vacant') : 'No salesperson',
       c.brn ? 'BRN ' + esc(c.brn) : 'No BRN', c.customerNo ? 'Customer code ' + esc(c.customerNo) : ''].filter(Boolean).join(' · ');
-    const primary = d.contacts.filter(p => p.isDefault);
     const stats = [
       {id: 'machines', label: 'Machines', sub: 'contract or warranty running', color: 'var(--teal)'},
-      {id: 'files', label: 'Files', sub: 'in MyFiles', color: '#7c3aed'},
-      {id: 'contacts', label: 'Contacts', sub: primary.length ? 'primary: ' + primary[0].name : 'no primary contact', color: 'var(--accent)'},
-      {id: 'costing', label: 'Costing sheets', sub: 'from MyOrders', color: 'var(--coral)'}
+      {id: 'projects', label: 'Projects', sub: 'that include the company', color: 'var(--coral)'},
+      {id: 'activities', label: 'Activities', sub: 'of you, your team and its salespeople', color: '#8b5cf6'},
+      {id: 'files', label: 'Files', sub: 'in MyFiles', color: '#e59a0b'}
     ];
     const ownerName = d.owner ? d.owner.name || 'Vacant' : '';
+    const initial = name => esc(((/[A-Za-z0-9]/.exec(name) || ['?'])[0]).toUpperCase());
     page.innerHTML = `
       <div class="page-heading company-heading"><div class="company-title">${crumbs(c.name, [['Companies', './']])}
           <h1>${esc(c.name)} ${c.isActive ? '' : '<span class="pill warn">Inactive</span>'}</h1>
@@ -99,6 +104,7 @@
       <button type="button" class="section-back" id="section-back"><span data-icon="arrow-left"></span>${esc(c.name)}</button>
       <div class="tab-panel overview" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
         <div class="ov-main">
+          <h2 class="group-label group-details" aria-hidden="true">Details</h2>
           <section class="card ov-details" aria-labelledby="ov-details"><div class="card-heading"><h2 id="ov-details">Company details</h2>${can.edit ? '<span class="muted small ov-hint">Change with Edit company</span>' : ''}</div>
             <dl class="ov-facts">
               ${detail('BRN', esc(c.brn))}${detail('A/C Type', esc(c.compAccountTypeLabel))}${detail('Customer Code', esc(c.customerNo))}
@@ -108,27 +114,36 @@
             </dl></section>
           <section class="card ov-more-part ov-copies" aria-labelledby="ov-copies" id="copies"></section>
           <section class="card ov-more-part" id="addresses"></section>
+          <section class="card ov-more-part" id="soa" aria-labelledby="ov-soa"><div class="card-heading"><h2 id="ov-soa">Invoice / SOA emails</h2></div><p class="muted small">Loading…</p></section>
         </div>
         <aside class="ov-side">
           <div class="stat-tiles">${stats.map(s => `<button type="button" class="stat-tile" data-tab="${s.id}" aria-label="${esc(s.label)}: open the tab">
-            <span class="stat-label" style="color:${s.color}">${esc(s.label)}</span><span class="stat-n">${s.id === 'contacts' ? number(d.contacts.length) : '…'}</span><span class="stat-sub">${esc(s.sub)}</span></button>`).join('')}</div>
-          <section class="card ov-more-part ov-owner" aria-labelledby="ov-owner"><h2 id="ov-owner">Salesperson</h2>
-            ${d.owner ? `<div class="owner-row"><span class="owner-avatar" aria-hidden="true">${esc(((/[A-Za-z0-9]/.exec(ownerName) || ['?'])[0]).toUpperCase())}</span>
-              <span class="owner-text"><span class="muted small">Owner</span><b>${esc(ownerName)}</b><span class="muted small">Territory ${territory}</span></span></div>`
+            <span class="stat-label" style="color:${s.color}">${esc(s.label)}</span><span class="stat-n">…</span><span class="stat-sub">${esc(s.sub)}</span></button>`).join('')}</div>
+          <section class="card ov-more-part ov-owner" aria-labelledby="ov-owner"><h2 id="ov-owner">Salesperson and caretakers</h2>
+            ${d.owner ? `<div class="owner-row"><span class="owner-avatar" aria-hidden="true">${initial(ownerName)}</span>
+              <span class="owner-text"><span class="muted small">Owner</span><span><b>${esc(ownerName)}</b> · ${territory}</span>${d.owner.team ? `<span class="muted small">Manager ${esc(d.owner.team)}</span>` : ''}</span></div>`
               : '<p class="muted small">No salesperson: the company is in no territory.</p>'}
-            ${c.isCaretake ? '<p class="muted small" style="margin:8px 0 0">This company is taken care of by someone else too: see Caretake Remarks under More company details.</p>' : ''}</section>
+            ${d.caretakers.map(k => `<div class="owner-row"><span class="owner-avatar caretaker" aria-hidden="true">${initial(k.name)}</span>
+              <span class="owner-text"><span class="muted small">Caretaker</span><span><b>${esc(k.name)}</b> <span class="muted small">${esc(k.role)}</span></span>
+              <span class="muted small"><a href="project.aspx?id=${k.projectId}">${esc(k.project)}</a>${k.endDate ? ' · until ' + esc(date(k.endDate)) : ''}</span></span></div>`).join('')}
+            <p class="muted small owner-note">${d.caretakers.length ? '' : 'No caretakers. '}Caretakers come from open projects that include this company. <button type="button" class="text-button small" data-tab="projects">See projects</button></p>
+            ${c.isCaretake ? '<p class="muted small owner-note">This company is taken care of by someone else too: see Caretake Remarks under More company details.</p>' : ''}</section>
           <section class="card ov-more-part ov-sales" aria-labelledby="ov-sales"><h2 id="ov-sales">Sales notes</h2>
             <div class="ov-employees"><div class="fact-label">No of Employees</div><div id="employees"></div></div>
             <label class="field"><span class="fact-label">Sales Remarks</span><textarea id="sales-remarks" rows="3" maxlength="50000" data-field="salesRemarks">${esc(c.salesRemarks)}</textarea><span class="field-error"></span></label>
             <div class="action-buttons"><button type="button" class="button primary small-btn" id="save-remarks"><span data-icon="check"></span>Save remarks</button></div></section>
-          <section class="card ov-more-part" aria-labelledby="ov-more"><h2 id="ov-more">More company details</h2><dl class="ov-facts ov-facts-list">
+          <section class="card ov-more-part ov-recent" id="recent" aria-labelledby="ov-recent"><div class="card-heading"><h2 id="ov-recent">Recent activities</h2>
+            <button type="button" class="text-button small" data-tab="activities">All</button></div><p class="muted small">Loading…</p></section>
+          <section class="card ov-more-part ov-more" aria-labelledby="ov-more"><h2 id="ov-more">More company details</h2><dl class="ov-facts ov-facts-list">
             ${detail('Remarks', c.remarks ? `<span style="white-space:pre-wrap">${esc(c.remarks)}</span>` : '')}
             ${detail('Caretake Remarks', d.caretakes.map(r => `<div style="white-space:pre-wrap">${esc(r)}</div>`).join(''))}
+            ${detail('Machines sold by dealer', '<span id="dealer" class="muted">…</span>')}
             ${detail('Phone', esc(c.phone))}${detail('Fax', esc(c.fax))}${detail('Inc. Cert. No.', esc(c.incCertNo))}${detail('Paid Up Capital', c.paidUpCapital ? number(c.paidUpCapital) : '')}
             ${detail('MIF Potential', c.mifPotential ? number(c.mifPotential) : '')}${detail('Revenue', c.revenue ? number(c.revenue) : '')}${detail('Comp Ownership', esc(c.compOwnershipLabel))}${detail('Is Caretake', c.isCaretake ? 'Yes' : 'No')}
             ${detail('Is Created By MSD', c.isCreatedByMsd ? 'Yes' : 'No')}${detail('Customer Type (BDG)', esc(c.customerType))}${detail('Credit Terms', esc(c.creditTerms))}${detail('Old CRM Id', c.crmCompanyId ? String(c.crmCompanyId) : '')}
           </dl></section>
         </aside>
+        <h2 class="group-label group-sections" aria-hidden="true">Sections</h2>
         <nav class="section-list" aria-label="Company sections">${[{id: 'more', label: 'More details', count: '', color: '#8e8e93'}].concat(sections().filter(s => s.id !== 'overview')).map(s => `<button type="button" class="section-row" data-tab="${s.id}">
           <span class="section-dot" style="--dot:${s.color}" aria-hidden="true">${esc(s.label.charAt(0))}</span><span class="section-name">${esc(s.label)}</span>
           <span class="section-count">${s.count}</span><span data-icon="arrow-right" class="section-chevron"></span></button>`).join('')}</nav>
@@ -142,7 +157,7 @@
       <div class="stack tab-panel" role="tabpanel" id="panel-costing" aria-labelledby="tab-costing"><section class="card" id="costing"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-requests" aria-labelledby="tab-requests"><section class="card" id="requests"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-relations" aria-labelledby="tab-relations"><section class="card" id="relationships"></section>
-        ${d.movements ? `<section class="card"><h2>Territory Movement History</h2>${movements()}</section>` : ''}</div>`;
+        ${d.movements ? `<section class="card"><div class="card-heading"><h2>Territory Movement History</h2><span class="muted small">Newest first</span></div>${movements()}</section>` : ''}</div>`;
     employees(false);
     addresses();
     contacts();
@@ -151,6 +166,9 @@
     files(c);
     machines(false);
     copies();
+    soa();
+    dealer();
+    recent();
     activities();
     prospects();
     projectsTab();
@@ -236,6 +254,7 @@
         : '<p class="muted">This company is in no project.</p>'}
       <p class="muted small" style="margin:10px 0 0"><b>Caretake works through projects.</b> Add a salesperson to a project with the role Salesperson (Caretaker) and they can see and work on this company until the project's end date: a temporary territory gives them access, taken away when the project closes or ends.</p>`;
     setCount('projects', rows.length);
+    setSub('projects', `${open} open`);
     drawIcons(box);
   }
 
@@ -267,6 +286,49 @@
   }
 
   /**
+   * Invoice / SOA emails (Overview, MyCRM's MyCustomerEmails): where Advance e-mails the company's invoices and statements,
+   * per contract, read only from AdvanceConnector (CustomerMapping and Email_Master). They are changed in Advance.
+   */
+  async function soa() {
+    const box = $('#soa');
+    const heading = '<div class="card-heading"><h2 id="ov-soa">Invoice / SOA emails</h2><span class="muted small">Read only, from Advance</span></div>';
+    const answer = await api('GET', 'machines/invoiceemails?' + new URLSearchParams({company: String(id)}));
+    if (!answer.result.ok) { box.innerHTML = heading + `<p class="muted small">${esc(answer.result.message)}</p>`; return; }
+    const rows = answer.rows;
+    box.innerHTML = heading + (rows.length ? `<div class="table-wrap"><table class="data soa-table"><thead><tr><th>Contract type</th><th>Contract no</th><th>Email</th><th>CC email</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="muted">${esc(r.contractType) || '–'}</td><td class="nowrap">${esc(r.contractNo) || '–'}</td>
+        <td class="wide-text">${r.email ? `<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '–'}</td><td class="wide-text muted">${esc(r.ccEmail) || '–'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted small">No invoice or SOA emails.</p>');
+  }
+
+  /** More company details: the machines the company sold as a dealer (Advance, by its BRN), each opening its page. */
+  async function dealer() {
+    const box = $('#dealer');
+    const answer = await api('GET', 'machines/dealer?' + new URLSearchParams({company: String(id)}));
+    if (!box) return;
+    box.classList.remove('muted');
+    if (!answer.result.ok) { box.innerHTML = `<span class="muted">${esc(answer.result.message)}</span>`; return; }
+    box.innerHTML = answer.rows.length ? answer.rows.map(m => `<span class="dealer-line"><a href="${window.WH.machineUrl(m)}"><b>${esc(m.serial)}</b></a> <span class="muted small">${esc([m.model, m.contractNo].filter(Boolean).join(' · '))}</span></span>`).join('')
+      : '<span class="muted">-</span>';
+  }
+
+  /** Recent activities (Overview): the company's three latest past activities, each opening its panel; All opens the tab. */
+  async function recent() {
+    const box = $('#recent');
+    const heading = '<div class="card-heading"><h2 id="ov-recent">Recent activities</h2><button type="button" class="text-button small" data-tab="activities">All</button></div>';
+    const [past, upcoming] = await Promise.all([api('GET', 'activities?' + new URLSearchParams({company: String(id), when: 'past'})),
+      api('GET', 'activities?' + new URLSearchParams({company: String(id), when: 'upcoming'}))]);
+    if (upcoming.result.ok) setSub('activities', `${number(upcoming.total)} upcoming`);
+    if (!past.result.ok) { box.innerHTML = heading + `<p class="muted small">${esc(past.result.message)}</p>`; return; }
+    const rows = past.rows.slice(0, 3);
+    box.innerHTML = heading + (rows.length ? `<div class="recent-list">${rows.map(r => `<button type="button" class="recent-row" data-activity="${r.id}">
+        <span class="recent-top"><b>${esc([r.action, r.contacts[0]].filter(Boolean).join(' · '))}</b><span class="muted small nowrap">${esc(date(r.date))}</span></span>
+        <span class="muted small recent-note">${esc(r.remarks || r.types.join(', ') || r.owner)}</span></button>`).join('')}</div>`
+      : '<p class="muted small">No past activities.</p>');
+    $$('[data-activity]', box).forEach(b => b.addEventListener('click', () => window.ACT.open(Number(b.dataset.activity), () => { activities(); recent(); })));
+  }
+
+  /**
    * The company's costing sheets and request forms from MyOrders (read only), each on its tab: the newest of those the
    * person may see, each opening its page, and a link to the whole list of this company's.
    */
@@ -276,19 +338,21 @@
     requests.innerHTML = '<h2>Request forms</h2><p class="muted small">Loading…</p>';
     const listOf = kind => api('GET', `${kind}?` + new URLSearchParams({company: String(id)}));
     const [sheets, forms] = await Promise.all([listOf('costingsheets'), listOf('requestforms')]);
+    const listUrl = href => `${href}?${new URLSearchParams({company: String(id), name: c.name})}`;
     const all = (href, total, what) => total > 5
-      ? `<p class="small" style="margin:8px 0 0"><a href="${href}?${new URLSearchParams({company: String(id), name: c.name})}">See all ${total} ${what}</a></p>` : '';
+      ? `<p class="small" style="margin:8px 0 0"><a href="${listUrl(href)}">See all ${total} ${what}</a></p>` : '';
     const none = what => `<p class="muted small" style="margin:6px 0 0">No ${what} of this company that you may see.</p>`;
-    const note = '<p class="muted small">From MyOrders, read only: the newest of those you may see.</p>';
+    const head = (answer, one, many, href, list) => `<div class="co-tab-head"><span>${answer.result.ok ? `<b>${number(answer.total)} ${answer.total === 1 ? one : many}</b> · ` : ''}read only, from MyOrders</span>
+      <a class="text-button" href="${listUrl(href)}">Open in ${list} ›</a></div>`;
     const sheetRows = sheets.result.ok ? sheets.rows.slice(0, 5) : [];
     const formRows = forms.result.ok ? forms.rows.slice(0, 5) : [];
-    costing.innerHTML = `<h2>Costing sheets</h2>${note}
+    costing.innerHTML = `${head(sheets, 'costing sheet', 'costing sheets', 'costingsheets.aspx', 'Costing sheets')}
       ${!sheets.result.ok ? `<p class="muted small">${esc(sheets.result.message)}</p>` : sheetRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Costing sheet</th><th>Salesman</th><th>Created</th><th class="num">Achieved Price</th></tr></thead><tbody>
         ${sheetRows.map(r => `<tr><td><a href="costingsheet.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.status)}</span></td>
           <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td>
           <td class="num nowrap">${Number(r.totalAchievedPrice || 0).toLocaleString('en-SG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>`).join('')}
         </tbody></table></div>${all('costingsheets.aspx', sheets.total, 'costing sheets')}` : none('costing sheets')}`;
-    requests.innerHTML = `<h2>Request forms</h2>${note}
+    requests.innerHTML = `${head(forms, 'request form', 'request forms', 'requestforms.aspx', 'Request forms')}
       ${!forms.result.ok ? `<p class="muted small">${esc(forms.result.message)}</p>` : formRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Request form</th><th>Salesman</th><th>Created</th></tr></thead><tbody>
         ${formRows.map(r => `<tr><td><a href="requestform.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.type)} · ${esc(r.status)}</span></td>
           <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td></tr>`).join('')}
@@ -300,23 +364,42 @@
   }
 
   /**
-   * The company's files from MyFiles (read only), on its tab: the newest ten, each opening its PDF, and a link to the
-   * Files page with all of this company's.
+   * The company's files from MyFiles (read only), on its tab, grouped by their number (contract, invoice, service…):
+   * each group with its files, newest first, and Download all (one zip) when it has several; a link to the Files page
+   * with all of this company's. Nothing is uploaded here.
    */
   async function files(c) {
     const box = $('#files');
     box.innerHTML = '<h2>Files</h2><p class="muted small">Loading…</p>';
     const answer = await api('GET', 'files?' + new URLSearchParams({company: String(id)}));
-    const rows = answer.result.ok ? answer.rows.slice(0, 10) : [];
+    const rows = answer.result.ok ? answer.rows : [];
     const size = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes + ' B';
-    box.innerHTML = `<h2>Files</h2><p class="muted small">From MyFiles, read only: the newest first.</p>
-      ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : rows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>Type</th><th>Number</th><th>Uploaded</th><th class="num">Size</th></tr></thead><tbody>
-        ${rows.map(r => `<tr><td class="wide-text"><a href="file.ashx/files/${r.id}?view=1" target="_blank" rel="noopener"><b>${esc(r.fileName || 'File ' + r.id)}</b></a></td>
-          <td class="nowrap">${esc(r.type)}</td><td>${esc(r.numbers.length ? r.numbers[0].kind + ' ' + r.numbers[0].number : '')}</td>
-          <td class="nowrap">${esc(date(r.uploadedAt))}</td><td class="num">${esc(size(r.size))}</td></tr>`).join('')}
-        </tbody></table></div>${answer.total > 10 ? `<p class="small" style="margin:8px 0 0"><a href="files.aspx?${new URLSearchParams({company: String(id), name: c.name})}">See all ${answer.total} files</a></p>` : ''}`
+    const groups = [];
+    for (const r of rows) {
+      const n = r.numbers.length ? r.numbers[0] : null;
+      const key = n ? n.kind + '|' + n.number : '';
+      let g = groups.find(x => x.key === key);
+      if (!g) groups.push(g = {key, kind: n ? n.kind : '', number: n ? n.number : 'No number', files: []});
+      g.files.push(r);
+    }
+    groups.sort((a, b) => (a.key === '') - (b.key === ''));
+    const seeAll = `files.aspx?${new URLSearchParams({company: String(id), name: c.name})}`;
+    box.innerHTML = `<div class="co-tab-head"><span>${answer.result.ok ? `<b>${number(answer.total)} file${answer.total === 1 ? '' : 's'}</b> · ` : ''}read only, from MyFiles, by number</span>
+        <a class="text-button" href="${seeAll}">Open in Files ›</a></div>
+      ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : groups.length ? `<div class="file-groups">${groups.map(g => `<article class="file-group">
+        <div class="file-group-head"><span class="file-group-title">${g.kind ? `<span class="tag light file-kind">${esc(g.kind)}</span>` : ''}<h3>${esc(g.number)}</h3>
+          <span class="muted small">${g.files.length} file${g.files.length === 1 ? '' : 's'}</span></span>
+          ${g.files.length > 1 ? `<a class="text-button small" href="file.ashx/files/zip?ids=${g.files.map(f => f.id).join(',')}"><span data-icon="zip"></span>Download all</a>`
+            : `<a class="text-button small" href="file.ashx/files/${g.files[0].id}"><span data-icon="download"></span>Download</a>`}</div>
+        <ul class="file-group-list">${g.files.map(r => `<li><span class="file-badge" aria-hidden="true">PDF</span><a href="file.ashx/files/${r.id}?view=1" target="_blank" rel="noopener" class="file-group-name">${esc(r.fileName || 'File ' + r.id)}</a>
+          <span class="muted small nowrap">${esc([r.type, date(r.uploadedAt), size(r.size)].filter(Boolean).join(' · '))}</span></li>`).join('')}</ul></article>`).join('')}</div>
+        ${answer.total > rows.length ? `<p class="small" style="margin:10px 0 0"><a href="${seeAll}">See all ${answer.total} files in Files ›</a></p>` : ''}`
         : '<p class="muted small" style="margin:6px 0 0">No files of this company in MyFiles.</p>'}`;
-    if (answer.result.ok) setCount('files', answer.total);
+    if (answer.result.ok) {
+      setCount('files', answer.total);
+      const newest = rows.map(r => r.uploadedAt).filter(Boolean).sort().pop();
+      setSub('files', newest ? 'last ' + date(newest) : 'in MyFiles');
+    }
     drawIcons(box);
   }
 
@@ -377,20 +460,24 @@
   }
 
   // ---- Addresses ----
+  /** The company's addresses, the default first: All or one type (segmented), each row its type, text, Default and edit and bin buttons. */
   function addresses() {
     const can = d.can.editContacts;
     const shown = d.addresses.filter(a => !addressType || a.type === addressType);
-    $('#addresses').innerHTML = `<div class="card-heading"><h2>Addresses</h2><div class="row-first">
-        <label class="field" style="min-width:150px"><span class="sr-only">Address type</span><select id="address-type">${options(lists.addressTypes, addressType, 'All types')}</select></label>
-        ${can ? '<button type="button" class="button primary small-btn" data-address="0"><span data-icon="plus"></span>New address</button>' : ''}</div></div>
-      ${shown.length ? `<div class="table-wrap"><table class="data"><thead><tr>${can ? '<th></th>' : ''}<th>Address</th><th>Type</th></tr></thead><tbody>
-        ${shown.map(a => `<tr>${can ? `<td class="nowrap"><div class="row-first"><button type="button" class="button secondary small-btn" data-address="${a.id}"><span data-icon="edit"></span>Edit</button>
-            <button type="button" class="icon-button small" data-delete-address="${a.id}" title="Delete the address" aria-label="Delete the address"><span data-icon="trash"></span></button></div></td>` : ''}
-          <td class="wide-text">${esc(a.text)}${a.isDefault ? ' <span class="pill">Default Address</span>' : ''}${[a.city, a.stateProvince, a.country].filter(Boolean).length ? `<span class="sub">${esc([a.city, a.stateProvince, a.country].filter(Boolean).join(', '))}</span>` : ''}</td>
-          <td>${can ? `<select class="cell-input" data-address-type="${a.id}" aria-label="Address type">${options(lists.addressTypes, a.type, 'Choose…')}</select>` : esc(a.typeLabel)}</td></tr>`).join('')}
-        </tbody></table></div>` : `<p class="muted">${d.addresses.length ? 'No address of this type.' : 'No address.'}</p>`}`;
+    const types = [{code: '', label: 'All'}].concat(lists.addressTypes.filter(t => t.active !== false || d.addresses.some(a => a.type === t.code)));
+    $('#addresses').innerHTML = `<div class="card-heading"><div class="address-head"><h2>Addresses</h2>
+        <div class="tabs address-types" role="group" aria-label="Address type">${types.map(t => `<button type="button" class="tab" data-address-filter="${esc(t.code)}" aria-pressed="${String(addressType === t.code)}">${esc(t.label)}</button>`).join('')}</div></div>
+        ${can ? '<button type="button" class="button secondary small-btn" data-address="0"><span data-icon="plus"></span>New address</button>' : ''}</div>
+      ${shown.length ? `<div class="address-rows">${shown.map(a => `<div class="address-row">
+          <span class="tag light address-type">${esc(a.typeLabel || 'No type')}</span>
+          <span class="address-text">${esc(a.text)}${[a.city, a.stateProvince, a.country].filter(Boolean).length ? `<span class="sub">${esc([a.city, a.stateProvince, a.country].filter(Boolean).join(', '))}</span>` : ''}</span>
+          <span class="address-default">${a.isDefault ? 'Default' : ''}</span>
+          ${can ? `<span class="row-buttons"><button type="button" class="icon-button small" data-address="${a.id}" title="Edit the address" aria-label="Edit ${esc((a.typeLabel || '').toLowerCase())} address ${esc(a.text)}"><span data-icon="edit"></span></button>
+            <button type="button" class="icon-button small danger" data-delete-address="${a.id}" title="Delete the address" aria-label="Delete ${esc((a.typeLabel || '').toLowerCase())} address ${esc(a.text)}"><span data-icon="trash"></span></button></span>` : ''}</div>`).join('')}</div>`
+        : `<p class="muted">${d.addresses.length ? 'No address of this type.' : 'No address.'}</p>`}
+      <p class="muted small address-foot">The default billing address is used on printouts.</p>`;
     drawIcons($('#addresses'));
-    $('#address-type').addEventListener('change', event => { addressType = event.target.value; addresses(); });
+    $$('[data-address-filter]', $('#addresses')).forEach(b => b.addEventListener('click', () => { addressType = b.dataset.addressFilter; addresses(); }));
   }
 
   function addressDialog(addressId) {
@@ -418,17 +505,41 @@
   }
 
   // ---- Contacts ----
+  /**
+   * The company's contacts, the primary first: a row each (name, designation and department, phone, email, the edit
+   * button) that opens with the chevron to all its details; on a phone a call and a mail button.
+   */
+  const openContacts = new Set();
+  const phoneSvg = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>';
+  const mailSvg = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>';
   function contacts() {
     const can = d.can.editContacts;
-    $('#contacts').innerHTML = `<div class="card-heading"><h2>Contacts</h2>${can ? '<button type="button" class="button primary small-btn" data-contact="0"><span data-icon="plus"></span>Create Contact</button>' : ''}</div>
-      ${d.contacts.length ? `<div class="table-wrap"><table class="data"><thead><tr>${can ? '<th></th>' : ''}<th>Contact</th><th>Phone</th><th>Email</th></tr></thead><tbody>
-        ${d.contacts.map(p => `<tr>${can ? `<td class="nowrap"><div class="row-first"><button type="button" class="button secondary small-btn" data-contact="${p.id}"><span data-icon="edit"></span>Edit</button>
-            <button type="button" class="icon-button small" data-delete-contact="${p.id}" data-name="${esc(p.name)}" title="Delete the contact" aria-label="Delete the contact"><span data-icon="trash"></span></button></div></td>` : ''}
-          <td class="wide-text"><b>${esc(p.name)}</b>${p.isDefault ? ' <span class="pill">Primary Contact</span>' : ''}${p.isEqList ? ' <span class="pill">Eq. List</span>' : ''}${p.isLinkedIn ? ' <span class="pill">Sales Navigator</span>' : ''}
-            ${p.designation || p.department ? `<span class="sub">${esc([p.designation, p.department].filter(Boolean).join(' · '))}</span>` : ''}</td>
-          <td class="small">${p.phones.map(x => `<div class="nowrap">${x.typeLabel ? esc(x.typeLabel) + ': ' : ''}${esc(x.number)}</div>`).join('') || '<span class="muted">-</span>'}</td>
-          <td class="small">${p.emails.map(x => `<div style="overflow-wrap:anywhere">${esc(x.address)}${x.consent ? ' <span class="yes" title="Consent to receive marketing information">✓ consent</span>' : ''}</div>`).join('') || '<span class="muted">-</span>'}</td></tr>`).join('')}
-        </tbody></table></div>` : '<p class="muted">No contact.</p>'}`;
+    const yes = v => v ? 'Yes' : 'No';
+    const who = (at, by) => [at ? dateTime(at) : '', by].filter(Boolean).join(' · ');
+    const rows = d.contacts.map(p => {
+      const open = openContacts.has(p.id);
+      const phone = p.phones[0], email = p.emails[0];
+      return `<div class="contact-item${open ? ' open' : ''}"><div class="contact-row">
+          <button type="button" class="icon-button small contact-toggle" data-toggle-contact="${p.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} details of ${esc(p.name)}"><span data-icon="arrow-right"></span></button>
+          <span class="contact-name"><b>${esc(p.name)}</b>${p.isDefault ? ' <span class="pill">Primary</span>' : ''}</span>
+          <span class="contact-role muted">${esc([p.designation, p.department].filter(Boolean).join(' · ')) || '–'}</span>
+          <span class="contact-phone">${phone ? esc(phone.number) + (p.phones.length > 1 ? ` <span class="muted small">+${p.phones.length - 1}</span>` : '') : '<span class="muted">–</span>'}</span>
+          <span class="contact-email">${email ? `<a href="mailto:${esc(email.address)}">${esc(email.address)}</a>` : '<span class="muted">–</span>'}</span>
+          <span class="contact-actions">${phone ? `<a class="round-action" href="tel:${esc(phone.number.replace(/[^0-9+]/g, ''))}" aria-label="Call ${esc(p.name)}">${phoneSvg}</a>` : ''}${email ? `<a class="round-action" href="mailto:${esc(email.address)}" aria-label="Email ${esc(p.name)}">${mailSvg}</a>` : ''}
+            ${can ? `<button type="button" class="icon-button small" data-contact="${p.id}" title="Edit the contact" aria-label="Edit contact ${esc(p.name)}"><span data-icon="edit"></span></button>` : ''}</span></div>
+        ${open ? `<dl class="contact-detail">${[
+          ['Salutation', esc(p.salutation)], ['First Name · Middle Name · Last Name', esc([p.firstName || '–', p.middleName || '–', p.lastName || '–'].join(' · '))],
+          ['Designation', esc(p.designation)], ['Department', esc(p.department)],
+          ['Phone (type)', p.phones.map(x => `<div>${x.typeLabel ? esc(x.typeLabel) + ' ' : ''}<a href="tel:${esc(x.number.replace(/[^0-9+]/g, ''))}">${esc(x.number)}</a></div>`).join('')],
+          ['Email', p.emails.map(x => `<div><a href="mailto:${esc(x.address)}">${esc(x.address)}</a></div>`).join('')],
+          ['Consent To Marketing Information', p.emails.length ? p.emails.map(x => yes(x.consent)).join(' · ') : ''],
+          ['Is Sales Navigator · Is Eq. List', yes(p.isLinkedIn) + ' · ' + yes(p.isEqList)],
+          ['Created', esc(who(p.createdAt, p.createdBy))], ['Updated', esc(who(p.updatedAt, p.updatedBy))]]
+          .map(([l, v]) => `<div><dt>${esc(l)}</dt><dd>${v || '<span class="muted">–</span>'}</dd></div>`).join('')}</dl>` : ''}</div>`;
+    }).join('');
+    $('#contacts').innerHTML = `<div class="card-heading"><span><b>${d.contacts.length} contact${d.contacts.length === 1 ? '' : 's'}</b> <span class="muted">· primary first · open a row for all details</span></span>
+        ${can ? '<button type="button" class="button secondary small-btn" data-contact="0"><span data-icon="plus"></span>Create Contact</button>' : ''}</div>
+      ${d.contacts.length ? `<div class="contact-list"><div class="contact-row contact-th" aria-hidden="true"><span></span><span>Name</span><span>Designation · department</span><span>Phone</span><span>Email</span><span></span></div>${rows}</div>` : '<p class="muted">No contact.</p>'}`;
     drawIcons($('#contacts'));
   }
 
@@ -499,17 +610,20 @@
   }
 
   // ---- Relationships ----
+  /** Related companies, by kind (parent, siblings, subsidiaries), each with its territory and its own add button. */
   function relationships() {
     const r = d.relationships, can = d.can.editContacts;
-    const row = x => `<li><a href="company.aspx?id=${x.id}">${esc(x.name)}</a>${can ? ` <button type="button" class="text-button danger-text small" data-remove-relationship="${x.relationshipId}" data-name="${esc(x.name)}">Remove</button>` : ''}</li>`;
-    const list = (items, none) => items.length ? `<ul class="check-lines" style="margin:6px 0 0">${items.map(row).join('')}</ul>` : `<p class="muted small" style="margin:6px 0 0">${none}</p>`;
-    $('#relationships').innerHTML = `<div class="card-heading"><h2>Company Relationships</h2>${can ? `<div class="row-first">
-        ${r.parent ? '<button type="button" class="button secondary small-btn" data-relate="sibling"><span data-icon="plus"></span>Add Sibling</button>' : '<button type="button" class="button secondary small-btn" data-relate="parent"><span data-icon="plus"></span>Add Parent</button>'}
-        <button type="button" class="button secondary small-btn" data-relate="subsidiary"><span data-icon="plus"></span>Add Subsidiary</button></div>` : ''}</div>
-      <div class="facts">
-        <div><div class="fact-label">Parent Company</div>${list(r.parent ? [r.parent] : [], 'No parent company exists')}</div>
-        <div><div class="fact-label">Sibling Companies</div>${list(r.siblings, 'No sibling company exists')}</div>
-        <div class="half"><div class="fact-label">Subsidiary Companies</div>${list(r.subsidiaries, 'No subsidiary company exists')}</div></div>`;
+    const groups = [
+      {title: 'Parent', kind: 'parent', add: 'Add Parent', items: r.parent ? [r.parent] : [], none: 'No parent company exists', show: !r.parent},
+      {title: 'Siblings', kind: 'sibling', add: 'Add Sibling', items: r.siblings, none: r.parent ? 'No sibling company exists' : 'No sibling company exists: add a parent first', show: !!r.parent},
+      {title: 'Subsidiaries', kind: 'subsidiary', add: 'Add Subsidiary', items: r.subsidiaries, none: 'No subsidiary company exists', show: true}
+    ];
+    $('#relationships').innerHTML = `<div class="card-heading"><h2>Related companies</h2></div>
+      <div class="rel-groups">${groups.map(g => `<div class="rel-group"><div class="rel-group-head"><h3>${esc(g.title)}</h3>
+          ${can && g.show ? `<button type="button" class="button secondary small-btn" data-relate="${g.kind}"><span data-icon="plus"></span>${esc(g.add)}</button>` : ''}</div>
+        ${g.items.length ? g.items.map(x => `<div class="rel-row"><a href="company.aspx?id=${x.id}">${esc(x.name)}</a><span class="muted small">${esc(x.territory || 'No territory')}</span>
+          ${can ? `<button type="button" class="text-button danger small" data-remove-relationship="${x.relationshipId}" data-name="${esc(x.name)}">Remove</button>` : ''}</div>`).join('')
+          : `<p class="muted small rel-none">${esc(g.none)}</p>`}</div>`).join('')}</div>`;
     drawIcons($('#relationships'));
   }
 
@@ -549,10 +663,10 @@
 
   function movements() {
     if (!d.movements.length) return '<p class="muted">No items to show...</p>';
-    return `<div class="table-wrap"><table class="data"><thead><tr><th>Previous Sales Rep</th><th>Current Sales Rep</th><th>Updated</th></tr></thead><tbody>
-      ${d.movements.map(m => `<tr><td>${m.from ? esc(m.from) : '<span class="muted">Nobody</span>'}${m.fromTeam ? `<span class="sub">${esc(m.fromTeam)}</span>` : ''}</td>
-        <td>${m.to ? esc(m.to) : '<span class="muted">Nobody</span>'}${m.toTeam ? `<span class="sub">${esc(m.toTeam)}</span>` : ''}</td>
-        <td class="small">${esc(dateTime(m.at))}<span class="sub">${esc(m.by)}</span></td></tr>`).join('')}</tbody></table></div>`;
+    const who = name => name ? esc(name) : '<span class="muted">Nobody</span>';
+    return `<div class="table-wrap"><table class="data movements"><thead><tr><th>Previous sales rep</th><th>Previous manager</th><th>Current sales rep</th><th>Current manager</th><th>Updated by</th><th>Updated at</th></tr></thead><tbody>
+      ${d.movements.map(m => `<tr><td>${who(m.from)}</td><td class="muted">${esc(m.fromTeam) || '–'}</td><td>${who(m.to)}</td><td class="muted">${esc(m.toTeam) || '–'}</td>
+        <td class="muted">${esc(m.by) || '–'}</td><td class="muted nowrap">${esc(dateTime(m.at))}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   page.addEventListener('click', async event => {
@@ -567,6 +681,14 @@
       const answer = await api('POST', `companies/${id}/addresses/${removeAddress.dataset.deleteAddress}/remove`, {});
       toast(answer.result.message, !answer.result.ok);
       if (answer.result.ok) load();
+      return;
+    }
+    const toggle = event.target.closest('[data-toggle-contact]');
+    if (toggle) {
+      const contactId = Number(toggle.dataset.toggleContact);
+      if (openContacts.has(contactId)) openContacts.delete(contactId); else openContacts.add(contactId);
+      contacts();
+      $(`[data-toggle-contact="${contactId}"]`, page)?.focus();
       return;
     }
     const contact = event.target.closest('[data-contact]');
@@ -588,13 +710,6 @@
       toast(answer.result.message, !answer.result.ok);
       if (answer.result.ok) load();
     }
-  });
-  page.addEventListener('change', async event => {
-    const type = event.target.closest('[data-address-type]');
-    if (!type || !type.value) return;
-    const answer = await api('POST', `companies/${id}/addresses/${type.dataset.addressType}/type`, {addressType: type.value});
-    toast(answer.result.message, !answer.result.ok);
-    if (answer.result.ok) load();
   });
 
   page.addEventListener('keydown', event => {

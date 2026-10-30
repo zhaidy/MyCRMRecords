@@ -92,7 +92,8 @@ the title says how many there are.
 The company's page has everything about it. Under its name, one line says its territory, salesperson, BRN and
 customer code. At the top right:
 
-- **Print summary** opens the company's summary on one A4 page: its details, salesperson and caretake remarks,
+- **Print summary** opens the company's summary on one A4 page: its details, salesperson (with their manager),
+  caretakers and caretake remarks,
   addresses, primary contacts and the machines whose contract or warranty is running. Press **Print / Save as PDF**
   (or **Back to the company**). On a phone it is the printer button.
 - **Edit company** (Sales Admins; on a phone the pencil) opens the company form: **Is Active**, **Is HOME USER** (a
@@ -105,8 +106,9 @@ customer code. At the top right:
 The rest is in tabs: **Overview**, **Contacts**, **Activities**, **Prospects**, **Projects**, **Files**, **Machines**, **Costing sheets**, **Request forms** and
 **Relationships & history** (with how many there are). Clicking a tab shows it in place; the page remembers the tab,
 so coming back from a costing sheet opens the same one. On a phone the Overview shows the company's details and then
-a list of sections, **More details** first (sales notes, addresses, salesperson, copies per month and more company
-details): tap one to open it on the whole screen, and the company's name at the top to go back.
+a list of sections under **Sections**, **More details** first (sales notes, addresses, Invoice / SOA emails,
+salesperson and caretakers, copies per month, recent activities and more company details): tap one to open it on the
+whole screen, and the company's name at the top to go back.
 
 **Overview**:
 
@@ -116,37 +118,51 @@ details): tap one to open it on the whole screen, and the company's name at the 
 - **Copies per month**: the black (teal) and colour (coral) copies billed on all the company's machines in Advance
   (found by its BRN) in each of the last 12 months, each machine's of its contract as on its own page. Point at a
   month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab.
-- The four tiles count the company's **Machines** (contract or warranty running), **Files**, **Contacts** and
-  **Costing sheets**; click one to open its tab.
-- **Salesperson**: the company's owner and their territory.
+- The four tiles count the company's **Machines** (contract or warranty running), **Projects** (with how many are
+  open), **Activities** (with how many are upcoming) and **Files** (with the newest upload's date); click one to open
+  its tab.
+- **Salesperson and caretakers**: the company's owner with their territory and manager, then its caretakers: the
+  people with the role Salesperson (Caretaker) or Salesperson (Account Owner) in an open project that includes the
+  company, with the project (click it to open it) and its end date. **See projects** opens the Projects tab.
 - **Sales notes**, for anyone who opens the company: **No of Employees** (press the pencil, type the number and press
   **Save**, or **Cancel**) and **Sales Remarks** (type and press **Save remarks**).
-- **Addresses**: the default address first. Choose a type at the top to show only that type. **New address** and
-  **Edit** open the address form: **Is Default**, **Address Type**, **Postal Code**, **Block**, **Street**, **Unit
+- **Addresses**: the default address first, each with its type and **Default** on the default one. Choose **All** or a
+  type at the top to show only that type. **New address** and the pencil open the address form: **Is Default**, **Address Type**, **Postal Code**, **Block**, **Street**, **Unit
   Number**, **Building Name**, **City**, **State / Province** and **Country**. A company has one default address: tick
-  **Is Default** on another only after unticking it on the default one. Change an address's type straight in the list.
+  **Is Default** on another only after unticking it on the default one. Change an address's type in the form.
   The bin deletes an address (after asking).
-- **More company details**: remarks, caretake remarks and the other facts MyCRM keeps.
+- **Invoice / SOA emails**: where Advance e-mails the company's invoices and statements of account, for each contract:
+  **Contract type**, **Contract no**, **Email** and **CC email**. Read only: they are changed in Advance.
+- **Recent activities**: the company's three latest past activities; click one to read it, **All** opens the
+  Activities tab.
+- **More company details**: remarks, caretake remarks, **Machines sold by dealer** (the machines Advance shows as sold
+  by this company as a dealer, by its BRN; click a serial to open the machine) and the other facts MyCRM keeps.
 
-**Contacts**: the primary contact first, with their phones and emails. **Create Contact** and **Edit** open the
-contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
+**Contacts**: the primary contact first (marked **Primary**), a row each with designation and department, phone and
+email. The arrow at the start of a row opens all its details (salutation, names, every phone with its type, every
+email, consent, Is Sales Navigator, Is Eq. List, created and updated); on a phone, the call and mail buttons call or
+e-mail the contact. **Create Contact** and the pencil open the contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
 **Department**, **Designation**, **Is Default** (the company's primary contact: ticking it takes it off any other),
 **Is Sales Navigator** and **Is Eq. List** (only for a contact with an email). Under **Email** and **Phone**, **Add
-Email** and **Add Phone** add a row; the bin takes a row off. Nothing is saved until **Save**. **Delete Contact** (or
-the bin in the list) deletes the contact, after asking.
+Email** and **Add Phone** add a row; the bin takes a row off. Nothing is saved until **Save**. **Delete Contact** in the
+form deletes the contact, after asking.
 
 **Relationships & history**:
 
-- **Company Relationships**: the parent company, the siblings (the parent's other subsidiaries) and the subsidiaries.
-  **Add Parent**, **Add Sibling** and **Add Subsidiary** open a search: type a company's name or BRN and choose it. A
+- **Related companies**: the **Parent**, the **Siblings** (the parent's other subsidiaries) and the **Subsidiaries**,
+  each company with its territory. **Add Parent**, **Add Sibling** (once the company has a parent) and **Add
+  Subsidiary**, each above its group, open a search: type a company's name or BRN and choose it. A
   company has one parent at most, and a company cannot be related to itself or put below a company that is below it.
   **Remove** takes a relationship away (after asking); both companies stay.
 - **Territory Movement History** (not shown to Sales and Telemarketers): every change of the company's salesperson,
-  newest first, with their teams, who made it and when.
+  newest first: **Previous sales rep**, **Previous manager**, **Current sales rep**, **Current manager**, **Updated
+  by** and **Updated at**.
 
-**Files**: the company's newest ten files from MyFile (the PDFs uploaded in MyFile: costing sheets, request forms,
-FSAs, leasing papers, DOs…), with their type, number, upload date and size; click a file's name to open its PDF.
-**See all** opens the [Files](#files) page with only this company's files.
+**Files**: the company's files from MyFile (the PDFs uploaded in MyFile: costing sheets, request forms, FSAs, leasing
+papers, DOs…), grouped by their number (contract, invoice, service…; files with none last), with their type, upload
+date and size; click a file's name to open its PDF. **Download all** downloads a group's files as one zip
+(**Download** when it has one file). **Open in Files** opens the [Files](#files) page with only this company's files.
+Files are uploaded in MyFile.
 
 **Machines**: the company's machines in Advance (found by its BRN), as MyCRM's Machines tab showed them. **Active**
 (the first) lists those whose contract or warranty ends after today; **All** adds those on time and materials, those
@@ -155,8 +171,9 @@ machine), **Model**, **Status** (Contract, Warranty, T&M, Expired or No contract
 **Contract start** and **end**, **Warranty start** and **end** (dates already past are grey) and **Finance type**
 (Internal lease, External lease, Outright or Dealer). On a phone each machine is a card. See [Machines](#machines).
 
-**Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
-you may see; click a number to open it. **See all** opens the list of all of them.
+**Costing sheets** and **Request forms**: how many the company has of those you may see (read only, from MyOrders) and
+the newest of them; click a number to open it. **Open in Costing sheets** and **Open in Request forms** open the list
+with only this company's.
 
 **New activity** (top right) logs an activity with this company: see [Activities](#activities) for the form.
 

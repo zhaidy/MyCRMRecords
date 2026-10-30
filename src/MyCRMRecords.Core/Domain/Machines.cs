@@ -167,6 +167,27 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         return (machines.Count, empty.Select(m => found.TryGetValue(m.Year * 100 + m.Month, out var f) ? f : m).ToList());
     }
 
+    /// <summary>
+    /// The machines the company sold as a dealer (MyCRM's "Machines sold by dealer", by its BRN: serial-stat SALDLR,
+    /// mif-type MTR). Null when the person may not see the company's machines.
+    /// </summary>
+    public IReadOnlyList<MachineRow>? DealerSold(Actor actor, long companyId)
+    {
+        if (store.Get<Company>(companyId) is not { } company || !MaySeeCompany(actor, company)) return null;
+        var brn = Key(company.Brn);
+        return brn.Length <= 3 ? Array.Empty<MachineRow>() : advance.DealerSold(brn, Today(clock()));
+    }
+
+    /// <summary>
+    /// The company's Invoice / SOA emails in Advance (MyCRM's MyCustomerEmails, read only), for whoever may open the
+    /// company. Null when they may not.
+    /// </summary>
+    public IReadOnlyList<CustomerEmail>? CustomerEmails(Actor actor, long companyId)
+    {
+        if (store.Get<Company>(companyId) is not { } company || !(actor.SeesAllCompanies || access.CanOpen(actor, company))) return null;
+        return advance.CustomerEmails(company.Id);
+    }
+
     /// <summary>A machine's page, with the last 12 months of meters, service calls and toner, and a T&amp;M machine's last contract.</summary>
     public sealed record Detail(MachineDetail Machine, string Via, long? CompanyId, IReadOnlyList<MeterReading> Meters, IReadOnlyList<ServiceCall> Services,
         IReadOnlyList<TonerOrder> Toner, LastContract? LastContract);

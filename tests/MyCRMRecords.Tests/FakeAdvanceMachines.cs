@@ -25,6 +25,8 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
         ("Service", AdvanceMachineColumns.Service.Select(c => (c, TypeOf(c))).ToArray()),
         ("SMeter_History", AdvanceMachineColumns.SMeterHistory.Select(c => (c, TypeOf(c))).ToArray()),
         ("daily_TM", AdvanceMachineColumns.DailyTm.Select(c => (c, TypeOf(c))).ToArray()),
+        ("CustomerMapping", AdvanceMachineColumns.CustomerMapping.Select(c => (c, TypeOf(c))).ToArray()),
+        ("Email_Master", AdvanceMachineColumns.EmailMaster.Select(c => (c, TypeOf(c))).ToArray()),
     ];
 
     private static readonly string[] KeepsUnderscore = ["Meter_Type", "Meter_Reading", "Service_No", "Serial_No", "Min_Bill"];
@@ -36,6 +38,7 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
         var c = column.ToLowerInvariant();
         if (c.EndsWith("date") || c.EndsWith("_dt") || c.EndsWith("start") || c.EndsWith("end")) return "datetime";
         if (c is "invoice_no" or "copies" or "meter_reading" or "mincopies") return "int";
+        if (c is "company_id") return "bigint";
         if (c is "min_bill" or "minrate" or "therafter") return "decimal(18,4)";
         return "nvarchar(100)";
     }
@@ -53,13 +56,14 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
     /// <summary>A machine (daily_mif) with its serial row (Serial-stat the finance type).</summary>
     public void Machine(string serial, string brn, string name, string mifType, string model = "IM C3000", string item = "418283", string custNo = "C1",
         string contractNo = "", DateTime? start = null, DateTime? end = null, DateTime? sellStart = null, DateTime? sellEnd = null, string finance = "",
-        string serviceRef = "", string invoiceRef = "", string contractRef = "", DateTime? installed = null, DateTime? transDate = null)
+        string serviceRef = "", string invoiceRef = "", string contractRef = "", DateTime? installed = null, DateTime? transDate = null, string serialStat = "")
     {
         Add("daily_mif", new
         {
             serial_no = serial, item_no = item, description = model + " MFP", prod_group = "MFP", model, cust_no = custNo, name, BRN = brn,
             trans_date = transDate ?? new DateTime(2026, 10, 16), mif_type = mifType, contract_no = contractNo, contract_typ = contractNo.Length > 0 ? "MPS" : "",
             cntrct_start = start, cntrct_end = end, sell_start = sellStart, sell_end = sellEnd, service_ref = serviceRef, invoice_ref = invoiceRef, contract_ref = contractRef,
+            serial_stat = serialStat,
         });
         Add("serial", new
         {
@@ -193,6 +197,19 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
             {
                 ["ContractNo"] = r["Contract_no"], ["Start"] = r["Cntrct_start"], ["End"] = r["Cntrct_end"], ["MeterType"] = r["Meter_Type"], ["MinBill"] = r["Min_Bill"],
                 ["MinCopies"] = r["MinCopies"], ["MinRate"] = r["MinRate"], ["Thereafter"] = r["Therafter"], ["TransDate"] = r["trans_date"],
+            }));
+
+    public IReadOnlyList<MachineRow> DealerSold(string brn, DateTime today) =>
+        Rows("daily_mif").Where(m => Same(m["BRN"], brn) && Same(m.Get("serial_stat"), "SALDLR") && Same(m["mif_type"], "MTR"))
+            .OrderBy(m => OutSystemsValues.Text(m["serial_no"]), StringComparer.OrdinalIgnoreCase).ThenBy(m => OutSystemsValues.Text(m["item_no"]), StringComparer.OrdinalIgnoreCase)
+            .Take(200).Select(m => SqlAdvanceMachines.Row(AsRead(m), today.Date)).ToList();
+
+    public IReadOnlyList<CustomerEmail> CustomerEmails(long companyId) =>
+        SqlAdvanceMachines.CustomerEmailsOf(Rows("CustomerMapping").Where(cm => cm.Get("Company_ID") is { } c && Convert.ToInt64(c, CultureInfo.InvariantCulture) == companyId)
+            .SelectMany(cm => Rows("Email_Master").Where(e => Same(e["Cust_No"], OutSystemsValues.Text(cm["Cust_No"]))))
+            .Select(e => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+            {
+                ["ContractType"] = e["Contract_Type"], ["ContractNo"] = e["ContractNo"], ["Email"] = e["EmailAddress"], ["CcEmail"] = e["CCEmail"],
             }));
 
     /// <summary>The tables in SQL Server with their real column names ([serial-no]…), holding these rows.</summary>
