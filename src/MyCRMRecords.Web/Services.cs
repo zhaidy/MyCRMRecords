@@ -76,7 +76,16 @@ public static class Services
         {
             // The pages still open, so an administrator can fix the settings.
         }
+        // Once after a start: read MyCRM's people and labels in the background, so the first pages do not wait for them.
+        if (System.Threading.Interlocked.Exchange(ref _warmed, 1) == 0)
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { LazyApp.Value.MyCrm?.WarmUp(); }
+                catch (Exception) { /* The pages read them when they need them. */ }
+            });
     }
+
+    private static int _warmed;
 
     /// <summary>Runs work after the answer is sent; IIS waits for it (up to 30 seconds) before recycling the process.</summary>
     public static void RunInBackground(Action work) =>

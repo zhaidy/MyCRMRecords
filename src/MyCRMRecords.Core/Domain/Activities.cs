@@ -149,13 +149,15 @@ public sealed class Activities(IRecordStore store, Access access, People people,
 
     private (int Total, IReadOnlyList<Row> Rows) Rows(List<Activity> activities, Filter f, DateTime today, bool all = false)
     {
-        var ids0 = activities.Select(a => a.Id).ToList();
-        var types = TypesOf(ids0);
-        var names = CompanyNames(activities.Where(a => a.CompanyId is not null).Select(a => a.CompanyId!.Value));
-        string CompanyOf(Activity a) => a.CompanyId is { } c && names.TryGetValue(c, out var n) ? n : "";
-        IReadOnlyList<string> TypeCodes(Activity a) => types.TryGetValue(a.Id, out var t) ? t : new List<string>();
         var text = (f.Q ?? "").Trim();
         var type = (f.Type ?? "").Trim();
+        // Without a search or a type, only the page shown needs its types and company names: a person's past can hold
+        // thousands of activities. With one, they are read for all, to find the matches.
+        var narrowed = text.Length > 0 || type.Length > 0;
+        var types = narrowed ? TypesOf(activities.Select(a => a.Id).ToList()) : new Dictionary<long, List<string>>();
+        var names = narrowed ? CompanyNames(activities.Where(a => a.CompanyId is not null).Select(a => a.CompanyId!.Value)) : new Dictionary<long, string>();
+        string CompanyOf(Activity a) => a.CompanyId is { } c && names.TryGetValue(c, out var n) ? n : "";
+        IReadOnlyList<string> TypeCodes(Activity a) => types.TryGetValue(a.Id, out var t) ? t : new List<string>();
         var matched = activities
             .Where(a => type.Length == 0 || TypeCodes(a).Contains(type))
             .Where(a => text.Length == 0 || new[] { CompanyOf(a), a.Remarks, ActivityActions.List.Label(a.Action) }.Concat(TypeCodes(a).Select(ActivityTypes.List.Label))
@@ -166,9 +168,15 @@ public sealed class Activities(IRecordStore store, Access access, People people,
             ? matched.OrderBy(a => a.VisitDate ?? DateTime.MaxValue).ThenBy(a => a.StartTime, StringComparer.Ordinal).ThenBy(a => a.Id).ToList()
             : matched.OrderByDescending(a => a.VisitDate ?? DateTime.MinValue).ThenBy(a => a.StartTime, StringComparer.Ordinal).ThenByDescending(a => a.Id).ToList();
         var page = (f.From is not null || all ? matched.Take(MaxRows) : matched.Skip(Math.Max(0, f.Skip)).Take(PageSize)).ToList();
+        if (!narrowed)
+        {
+            types = TypesOf(page.Select(a => a.Id).ToList());
+            names = CompanyNames(page.Where(a => a.CompanyId is not null).Select(a => a.CompanyId!.Value));
+        }
         var contacts = ContactsOf(page.Select(a => a.Id).ToList());
+        var ownerName = people.NamesOf(page.Select(a => a.Owner));
         var rows = page.Select(a => new Row(a, CompanyOf(a), TypeCodes(a).Select(ActivityTypes.List.Label).ToList(),
-            contacts.TryGetValue(a.Id, out var c) ? c : new List<string>(), people.NameOf(a.Owner), StatusOf(a, today))).ToList();
+            contacts.TryGetValue(a.Id, out var c) ? c : new List<string>(), ownerName(a.Owner), StatusOf(a, today))).ToList();
         return (matched.Count, rows);
     }
 
