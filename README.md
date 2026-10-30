@@ -15,7 +15,7 @@ How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 | Work | MyCRM | MyCRMRecords |
 |---|---|---|
 | The companies a person may open, searched by name, BRN, customer type, group name, postal code | Companies (CompanyList) | `default.aspx` (`Companies.List`, `Access`) |
-| A company: details, billing address, number of employees, sales remarks, territory movements | CompanyDetails | `company.aspx` |
+| A company: details, billing address, number of employees, sales remarks, territory movements (Overview: copies per month from Advance, `machines/copies`), summary print | CompanyDetails | `company.aspx`, `companyprint.aspx` |
 | The company form (Sales Admins), duplicate BRN check, the Pre… values | CompanyDetail | `Companies.Save` |
 | Addresses, the default address | Address block, AddressDetail_PopUp | `Companies.SaveAddress`, `SetAddressType`, `RemoveAddress` |
 | Contacts with their emails and phones, the primary contact | Contacts block, ContactDetail_Popup | `Companies.SaveContact`, `RemoveContact` |

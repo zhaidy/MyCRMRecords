@@ -588,6 +588,79 @@ svg.qr path{fill:#000;stroke:none}
 #page.in-section .section-back{display:inline-flex}
 }
 
+/* A company's page (company.js): a large title with one line of where and whose, its actions as one glass capsule
+   (Print summary, Edit company); the Overview in two columns: details, copies per month and addresses, then tiles that
+   open the tabs, the salesperson, sales notes and more details. On a phone the Overview is the details as a list and
+   the sections, More details first (#page.more-details: the rest of the Overview on its own screen). */
+.company-heading{align-items:flex-end;flex-wrap:nowrap}
+.company-title{min-width:0;display:flex;flex-direction:column;gap:6px}
+.company-title .crumb{align-self:flex-start}
+.company-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.company-heading .company-info{margin:0;font-size:16px;color:var(--ink-2)}
+.company-heading .heading-actions{flex:none;flex-wrap:nowrap}
+.overview{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
+.ov-main,.ov-side{min-width:0;display:flex;flex-direction:column;gap:20px}
+.overview .card+.card{margin-top:0}
+.overview h2{margin:0}
+.ov-side .card>h2{margin-bottom:12px}
+.ov-facts{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 24px}
+.ov-fact{min-width:0}
+.ov-fact dt{font-size:13px;color:var(--ink-2)}
+.ov-fact dd{margin:2px 0 0;font-weight:600;overflow-wrap:anywhere}
+.ov-sub{display:block;font-weight:400;font-size:13px;color:var(--ink-2)}
+.ov-sub a,.owner-text a{color:var(--accent)}
+.ov-facts-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.ov-facts-list .ov-fact:nth-child(-n+2){grid-column:1/-1}
+.ov-facts-list dd{font-weight:500}
+.stat-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat-tile{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 16px;border:0;border-radius:22px;background:var(--card);color:var(--ink);text-align:left;font:inherit;cursor:pointer;transition:background-color .14s}
+.stat-tile:hover{background:var(--surface)}
+.stat-label{font-size:13px;font-weight:700}
+.stat-n{font-size:30px;font-weight:700;line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.owner-row{display:flex;align-items:center;gap:12px}
+.owner-avatar{flex:none;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;font-weight:700;color:#fff;background:var(--accent)}
+.owner-text{min-width:0;display:flex;flex-direction:column}
+.ov-sales{display:flex;flex-direction:column;gap:12px}
+.ov-sales .action-buttons{margin:0}
+.ov-copies .card-heading{align-items:baseline}
+.ov-sub-title{font-size:14px;font-weight:500;letter-spacing:0}
+.copies-legend{margin:0}
+.copies-chart{height:170px;display:flex;align-items:flex-end;gap:14px}
+.copies-month{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+.copies-bars{flex:1;display:flex;align-items:flex-end;gap:4px}
+.copies-bars span{flex:1;border-radius:7px 7px 3px 3px}
+.bar-black{background:var(--teal)}
+.bar-colour{background:var(--coral)}
+.copies-label{font-size:12px;color:var(--ink-2);text-align:center}
+.copies-note{margin:14px 0 0}
+@media(max-width:1180px) and (min-width:901px){.overview{grid-template-columns:minmax(0,1fr)}.ov-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:900px){
+.company-heading{position:relative;display:block;margin-bottom:18px}
+.company-title{gap:4px}
+.company-title .crumb{min-height:44px;display:inline-flex;align-items:center;margin:0}
+.company-title h1{font-size:32px;line-height:1.12}
+.company-heading .company-info{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.company-heading .heading-actions{position:absolute;top:0;right:0}
+.company-heading .action-label{display:none}
+.overview{display:flex;flex-direction:column;align-items:stretch;gap:20px}
+.ov-main,.ov-side{display:contents}
+.stat-tiles,.ov-hint{display:none}
+.ov-details{order:0}.overview .section-list{order:1}.ov-sales{order:2}#addresses{order:3}.ov-owner{order:4}.ov-copies{order:5}.ov-side>.card:last-child{order:6}
+.ov-details .ov-facts{display:block}
+.ov-details .ov-fact{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:46px;padding:6px 0;border-bottom:1px solid var(--line)}
+.ov-details .ov-fact:last-child{border-bottom:0}
+.ov-details .ov-fact dt{flex:none;font-size:15px;color:var(--ink)}
+.ov-details .ov-fact dd{margin:0;min-width:0;text-align:right;font-weight:400;color:var(--ink-2)}
+.ov-details .card-heading{margin-bottom:4px}
+#page:not(.more-details) .ov-more-part{display:none}
+#page.more-details .ov-details,#page.more-details .overview .section-list{display:none}
+.copies-chart{height:140px;gap:4px}
+.copies-bars{gap:2px}
+.copies-bars span{border-radius:4px 4px 2px 2px}
+.copies-label{font-size:10.5px}
+}
+
 /* The phone's bottom bar: hidden on wider screens */
 .tabbar{display:none}
 @media(max-width:900px){

@@ -77,30 +77,44 @@ the title says how many there are.
 
 ## A company
 
-The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**,
-**Request forms** and **Relationships & history** (with how many there are). Clicking a tab shows it in place; the
-page remembers the tab, so coming back from a costing sheet opens the same one. On a phone the tabs are a list under
-the company's details: tap one to open it on the whole screen, and the company's name at the top to go back.
+The company's page has everything about it. Under its name, one line says its territory, salesperson, BRN and
+customer code. At the top right:
+
+- **Print summary** opens the company's summary on one A4 page: its details, salesperson and caretake remarks,
+  addresses, primary contacts and the machines whose contract or warranty is running. Press **Print / Save as PDF**
+  (or **Back to the company**). On a phone it is the printer button.
+- **Edit company** (Sales Admins; on a phone the pencil) opens the company form: **Is Active**, **Is HOME USER** (a
+  home user's BRN may be left empty), **Company Name**, **BRN**, **Website**, **Is Channel Partner**, **Customer
+  Type**, **Advance Customer Type**, **Company Group Name**, **Account Type**, **Comp Ownership** and **Remarks**. Two
+  companies cannot have the same BRN (MyCRM checked new companies only; MyCRMRecords checks edited ones too); a home
+  user's is not checked. Next to **Company Group Name**, **Add a group name**, **Rename** and the bin keep the list of
+  group names; a group name a company still has cannot be removed.
+
+The rest is in tabs: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**, **Request forms** and
+**Relationships & history** (with how many there are). Clicking a tab shows it in place; the page remembers the tab,
+so coming back from a costing sheet opens the same one. On a phone the Overview shows the company's details and then
+a list of sections, **More details** first (sales notes, addresses, salesperson, copies per month and more company
+details): tap one to open it on the whole screen, and the company's name at the top to go back.
 
 **Overview**:
 
-- **Company**: BRN, A/C Type, Customer Code (Advance's customer number), the **Salesperson** with their territory,
-  Customer Type, Company Group, Advance Customer Type, Industry, Website, created and last updated, and the billing
-  addresses.
-- **No of Employees**: press the pencil, type the number and press **Save** (or **Cancel**).
-- **Sales Remarks**: type and press **Save**.
-- **Edit company** (Sales Admins) opens the company form: **Is Active**, **Is HOME USER** (a home user's BRN may be
-  left empty), **Company Name**, **BRN**, **Website**, **Is Channel Partner**, **Customer Type**, **Advance Customer
-  Type**, **Company Group Name**, **Account Type**, **Comp Ownership** and **Remarks**. Two companies cannot have the
-  same BRN (MyCRM checked new companies only; MyCRMRecords checks edited ones too); a home user's is not checked.
-  Next to **Company Group Name**, **Add a group name**, **Rename** and the bin keep the list of group names; a group
-  name a company still has cannot be removed.
+- **Company details**: BRN, A/C Type, Customer Code (Advance's customer number), the **Salesperson** with their
+  territory, Customer Type, Company Group, Advance Customer Type, Industry, Website, Is Channel Partner, created and
+  last updated (with by whom). Change them with **Edit company**.
+- **Copies per month**: the black (teal) and colour (coral) copies billed on all the company's machines in Advance
+  (found by its BRN) in each of the last 12 months, each machine's of its contract as on its own page. Point at a
+  month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab.
+- The four tiles count the company's **Machines** (contract or warranty running), **Files**, **Contacts** and
+  **Costing sheets**; click one to open its tab.
+- **Salesperson**: the company's owner and their territory.
+- **Sales notes**, for anyone who opens the company: **No of Employees** (press the pencil, type the number and press
+  **Save**, or **Cancel**) and **Sales Remarks** (type and press **Save remarks**).
 - **Addresses**: the default address first. Choose a type at the top to show only that type. **New address** and
   **Edit** open the address form: **Is Default**, **Address Type**, **Postal Code**, **Block**, **Street**, **Unit
   Number**, **Building Name**, **City**, **State / Province** and **Country**. A company has one default address: tick
   **Is Default** on another only after unticking it on the default one. Change an address's type straight in the list.
   The bin deletes an address (after asking).
-- **More Company Details**: remarks, caretake remarks and the other facts MyCRM keeps.
+- **More company details**: remarks, caretake remarks and the other facts MyCRM keeps.
 
 **Contacts**: the primary contact first, with their phones and emails. **Create Contact** and **Edit** open the
 contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
