@@ -3,7 +3,7 @@
   // project.aspx?id=: a MyCRM project: its details, Companies, Members (with their temporary territories), linked
   // Activities and History. The owner or a Sales Admin edits, closes and deletes it and adds or removes companies; only
   // the owner adds and removes members. Closing, deleting and removing ask first and say who loses access.
-  const {$, $$, esc, api, toast, ask, drawIcons, date, dateTime, param, showErrors} = window.WH;
+  const {$, $$, esc, api, toast, ask, drawIcons, date, dateTime, param, showErrors, crumbs} = window.WH;
   const page = $('#page');
   const id = Number(param('id') || 0);
   const tabIds = ['companies', 'members', 'activities', 'history'];
@@ -29,7 +29,7 @@
     document.title = p.name + ' · MyCRMRecords';
     const state = p.closed ? '<span class="act-status pending">Closed</span>' : p.open ? '<span class="act-status done">Open</span>' : '<span class="act-status late">Ended</span>';
     page.innerHTML = `
-      <div class="page-heading proj-heading"><div><a class="crumb" href="projects.aspx"><span data-icon="arrow-left"></span>Projects</a>
+      <div class="page-heading proj-heading"><div>${crumbs(p.name, [['Projects', 'projects.aspx']])}
           <h1>${esc(p.name)}</h1>
           <p class="proj-sub">${state} <span>${esc(p.statusLabel)}</span> <span class="muted">Owner <b>${esc(p.ownerName)}</b> · ${p.closed ? 'closed · was ending' : 'ends'} ${esc(date(p.endDate))} · Saved in MyCRM</span></p>
           ${p.remarks ? `<p class="proj-remarks">${esc(p.remarks)}</p>` : ''}</div>

@@ -8,7 +8,7 @@
   // Laid out as the approved design: the list is one line per territory under glass filter capsules (All, Vacant,
   // Taken away); a territory has its actions in one glass capsule and two tabs, Companies and Add companies. On a phone
   // the list is a card per territory and the switches fit the screen.
-  const {$, $$, esc, api, toast, ask, date, drawIcons, pager, param, upload} = window.WH;
+  const {$, $$, esc, api, toast, ask, date, drawIcons, pager, param, upload, crumbs} = window.WH;
   const {dialog, refused} = window.CRM;
   const page = $('#page');
   const id = Number(param('id') || 0);
@@ -168,7 +168,7 @@
   function renderDetail() {
     const t = d.territory;
     if (!$('#panel')) {
-      page.innerHTML = `<div class="page-heading terr-heading"><div class="terr-title"><a class="crumb" href="territories.aspx"><span data-icon="arrow-left"></span>Territories</a>
+      page.innerHTML = `<div class="page-heading terr-heading"><div class="terr-title">${crumbs(t.title, [['Territories', 'territories.aspx']])}
             <div class="terr-name"><h1 id="title"></h1><span class="terr-number" id="number"></span><span id="taken"></span></div><p id="subtitle"></p></div>
           <div class="heading-actions" id="actions"></div></div>
         <section class="terr-owner-card" id="owner-card" aria-label="Salesperson"></section>

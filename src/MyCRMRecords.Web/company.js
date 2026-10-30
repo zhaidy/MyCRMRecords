@@ -5,7 +5,7 @@
   // parent, siblings and subsidiaries, its territory movements (hidden from Sales and Telemarketers) and more details.
   // The Overview adds the copies per month on its machines (Advance) and tiles counting what the other tabs hold.
   // The company form is for Sales Admins. Every change is made in a dialog or in place, and risky ones ask first.
-  const {$, $$, esc, api, toast, ask, date, dateTime, number, drawIcons, param, showErrors} = window.WH;
+  const {$, $$, esc, api, toast, ask, date, dateTime, number, drawIcons, param, showErrors, crumbs} = window.WH;
   const {options, dialog, refused, text, companyForm} = window.CRM;
   const page = $('#page');
   const id = Number(param('id') || 0);
@@ -88,7 +88,7 @@
     ];
     const ownerName = d.owner ? d.owner.name || 'Vacant' : '';
     page.innerHTML = `
-      <div class="page-heading company-heading"><div class="company-title"><a class="crumb" href="./"><span data-icon="arrow-left"></span>Companies</a>
+      <div class="page-heading company-heading"><div class="company-title">${crumbs(c.name, [['Companies', './']])}
           <h1>${esc(c.name)} ${c.isActive ? '' : '<span class="pill warn">Inactive</span>'}</h1>
           <p class="company-info">${info}</p></div>
         <div class="heading-actions"><div class="action-capsule" role="group" aria-label="Company actions">

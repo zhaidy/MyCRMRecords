@@ -4,7 +4,7 @@
   // copies billed per month (the last 6 or 12 months), its service calls, toner orders and meter readings, and for a
   // machine on time and materials its last contract's rates. Only for those who see the machine's company (or have
   // temporary access to it).
-  const {$, $$, esc, api, drawIcons, date, number, param, coverageTag, coverageText} = window.WH;
+  const {$, $$, esc, api, drawIcons, date, number, param, coverageTag, coverageText, crumbs} = window.WH;
   const page = $('#page');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   let d = null, span = 6, tab = 'service';
@@ -32,7 +32,7 @@
     const company = m.companyId ? `<a href="company.aspx?id=${m.companyId}#machines">${esc(m.customer)}</a>` : esc(m.customer);
     const warranty = m.warrantyEnd ? `${dim(m.warrantyEnd) ? 'Ended' : 'Ends'} ${esc(date(m.warrantyEnd))}` : '';
     page.innerHTML = `
-      <div class="page-heading"><div><a class="crumb" href="machines.aspx"><span data-icon="arrow-left"></span>Machines</a>
+      <div class="page-heading"><div>${crumbs(m.serial, [['Machines', 'machines.aspx']])}
           <h1 class="machine-title">${esc(m.serial)} ${coverageTag(m)}</h1>
           <p>${esc([m.model, m.description !== m.model ? m.description : ''].filter(Boolean).join(' · '))} · ${company} · ${esc(m.via)}</p></div>
         <div class="heading-actions">${d.lastContract ? '<button type="button" class="button secondary" id="last-contract"><span data-icon="history"></span>Last contract</button>' : ''}</div></div>

@@ -6,7 +6,7 @@
   // Old CS, chosen beside it). Laid out as the approved design: the key details under the title, the sections as tabs
   // (Product, Meter charges, Billing, Variable costs & trade-ins, More details) with History and Attachments beside
   // them; on a phone every section is a card that opens and closes.
-  const {$, $$, esc, api, drawIcons, dateTime, date, param} = window.WH;
+  const {$, $$, esc, api, drawIcons, dateTime, date, param, crumbs} = window.WH;
   const page = $('#page');
   const id = Number(param('id') || 0);
   const money = (value, digits = 2) => Number(value || 0).toLocaleString('en-SG', {minimumFractionDigits: digits, maximumFractionDigits: digits});
@@ -193,7 +193,7 @@
     try { format = localStorage.getItem('costing-sheet-format') === 'old' ? 'old' : 'new'; } catch { /* the newer layout */ }
     page.innerHTML = `
       <div class="page-heading cs-heading"><div class="cs-title">
-          <nav class="cs-crumbs" aria-label="Breadcrumb">${c.companyId ? `<a href="company.aspx?id=${c.companyId}"><span data-icon="arrow-left"></span>Back to ${esc(c.company)}</a><span aria-hidden="true">·</span>` : ''}<a href="costingsheets.aspx">${c.companyId ? '' : '<span data-icon="arrow-left"></span>'}All costing sheets</a></nav>
+          ${crumbs(`Costing Sheet # ${c.id}`, [['Costing sheets', 'costingsheets.aspx']])}
           <div class="cs-name"><h1>Costing Sheet # ${c.id}</h1><span class="orders-status ${tone}">${esc(c.status)}</span></div>
           <p>${c.reference ? `Ref # ${esc(c.reference)} · ` : ''}${c.companyId ? `<a href="company.aspx?id=${c.companyId}">${esc(c.company)}</a>` : esc(c.company)}${c.salesman ? ' · ' + esc(c.salesman) : ''}</p>
           <p class="muted small cs-readonly">Read only, from MyOrders; printing here doesn't change MyOrders' Printed At.</p></div>

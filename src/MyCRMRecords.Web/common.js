@@ -274,6 +274,81 @@
   installButton?.addEventListener('click', showInstall);
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
+  /* Breadcrumb: the way the person came to this page, in this browser tab (sessionStorage; only page names and
+     addresses, no data). A menu page starts the trail again; a page opened directly gets its usual parents. */
+  const listPages = {'': 'Companies', 'default.aspx': 'Companies', 'territories.aspx': 'Territories', 'people.aspx': 'CRM users',
+    'costingsheets.aspx': 'Costing sheets', 'requestforms.aspx': 'Request forms', 'files.aspx': 'Files', 'machines.aspx': 'Machines',
+    'activities.aspx': 'Activities', 'projects.aspx': 'Projects'};
+  const pageKey = url => { const page = url.pathname.split('/').pop(); return (page === 'default.aspx' ? '' : page) + url.search; };
+  const hereKey = pageKey(location);
+  const readTrail = () => { try { return JSON.parse(sessionStorage.getItem('wh-trail') || '[]'); } catch { return []; } };
+  const saveTrail = trail => { try { sessionStorage.setItem('wh-trail', JSON.stringify(trail.slice(-7))); } catch { /* no storage: the usual parents */ } };
+  (() => {
+    const page = location.pathname.split('/').pop();
+    if (location.search.indexOf('id=') < 0 && Object.prototype.hasOwnProperty.call(listPages, page === 'default.aspx' ? '' : page))
+      saveTrail([{label: listPages[page === 'default.aspx' ? '' : page], href: hereKey || './'}]);
+  })();
+  /** The breadcrumb of a record's page: the trail that led here (or `parents`, [[label, href]...]), then `title`. */
+  function crumbs(title, parents = []) {
+    let trail = readTrail();
+    const at = trail.findIndex(t => t.key === hereKey || t.href === hereKey);
+    let ref = null;
+    try { ref = document.referrer ? new URL(document.referrer) : null; } catch { ref = null; }
+    const from = ref && ref.origin === location.origin ? pageKey(ref) : null;
+    if (at >= 0) trail = trail.slice(0, at);
+    else {
+      // A record's page by its address; a menu page by its page alone (its filters can change its address).
+      const path = key => (key || '').split('?')[0].split('#')[0].replace(/^\.\/$/, '');
+      const prev = from === null ? -1 : trail.findIndex(t => t.key !== undefined ? t.key === from : path(t.href) === path(from));
+      trail = prev >= 0 ? trail.slice(0, prev + 1) : [];
+    }
+    if (!trail.length) trail = parents.map(([label, href]) => ({label, href, key: href === './' ? '' : href}));
+    saveTrail(trail.concat([{label: title, href: (hereKey || './') + location.hash, key: hereKey}]));
+    // The tab open on this page (company.js keeps it in the address) is where its crumb leads back to.
+    if (!crumbs.watching) crumbs.watching = addEventListener('hashchange', () => {
+      const now = readTrail();
+      const mine = now.findIndex(t => t.key === hereKey);
+      if (mine >= 0) { now[mine].href = (hereKey || './') + location.hash; saveTrail(now); }
+    }) || true;
+    const links = trail.map(t => `<a href="${esc(t.href)}">${esc(t.label)}</a><span class="crumb-sep" aria-hidden="true">›</span>`).join('');
+    const back = trail.length ? trail[trail.length - 1] : null;
+    return `<nav class="crumbs" aria-label="Breadcrumb">${back ? `<a class="crumb-back" href="${esc(back.href)}" aria-label="Back to ${esc(back.label)}"><span data-icon="arrow-left"></span>${esc(back.label)}</a>` : ''}`
+      + `<span class="crumb-trail">${links}<span class="crumb-here" aria-current="page">${esc(title)}</span></span></nav>`;
+  }
+
+  /* The top bar while scrolling (the design's Liquid Glass bar): scrolling down folds the menu to the page you are on
+     and shows the page's title beside it; scrolling up opens the menu again. A band blurs what passes under the bar. */
+  (() => {
+    const bar = $('.appbar');
+    if (!bar) return;
+    let lastY = scrollY, ticking = false;
+    const title = document.createElement('span');
+    title.className = 'appbar-title';
+    title.setAttribute('aria-hidden', 'true');
+    $('.appbar-right', bar)?.before(title);
+    const update = () => {
+      ticking = false;
+      const y = scrollY, body = document.body;
+      if (y > lastY + 4 && y > 90) body.classList.add('bar-compact');
+      else if (y < lastY - 4 || y < 30) body.classList.remove('bar-compact');
+      body.classList.toggle('bar-scrolled', y > 8);
+      lastY = y;
+      if (body.classList.contains('bar-compact') && !title.textContent) title.textContent = ($('main h1') || {}).textContent || '';
+    };
+    addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, {passive: true});
+    // The title can change when the page draws its record: read it again each time the bar folds.
+    new MutationObserver(() => { title.textContent = ''; if (document.body.classList.contains('bar-compact')) update(); })
+      .observe(document.querySelector('main') || document.body, {childList: true, subtree: false});
+    // The person's menu: name, login and Sign out behind the avatar.
+    const avatar = $('#avatar-button', bar), card = $('#avatar-menu', bar);
+    if (avatar && card) {
+      const set = open => { card.hidden = !open; avatar.setAttribute('aria-expanded', open); };
+      avatar.addEventListener('click', event => { event.stopPropagation(); set(card.hidden); });
+      document.addEventListener('click', event => { if (!card.contains(event.target)) set(false); });
+      document.addEventListener('keydown', event => { if (event.key === 'Escape') set(false); });
+    }
+  })();
+
   window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, showErrors, param, pager, change, upload,
-    coverageTag, coverageText, machineUrl};
+    coverageTag, coverageText, machineUrl, crumbs};
 })();
