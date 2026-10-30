@@ -311,7 +311,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       MyCRM's First Appointment Attended adjustment (that type is not offered, as in MyCRM's form). A member's role is
       changed by removing and adding them again. The project's **History** lists the changes made in MyCRMRecords
       (`dbo.CrChange`), not MyCRM's own.
-24. **Pages added to on purpose** (2026-10-30), all read only:
+25. **Pages added to on purpose** (2026-10-30), all read only:
     - **A territory's History tab**: MyCRM had no history per territory, only each company's Territory Movement History.
       `TerritoryMovement` records a move by person (`FromUserId`, `ToUserId`), not by territory, so the tab lists the
       moves to or from the territory's present salesperson (two queries on `FROMUSERID` / `TOUSERID`, the latest 200);
