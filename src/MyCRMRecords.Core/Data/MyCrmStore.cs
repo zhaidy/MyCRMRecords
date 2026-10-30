@@ -820,6 +820,61 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
             return (total, (IReadOnlyList<long>)Array.Empty<long>());
         });
 
+    /// <summary>
+    /// The Prospects page's prospects in SQL (only read): the active ones these people (by login) own, by status ("open":
+    /// neither closed nor cancelled, "closed", "cancelled", else all), stage and type (codes), estimated order date (from,
+    /// before) and a search of the remarks or the company's name, newest first; the page asked for and how many there are.
+    /// The search is two searches joined with UNION (remarks; company by name), not one OR across both tables.
+    /// </summary>
+    public (int Total, IReadOnlyList<long> Ids) ProspectIds(IReadOnlyCollection<string> logins, string? text, string? stage, string? type, string? status,
+        DateTime? orderFrom, DateTime? orderBefore, int skip, int take) =>
+        Use((connection, transaction) =>
+        {
+            var reading = new Reading(this, connection, transaction);
+            var users = logins.SelectMany(l => reading.People.IdsOf.TryGetValue(l, out var i) ? i : (IEnumerable<long>)Array.Empty<long>()).Distinct().ToList();
+            var none = (0, (IReadOnlyList<long>)Array.Empty<long>());
+            if (users.Count == 0) return none;
+            var e = EntityOf<Prospect>();
+            string C(string field) => "p.[" + e.Field(field)!.Column + "]";
+            var where = new StringBuilder($"{C("IsActive")} = 1 AND {C("Owner")} IN ({string.Join(", ", users.Select(v => v.ToString(CultureInfo.InvariantCulture)))})");
+            switch (status)
+            {
+                case "open": where.Append($" AND {C("IsClosed")} = 0 AND {C("IsCancelled")} = 0"); break;
+                case "closed": where.Append($" AND {C("IsClosed")} = 1 AND {C("IsCancelled")} = 0"); break;
+                case "cancelled": where.Append($" AND {C("IsCancelled")} = 1"); break;
+            }
+            foreach (var (field, code) in new[] { ("Stage", stage), ("ProspectType", type) })
+            {
+                if (string.IsNullOrWhiteSpace(code)) continue;
+                try { where.Append($" AND {C(field)} = {StaticId(e.Field(field)!, code!.Trim(), reading).ToString(CultureInfo.InvariantCulture)}"); }
+                catch (MyCrmRefusedException) { return none; }
+            }
+            var parameters = new List<(string, object?)>();
+            if (orderFrom is { } f) { where.Append($" AND {C("EstimatedOrderDate")} >= @from"); parameters.Add(("@from", f)); }
+            if (orderBefore is { } b) { where.Append($" AND {C("EstimatedOrderDate")} < @before"); parameters.Add(("@before", b)); }
+            var table = Table(connection, MyCrmMap.Prospects);
+            var search = (text ?? "").Trim();
+            string mine;
+            if (search.Length == 0) mine = $"SELECT p.[ID] FROM {table} p WHERE {where}";
+            else
+            {
+                parameters.Add(("@q", "%" + Sql.EscapeLike(search) + "%"));
+                var companies = Table(connection, MyCrmMap.Companies);
+                mine = $"SELECT p.[ID] FROM {table} p WHERE {where} AND {C("Remarks")} LIKE @q ESCAPE '\\' " +
+                       $"UNION SELECT p.[ID] FROM {table} p JOIN {companies} c ON c.[ID] = {C("CompanyId")} " +
+                       $"WHERE {where} AND c.[{MyCrmMap.Of<Company>()!.Field("Name")!.Column}] LIKE @q ESCAPE '\\'";
+            }
+            // The page and the count in one statement.
+            var rows = Sql.Rows(connection, transaction,
+                $"WITH m AS ({mine}) SELECT p.[ID], COUNT(*) OVER () AS [N] FROM {table} p JOIN m ON m.[ID] = p.[ID] ORDER BY {C("DateCreated")} DESC, p.[ID] DESC " +
+                $"OFFSET {Math.Max(0, skip).ToString(CultureInfo.InvariantCulture)} ROWS FETCH NEXT {Math.Max(1, take).ToString(CultureInfo.InvariantCulture)} ROWS ONLY", parameters.ToArray());
+            if (rows.Count > 0)
+                return (Convert.ToInt32(rows[0]["N"], CultureInfo.InvariantCulture), (IReadOnlyList<long>)rows.Select(r => OldValues.Long(r["ID"])).ToList());
+            // Past the last page (or none): the count alone.
+            var total = skip == 0 ? 0 : Convert.ToInt32(Sql.Rows(connection, transaction, $"SELECT COUNT(*) AS [N] FROM ({mine}) m", parameters.ToArray())[0]["N"], CultureInfo.InvariantCulture);
+            return (total, (IReadOnlyList<long>)Array.Empty<long>());
+        });
+
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => Use((connection, transaction) =>
     {

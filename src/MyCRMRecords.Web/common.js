@@ -336,7 +336,7 @@
      addresses, no data). A menu page starts the trail again; a page opened directly gets its usual parents. */
   const listPages = {'': 'Companies', 'default.aspx': 'Companies', 'territories.aspx': 'Territories', 'people.aspx': 'CRM users',
     'costingsheets.aspx': 'Costing sheets', 'requestforms.aspx': 'Request forms', 'files.aspx': 'Files', 'machines.aspx': 'Machines',
-    'activities.aspx': 'Activities', 'projects.aspx': 'Projects'};
+    'activities.aspx': 'Activities', 'projects.aspx': 'Projects', 'prospects.aspx': 'Prospects'};
   const pageKey = url => { const page = url.pathname.split('/').pop(); return (page === 'default.aspx' ? '' : page) + url.search; };
   const hereKey = pageKey(location);
   const readTrail = () => { try { return JSON.parse(sessionStorage.getItem('wh-trail') || '[]'); } catch { return []; } };

@@ -350,6 +350,13 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       the months' average, instead of one row per invoice.
     - **A deleted project's page** says the project was deleted (with when and by whom, to its owner and Sales Admins)
       instead of "not found".
+27. **A Prospects page** (2026-10-30), read only: MyCRM's prospect lists stay in MyCRM (their rule, by `GetSalesmanSub`
+    — a Sales person sees their own and the Telemarketers' — is in parts not described here). `prospects.aspx` lists the
+    active prospects (`Prospect`) owned by the person ("Me"), by the people in their list (`Access.UserList`, "My team",
+    as the Activities page) or by one of them, searched by remarks or company name and filtered by status (open: neither
+    `ISCLOSED` nor `ISCANCELLED`), stage, type and estimated order date, newest first (`DATECREATED`). The page is found,
+    counted and paged in one SQL statement (`MyCrmStore.ProspectIds`: owner IN (...), the search as a UNION of remarks and
+    company name); only the page's company names and owners are read. A row opens its company's Prospects tab.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 
