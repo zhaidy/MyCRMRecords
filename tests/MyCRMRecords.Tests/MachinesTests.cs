@@ -87,6 +87,9 @@ public sealed class MachinesTests
         Assert.Equal(s.Tan.Id, (long)row["companyId"]!);
         Assert.Equal("Contract", (string)row["coverage"]!);
         Assert.Equal("Internal lease", (string)row["finance"]!);
+        // The last service done (SR-1, completed 1 Oct): the one still open (SR-2) does not count; none for the others.
+        Assert.Equal(new DateTime(2026, 10, 1), (DateTime)row["lastServiced"]!);
+        Assert.Equal(JTokenType.Null, JObject.Parse(Call(world, TestWorld.Sam).Json)["rows"]![1]!["lastServiced"]!.Type);
         // The roles that open every company see every machine, once they search for one.
         var dina = JObject.Parse(Call(world, TestWorld.Dina).Json);
         Assert.True((bool)dina["needsSearch"]!);

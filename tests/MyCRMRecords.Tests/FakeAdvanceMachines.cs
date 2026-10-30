@@ -109,7 +109,19 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
             .ThenBy(x => OutSystemsValues.Text(x.m["item_no"]), StringComparer.OrdinalIgnoreCase)
             .ToList();
         return new MachinePage(matching.Count, matching.Skip(Math.Max(0, s.Skip)).Take(Math.Max(1, Math.Min(s.Take, 500)))
-            .Select(x => SqlAdvanceMachines.Row(x.r, today)).ToList());
+            .Select(x =>
+            {
+                if (s.LastServiced) x.r["LastServiced"] = LastServiced(x.r.Text("Serial"), x.r.Text("CustNo"));
+                return SqlAdvanceMachines.Row(x.r, today);
+            }).ToList());
+    }
+
+    /// <summary>When the last service call done (SO-status F90) at the customer (any, when it has no number) was completed.</summary>
+    private DateTime? LastServiced(string serial, string customerNo)
+    {
+        var done = Rows("Service").Where(r => Same(r["Serial_no"], serial) && Same(r["SO_status"], "F90") && (customerNo.Length == 0 || Same(r["Cust_no"], customerNo)))
+            .Select(r => r.Date("Complete_dt")).Where(d => d.HasValue).ToList();
+        return done.Count == 0 ? null : done.Max();
     }
 
     public MachineDetail? Get(string serial, string item, DateTime today)

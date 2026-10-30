@@ -120,6 +120,8 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                 }
                 case "territories" when get && parts.Length == 2:
                     return TerritoryDetail(Id(1), Q("q"), Skip());
+                case "territories" when get && parts.Length == 3 && parts[2] == "history":
+                    return TerritoryHistory(actor, Id(1));
                 case "territories" when post && parts.Length == 2:
                     return ApiResponse.Result(w.Territories.Save(actor, Id(1), Input.Read<Territories.TerritoryInput>(body)));
                 case "territories" when post && parts.Length == 3 && parts[2] == "remove":
@@ -324,6 +326,27 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                     c.Id, name = c.Name.Trim(), c.Brn, postalCode = postal.TryGetValue(c.Id, out var code) ? code : "", since = since.TryGetValue(c.Id, out var putIn) ? putIn : null,
                 }),
             },
+        });
+    }
+
+    /// <summary>A territory's History tab: the company moves to or from its salesperson, newest first.</summary>
+    private ApiResponse TerritoryHistory(Actor actor, long id)
+    {
+        if (w.Territories.Get(id) is not { } t) return ApiResponse.NotFound();
+        if (!actor.SeesMovements) return ApiResponse.Forbidden("You don't have permissions to see territory movements.");
+        var moves = w.Territories.History(t);
+        var names = new Dictionary<long, string>();
+        foreach (var chunk in moves.Select(m => m.CompanyId).Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
+            foreach (var c in w.Store.Find<Company>(Query.All().In("Id", chunk)))
+                names[c.Id] = c.Name.Trim();
+        return ApiResponse.Of(new
+        {
+            owner = Person(t.Owner), max = Territories.HistoryMax,
+            rows = moves.Select(m => new
+            {
+                at = m.UpdatedAt, companyId = m.CompanyId, company = names.TryGetValue(m.CompanyId, out var name) ? name : "",
+                from = Name(m.FromUser), to = Name(m.ToUser), by = Name(m.UpdatedBy),
+            }),
         });
     }
 

@@ -111,10 +111,23 @@
       box.innerHTML = table(['Service no.', 'Ordered', 'Invoice', 'Invoiced'],
         d.toner.map(t => `<tr><td class="nowrap">${esc(t.serviceNo)}</td><td class="nowrap">${esc(date(t.entered))}</td><td>${esc(t.invoiceNo)}</td><td class="nowrap">${esc(date(t.invoiceDate))}</td></tr>`),
         'No toner orders in the last 12 months.');
-    else
-      box.innerHTML = table(['Invoice', 'Invoiced', {label: 'Black & white copies', num: true}, {label: 'Colour copies', num: true}],
-        d.meters.map(r => `<tr><td>${esc(r.invoiceNo)}</td><td class="nowrap">${esc(date(r.invoiceDate))}</td><td class="num">${number(r.blackWhite)}</td><td class="num">${number(r.colour)}</td></tr>`),
-        'No billed meter readings in the last 12 months.');
+    else {
+      // The copies billed per month (the invoices of a month added up), newest first, with the months' average.
+      const byMonth = [];
+      for (const r of d.meters) {
+        const key = (r.invoiceDate || '').slice(0, 7);
+        let m = byMonth.find(x => x.key === key);
+        if (!m) byMonth.push(m = {key, bw: 0, colour: 0, invoices: []});
+        m.bw += r.blackWhite; m.colour += r.colour; m.invoices.push(r.invoiceNo);
+      }
+      const label = key => /^\d{4}-\d{2}$/.test(key) ? `${months[Number(key.slice(5)) - 1]} ${key.slice(0, 4)}` : '–';
+      const average = pick => number(Math.round(byMonth.reduce((sum, m) => sum + pick(m), 0) / Math.max(1, byMonth.length)));
+      box.innerHTML = (byMonth.length ? `<p class="meter-average">Monthly average: <b>B&amp;W ${average(m => m.bw)}</b> <b>Colour ${average(m => m.colour)}</b></p>` : '')
+        + table(['Month', {label: 'B&W copies', num: true}, {label: 'Colour copies', num: true}, 'Invoices'],
+          byMonth.map(m => `<tr><td class="nowrap">${esc(label(m.key))}</td><td class="num">${number(m.bw)}</td><td class="num">${number(m.colour)}</td>
+            <td class="muted small">${esc(m.invoices.filter(Boolean).join(', '))}</td></tr>`),
+          'No billed meter readings in the last 12 months.');
+    }
     drawIcons(box);
   }
 

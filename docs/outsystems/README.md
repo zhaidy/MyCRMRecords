@@ -311,6 +311,22 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       MyCRM's First Appointment Attended adjustment (that type is not offered, as in MyCRM's form). A member's role is
       changed by removing and adding them again. The project's **History** lists the changes made in MyCRMRecords
       (`dbo.CrChange`), not MyCRM's own.
+24. **Pages added to on purpose** (2026-10-30), all read only:
+    - **A territory's History tab**: MyCRM had no history per territory, only each company's Territory Movement History.
+      `TerritoryMovement` records a move by person (`FromUserId`, `ToUserId`), not by territory, so the tab lists the
+      moves to or from the territory's present salesperson (two queries on `FROMUSERID` / `TOUSERID`, the latest 200);
+      none for a vacant territory.
+    - **The Files page's Territory filter and column** (MyFiles had neither): a file's territory is its company's
+      (`COMPANYID`), the first active link of an active permanent territory, read for the page's 50 rows only. The filter
+      lists the territories of the person's `GetSub` list (every territory for the roles that open every company) and
+      shows only its companies' files (not those of no company).
+    - **The Machines page's Last service column** (MyMachines' list had none): the day the last service call done
+      (`Service`, `SO-status` F90) of the machine at its customer was completed, looked up in the same query for the
+      page's 50 rows only (after the paging).
+    - **A machine's Meter readings** add up `meter_card`'s invoices by month (as the Copies per month chart does), with
+      the months' average, instead of one row per invoice.
+    - **A deleted project's page** says the project was deleted (with when and by whom, to its owner and Sales Admins)
+      instead of "not found".
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

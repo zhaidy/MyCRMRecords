@@ -6,14 +6,14 @@
   // by pasting a list (company names or BRNs) or from an Excel workbook (MyCRM's bulk transfer). A company put in a
   // territory leaves every other territory; each change of salesperson is recorded as a territory movement.
   // Laid out as the approved design: the list is one line per territory under glass filter capsules (All, Vacant,
-  // Taken away); a territory has its actions in one glass capsule and two tabs, Companies and Add companies. On a phone
+  // Taken away); a territory has its actions in one glass capsule and three tabs, Companies, Add companies and History. On a phone
   // the list is a card per territory and the switches fit the screen.
   const {$, $$, esc, api, toast, ask, date, drawIcons, pager, param, upload, crumbs} = window.WH;
   const {dialog, refused} = window.CRM;
   const page = $('#page');
   const id = Number(param('id') || 0);
   let lists = null, list = null, show = 'all', q = '';
-  let d = null, companyQ = '', companySkip = 0, ticked = new Set(), tab = 'companies';
+  let d = null, companyQ = '', companySkip = 0, ticked = new Set(), tab = 'companies', moves = null;
   let search = {q: '', unassigned: false, skip: 0, answer: null, ticked: new Set()}, matches = null, workbook = '', addTab = 'search', timer = 0;
 
   const plural = (n, one, many) => `${n.toLocaleString('en-SG')} ${n === 1 ? one : many}`;
@@ -153,6 +153,7 @@
 
   // ---- One territory ----
   async function loadDetail() {
+    moves = null;
     const answer = await api('GET', `territories/${id}?` + new URLSearchParams({q: companyQ, skip: companySkip}));
     $('#loading').hidden = true;
     page.hidden = false;
@@ -161,7 +162,7 @@
       return;
     }
     d = answer;
-    if (!d.territory.isActive) tab = 'companies';
+    if (!d.territory.isActive && tab === 'add') tab = 'companies';
     renderDetail();
   }
 
@@ -189,10 +190,9 @@
         <span class="capsule-divider terr-wide" aria-hidden="true"></span>
         <button type="button" class="capsule-button terr-danger terr-wide" id="take-away" title="Take away"><span data-icon="trash"></span><span class="action-label">Take away</span></button></div>` : '';
     $('#take-away-row').innerHTML = t.isActive ? '<button type="button" class="terr-take-row" id="take-away-phone">Take away territory</button>' : '';
-    const tabs = [['companies', `Companies · ${d.companies.total.toLocaleString('en-SG')}`]].concat(t.isActive ? [['add', 'Add companies']] : []);
+    const tabs = [['companies', `Companies · ${d.companies.total.toLocaleString('en-SG')}`]].concat(t.isActive ? [['add', 'Add companies']] : [], [['history', 'History']]);
     $('#tabs').innerHTML = tabs.map(([key, label]) => `<button type="button" class="tab" role="tab" data-tab="${key}" aria-selected="${tab === key}">${esc(label)}</button>`).join('');
-    $('#tabs').hidden = tabs.length < 2;
-    if (tab === 'add') addPanel(); else companies();
+    if (tab === 'add') addPanel(); else if (tab === 'history') historyPanel(); else companies();
     drawIcons(page);
     $('#edit')?.addEventListener('click', () => territoryDialog(t));
     const takeAway = async () => {
@@ -238,6 +238,41 @@
       companySkip = 0;
       timer = setTimeout(async () => { await loadDetail(); const box = $('#company-q'); box.focus(); box.setSelectionRange(box.value.length, box.value.length); }, 350);
     });
+  }
+
+  /**
+   * The History tab: the company moves to or from the territory's salesperson (MyCRM records a move by person), newest
+   * first; read when the tab is opened.
+   */
+  async function historyPanel() {
+    document.body.classList.remove('terr-ticking');
+    const t = d.territory;
+    const intro = name => `<p class="terr-history-intro"><b>Company moves</b> · ${name ? `to and from ${esc(name)}, the salesperson` : 'by salesperson'} · newest first · also kept in each company's Territory Movement History</p>`;
+    if (vacant(t.owner)) {
+      $('#panel').innerHTML = `<section role="tabpanel" aria-label="History of ${esc(t.title)}" class="terr-panel"><div class="terr-list">${intro('')}
+        <div class="empty"><h3>No salesperson</h3><p class="muted">MyCRM records each move by salesperson, so a vacant territory has no history here. Each company's moves are in its Territory Movement History.</p></div></div></section>`;
+      return;
+    }
+    if (!moves || moves.id !== t.id) {
+      $('#panel').innerHTML = '<div class="loading">Loading…</div>';
+      const answer = await api('GET', `territories/${t.id}/history`);
+      if (tab !== 'history') return;
+      if (!answer.result.ok) { $('#panel').innerHTML = `<div class="empty"><h3>${esc(answer.result.message)}</h3></div>`; return; }
+      moves = {id: t.id, ...answer};
+    }
+    const person = name => name ? esc(name) : '<span class="muted">No salesperson</span>';
+    const company = r => r.company ? `<a href="company.aspx?id=${r.companyId}">${esc(r.company)}</a>` : `<span class="muted">Company #${r.companyId}</span>`;
+    $('#panel').innerHTML = `<section role="tabpanel" aria-label="History of ${esc(t.title)}" class="terr-panel"><div class="terr-list">${intro(ownerName(t.owner))}
+      ${moves.rows.length ? `<table class="data terr-table terr-history"><thead><tr><th class="h-date">Date</th><th class="t-name">Company</th><th>From → to</th><th class="h-by">By</th></tr></thead><tbody>
+        ${moves.rows.map(r => `<tr><td class="h-date">${esc(date(r.at))}</td><td class="t-name" title="${esc(r.company)}">${company(r)}</td>
+          <td title="${esc((r.from || 'No salesperson') + ' → ' + (r.to || 'No salesperson'))}">${person(r.from)} → ${person(r.to)}</td><td class="h-by" title="${esc(r.by)}">${esc(r.by)}</td></tr>`).join('')}</tbody></table>
+        <div class="terr-cards">${moves.rows.map(r => `<div class="terr-card"><a class="file-card" href="company.aspx?id=${r.companyId}"><span class="file-card-body">
+          <span class="file-card-top"><b>${esc(r.company || 'Company #' + r.companyId)}</b></span>
+          <span class="file-card-line">${esc((r.from || 'No salesperson') + ' → ' + (r.to || 'No salesperson'))}</span>
+          <span class="file-card-line">${esc([date(r.at), r.by].filter(Boolean).join(' · '))}</span></span><span data-icon="arrow-right" class="section-chevron"></span></a></div>`).join('')}</div>
+        ${moves.rows.length >= moves.max ? `<p class="terr-history-more">The latest ${moves.max} moves. Older ones are in each company's Territory Movement History.</p>` : ''}`
+        : '<div class="empty"><h3>No moves</h3><p class="muted">No company has moved to or from this salesperson.</p></div>'}</div></section>`;
+    drawIcons($('#panel'));
   }
 
   function tickedBar() {

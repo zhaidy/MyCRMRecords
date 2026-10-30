@@ -91,7 +91,7 @@ public sealed class MachinesApi(CrmApp w)
         {
             serial = m.Serial, item = m.Item, model = m.Model, description = m.Description, customerNo = m.CustomerNo, customer = m.Customer, brn = m.Brn,
             mifType = m.MifType, contractNo = m.ContractNo, contractType = m.ContractType, contractStart = m.ContractStart, contractEnd = m.ContractEnd,
-            warrantyStart = m.WarrantyStart, warrantyEnd = m.WarrantyEnd, lastService = m.LastService, lastInvoice = m.LastInvoice, lastContract = m.LastContract,
+            warrantyStart = m.WarrantyStart, warrantyEnd = m.WarrantyEnd, lastService = m.LastService, lastInvoice = m.LastInvoice, lastContract = m.LastContract, lastServiced = m.LastServiced,
             financeCode = m.FinanceCode, finance = m.Finance, coverage = m.Coverage, coverageName = Coverages.NameOf(m.Coverage), active = m.Active,
             via = r.Via, companyId = r.CompanyId,
         };

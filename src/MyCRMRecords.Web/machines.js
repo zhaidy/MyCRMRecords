@@ -4,7 +4,7 @@
   // territories', their team's, their MyCRM projects') and of the customers they have temporary access to; the roles that
   // open every company see every machine once they search. 50 at a time, by customer. The search and filters apply as
   // they are typed or chosen and are kept for next time. On a phone each machine is a card.
-  const {$, $$, esc, api, drawIcons, pager, coverageTag, coverageText, machineUrl} = window.WH;
+  const {$, $$, esc, api, drawIcons, pager, date, coverageTag, coverageText, machineUrl} = window.WH;
   const page = $('#page');
   const blank = {q: '', coverage: '', finance: ''};
   const saved = (() => { try { return JSON.parse(localStorage.getItem('machines-filter') || '{}'); } catch { return {}; } })();
@@ -35,18 +35,18 @@
     const coverages = answer.coverages || [];
     const finances = answer.financeTypes || [];
     page.innerHTML = `
-      <div class="page-heading"><div><h1>Machines</h1><p id="count"></p></div>
-        <div class="heading-actions">${answer.manageAccess ? '<a class="button secondary" href="machineaccess.aspx"><span data-icon="shield"></span>Machine access</a>' : ''}</div></div>
+      <div class="page-heading list-heading"><div class="list-title"><h1>Machines</h1><p id="count"></p></div>
+        <div class="heading-actions">${answer.manageAccess ? '<div class="action-capsule" role="group" aria-label="Page actions"><a class="capsule-button" href="machineaccess.aspx"><span data-icon="shield"></span>Machine access</a></div>' : ''}</div></div>
       <div class="toolbar files-toolbar machines-toolbar" role="search">
         <label class="search-box"><span data-icon="search"></span><span class="sr-only">Search machines</span>
           <input id="q" type="search" placeholder="Serial number, model, company or BRN (at least 3 characters)" value="${esc(filter.q)}" aria-label="Search machines"></label>
         <div class="tabs coverage-filter" role="group" aria-label="Coverage">${[{code: '', name: 'All'}, ...coverages].map(c =>
           `<button type="button" class="tab" data-coverage="${esc(c.code)}" aria-pressed="${String(filter.coverage === c.code)}">${esc(c.name)}</button>`).join('')}</div>
-        <label class="since"><span class="sr-only">Finance type</span><select id="finance" aria-label="Finance type">
-          ${[{code: '', name: 'any'}, ...finances, {code: 'none', name: 'none'}].map(f =>
-            `<option value="${esc(f.code)}"${filter.finance === f.code ? ' selected' : ''}>Finance type: ${esc(f.name)}</option>`).join('')}</select></label>
+        <label class="filter-capsule"><span>Finance type</span><select id="finance" aria-label="Finance type">
+          ${[{code: '', name: 'All'}, ...finances, {code: 'none', name: 'None'}].map(f =>
+            `<option value="${esc(f.code)}"${filter.finance === f.code ? ' selected' : ''}>${esc(f.name)}</option>`).join('')}</select></label>
       </div>
-      <section aria-label="Machines list"><div id="rows"></div><div id="cards" class="file-cards"></div><div class="pager" id="pager" hidden></div></section>`;
+      <section class="list-card" aria-label="Machines list"><div id="rows"></div><div id="cards" class="file-cards"></div><div class="pager" id="pager" hidden></div></section>`;
     drawIcons(page);
     $('#q').addEventListener('input', event => { filter.q = event.target.value; clearTimeout(timer); filter.skip = 0; timer = setTimeout(load, 400); });
     $('#finance').addEventListener('change', event => { filter.finance = event.target.value; filter.skip = 0; load(); });
@@ -60,8 +60,8 @@
         + (data.limited ? ' · of the companies you may open, your projects and your temporary access' : '');
     $$('.coverage-filter .tab', page).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.coverage === filter.coverage)));
     const rows = data.rows;
-    $('#rows').innerHTML = rows.length ? `<div class="table-wrap"><table class="data machines-table"><thead><tr>
-        <th>Machine</th><th>Model</th><th>Company</th><th>Access via</th><th>Coverage</th><th>Finance type</th><th class="open-col"><span class="sr-only">Open</span></th></tr></thead><tbody>
+    $('#rows').innerHTML = rows.length ? `<div class="list-scroll"><table class="data machines-table"><thead><tr>
+        <th>Machine</th><th>Model</th><th>Company</th><th>Access via</th><th>Coverage</th><th>Finance type</th><th>Last service</th><th class="open-col"><span class="sr-only">Open</span></th></tr></thead><tbody>
       ${rows.map(r => `<tr>
         <td class="nowrap"><a class="serial" href="${machineUrl(r)}">${esc(r.serial)}</a></td>
         <td class="nowrap muted">${esc(r.model)}</td>
@@ -69,6 +69,7 @@
         <td class="nowrap muted">${esc(r.via)}</td>
         <td><span class="coverage-cell">${coverageTag(r)}<span class="muted small">${esc(coverageText(r))}</span></span></td>
         <td class="nowrap">${esc(r.finance) || '<span class="muted">–</span>'}</td>
+        <td class="nowrap muted num-date">${r.lastServiced ? esc(date(r.lastServiced)) : '–'}</td>
         <td class="open-col"><a class="icon-button small" href="${machineUrl(r)}" aria-label="Open ${esc(r.serial)}" title="Open"><span data-icon="arrow-right"></span></a></td></tr>`).join('')}
       </tbody></table></div>`
       : `<div class="empty"><h3>${data.needsSearch ? 'Search for a machine' : 'No machines to show'}</h3><p class="muted">${data.needsSearch
@@ -78,7 +79,7 @@
     $('#cards').innerHTML = rows.map(r => `<a class="file-card" href="${machineUrl(r)}" aria-label="Open ${esc(r.serial)}">
         <span class="file-card-body"><span class="file-card-top"><b>${esc(r.serial)} <span class="muted small">${esc(r.model)}</span></b></span>
           <span class="file-card-line strong">${esc(r.customer)}</span>
-          <span class="file-card-line">${coverageTag(r)} ${esc([r.finance, coverageText(r)].filter(Boolean).join(' · '))}</span></span>
+          <span class="file-card-line">${coverageTag(r)} ${esc([r.finance, coverageText(r), r.lastServiced ? 'serviced ' + date(r.lastServiced) : ''].filter(Boolean).join(' · '))}</span></span>
         <span data-icon="arrow-right" class="section-chevron"></span></a>`).join('');
     drawIcons($('#rows'));
     drawIcons($('#cards'));
