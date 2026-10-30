@@ -72,6 +72,9 @@ try {
     $icons = @('pwa/icon-192.png', 'pwa/icon-512.png', 'pwa/icon-maskable-512.png', 'pwa/apple-touch-icon.png')
     New-Item -ItemType Directory -Path (Join-Path $site 'pwa') | Out-Null
     Copy-Item ($icons | ForEach-Object { Join-Path $web $_ }) (Join-Path $site 'pwa')
+    # The Inter font (app.css) and its licence.
+    New-Item -ItemType Directory -Path (Join-Path $site 'fonts') | Out-Null
+    Copy-Item (Join-Path $web 'fonts/*') (Join-Path $site 'fonts')
     foreach ($required in @('bin/MyCRMRecords.Web.dll', 'bin/MyCRMRecords.Core.dll', 'bin/Newtonsoft.Json.dll') + $pages + $icons) {
         if (-not (Test-Path -LiteralPath (Join-Path $site $required))) { throw "Release is missing $required." }
     }

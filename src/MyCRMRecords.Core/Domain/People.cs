@@ -189,6 +189,20 @@ public sealed class People(IRecordStore store, Func<DateTime> clock)
         return user is not null && user.DisplayName.Length > 0 ? user.DisplayName : login;
     }
 
+    /// <summary>
+    /// NameOf for many people at once (one query, not one per person): the answer gives each login's name, the login
+    /// itself when MyCRMRecords has no name for it.
+    /// </summary>
+    public Func<string, string> NamesOf(IEnumerable<string> logins)
+    {
+        var wanted = logins.Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count > 0)
+            foreach (var u in store.Find<AppUser>(Query.All().In("Login", wanted.Cast<object>())))
+                if (u.DisplayName.Length > 0 && !names.ContainsKey(u.Login.Trim())) names[u.Login.Trim()] = u.DisplayName;
+        return login => string.IsNullOrWhiteSpace(login) ? "" : names.TryGetValue(login.Trim(), out var n) ? n : NameOf(login);
+    }
+
     /// <summary>The person's email address as last seen, or "".</summary>
     public string EmailOf(string login) => User(login)?.Email.Trim() ?? "";
 
