@@ -322,13 +322,31 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             changes.AddRange(own.Find<MyCrmChange>(Query.Where("TableName", MyCrmMap.ProjectCompanies).In("RowId", companyRows.Select(c => (object)c.Id))));
         if (memberRows.Count > 0)
             changes.AddRange(own.Find<MyCrmChange>(Query.Where("TableName", MyCrmMap.ProjectMembers).In("RowId", memberRows.Select(m => (object)m.Id))));
-        foreach (var g in changes.GroupBy(c => (c.ChangedOn, c.ChangedBy, c.TableName, c.RowId)))
+        // One change is the values written to one row at one time. Two changes made within the same instant (closing,
+        // then deleting) share ChangedOn: a column met again starts the next change.
+        var groups = new List<(string TableName, long RowId, List<MyCrmChange> Rows)>();
+        foreach (var same in changes.GroupBy(c => (c.ChangedOn, c.ChangedBy, c.TableName, c.RowId)))
         {
+            var current = new List<MyCrmChange>();
+            foreach (var c in same.OrderBy(c => c.Id))
+            {
+                if (current.Any(x => string.Equals(x.Column, c.Column, StringComparison.OrdinalIgnoreCase)))
+                {
+                    groups.Add((same.Key.TableName, same.Key.RowId, current));
+                    current = new List<MyCrmChange>();
+                }
+                current.Add(c);
+            }
+            groups.Add((same.Key.TableName, same.Key.RowId, current));
+        }
+        foreach (var g in groups.Select(x => x.Rows))
+        {
+            var key = (TableName: g[0].TableName, RowId: g[0].RowId, ChangedOn: g[0].ChangedOn, ChangedBy: g[0].ChangedBy);
             var cols = g.ToDictionary(c => c.Column, StringComparer.OrdinalIgnoreCase);
             bool Has(string column, string? after = null) => cols.TryGetValue(column, out var c) && (after is null || c.After == after);
             var created = g.All(c => c.Before.Length == 0) && g.Any(c => c.After.Length > 0) && (Has("PROJECTID") || Has("PROJECTNAME"));
             string what;
-            switch (g.Key.TableName)
+            switch (key.TableName)
             {
                 case MyCrmMap.Projects:
                     if (created) what = "Created the project";
@@ -347,7 +365,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                     }
                     break;
                 case MyCrmMap.ProjectCompanies:
-                    var link = companyRows.FirstOrDefault(c => c.Id == g.Key.RowId);
+                    var link = companyRows.FirstOrDefault(c => c.Id == key.RowId);
                     var company = link is not null && names.TryGetValue(link.CompanyId, out var n) ? n : "a company";
                     if (created) what = "Added company " + company;
                     else if (Has("ISACTIVE", "0")) what = "Removed company " + company;
@@ -355,7 +373,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                     else continue;
                     break;
                 default:
-                    var member = memberRows.FirstOrDefault(m => m.Id == g.Key.RowId);
+                    var member = memberRows.FirstOrDefault(m => m.Id == key.RowId);
                     var who = member is null ? "a member" : people.NameOf(member.User);
                     if (created) what = "Added member " + who + (member is null ? "" : " as " + ProjectRoles.List.Label(member.Role));
                     else if (Has("ISACTIVE", "0")) what = "Removed member " + who;
@@ -363,7 +381,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                     else continue;
                     break;
             }
-            lines.Add(new HistoryLine(g.Key.ChangedOn, what, g.Key.ChangedBy));
+            lines.Add(new HistoryLine(key.ChangedOn, what, key.ChangedBy));
         }
         return lines.OrderByDescending(l => l.At).ToList();
     }
