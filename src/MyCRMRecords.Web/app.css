@@ -1791,6 +1791,56 @@ table.data.usage-table th:last-child,table.data.usage-table td:last-child{paddin
 .file-group-list li{flex-wrap:wrap;padding:6px 0}
 }
 @media(max-width:560px){.soa-table thead{display:none}}
+/* ==== Page gaps (2026-10-30): Machines, a machine, Files, a territory's History, Activities, a project ====
+   The Machines and Files lists as the other list pages: a 40px title, the list in one card with its pager inside,
+   page actions and the finance type, territory and uploaded filters as labelled glass capsules. */
+.list-heading{align-items:flex-end;flex-wrap:nowrap}
+.list-title{min-width:0}
+.list-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.list-title p{font-size:16px}
+.list-title p b{color:var(--ink);font-weight:600}
+.list-card{border-radius:24px;background:var(--card);overflow:hidden}
+.list-card .empty{border-radius:0}
+.list-card>.pager{margin:0;padding:12px 24px;border-top:1px solid var(--line)}
+.list-scroll{overflow-x:auto}
+.list-card .data th:first-child,.list-card .data td:first-child{padding-left:24px}
+.list-card .data th:last-child,.list-card .data td:last-child{padding-right:20px}
+.list-card .data tbody tr:last-child td{border-bottom:0}
+.toolbar .filter-capsule select{max-width:170px;min-height:0;height:auto;padding:0 2px;border:0;border-radius:0;background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;color:var(--glass-fg)}
+.machines-table .num-date{font-variant-numeric:tabular-nums}
+.files-selected{padding:0 4px 0 16px;gap:8px;font-weight:600;white-space:nowrap}
+@media(min-width:901px){.files-toolbar .search-box{flex:1 1 220px;min-width:200px}}
+.files-table .file-territory{width:96px}
+table.data.files-table .file-name{width:22%}
+@media(max-width:1520px) and (min-width:901px){.files-table .file-size{display:none}}
+@media(max-width:1200px) and (min-width:901px){.files-table .file-territory{display:none}}
+@media(max-width:900px){
+.list-heading{flex-wrap:wrap}
+.list-title h1{font-size:32px}
+.list-card{background:transparent;border-radius:0;overflow:visible}
+.list-card>.empty{border-radius:22px}
+.list-card>.pager{border-top:0;padding:12px 4px}
+.machines-toolbar .filter-capsule,.files-toolbar .filter-capsule{width:100%;box-sizing:border-box}
+.machines-toolbar .filter-capsule select,.files-toolbar .filter-capsule select{flex:1;max-width:none}
+}
+/* A machine: the history tabs stay under the top bar; the meter readings by month with their monthly average */
+.machine-tabs{position:sticky;top:84px;z-index:20;max-width:100%}
+.meter-average{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0 0 12px;font-size:14px;color:var(--ink-2)}
+.meter-average b{color:var(--ink);font-weight:600}
+@media(max-width:900px){.machine-tabs{position:static}}
+/* A territory's History tab */
+.terr-history-intro{margin:0;padding:16px 24px 12px;font-size:14px;color:var(--ink-2);border-bottom:1px solid var(--line)}
+.terr-history-intro b{font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.terr-history .h-date{width:130px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.terr-history .h-by{width:18%;color:var(--ink-2)}
+.terr-history-more{margin:0;padding:12px 24px;font-size:13px;color:var(--ink-2)}
+@media(max-width:900px){.terr-history-intro{padding:0 4px 12px;border-bottom:0}.terr-history-intro b{font-size:17px}.terr-history-more{padding:12px 4px}}
+/* Activities: the filters stay under the top bar */
+@media(min-width:901px){.act-filters{position:sticky;top:84px;z-index:20}}
+/* A deleted project */
+.proj-gone{padding:48px 20px}
+.proj-gone-icon{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:28px;background:var(--surface-2);color:var(--ink-2);margin-bottom:6px}
+.proj-gone-icon svg{width:26px;height:26px}
 /* ==== Dialogs, the phone's More, back button and create button (2026-10-30, the design's shared chrome) ====
    Every dialog has the design's glass head (WH.dialogHead: common.js WH.ask, crm.js CRM.dialog, the pages' dialogs, like
    the activity panel): a round close (×) on the left, the title in the middle and the accent action on the right (red

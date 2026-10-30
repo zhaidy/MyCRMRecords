@@ -76,6 +76,30 @@ public sealed class MyFilesTests
     }
 
     [Fact]
+    public void Each_file_shows_its_company_s_territory_and_a_territory_narrows_the_list_to_its_companies()
+    {
+        var (world, _, _, tanFile, limFile, _) = World();
+        using (world)
+        {
+            var all = Call(world, TestWorld.Admin);
+            Assert.Equal(new[] { "South", "North", "" }, all["rows"]!.Select(r => (string)r["territory"]!));
+            // Every territory for the roles that open every company; a salesperson their own (and their team's).
+            Assert.Equal(new[] { "North", "South" }, all["territories"]!.Select(t => (string)t["title"]!));
+            var samChoices = Call(world, TestWorld.Sam)["territories"]!;
+            Assert.Equal(new[] { "North" }, samChoices.Select(t => (string)t["title"]!));
+            var north = (string)samChoices[0]!["id"]!;
+            var south = (string)all["territories"]![1]!["id"]!;
+            long[] Ids(ApiUser user, string territory) => Call(world, user, new() { ["territory"] = territory })["rows"]!.Select(r => (long)r["id"]!).ToArray();
+            // A territory: only its companies' files, not those of no company.
+            Assert.Equal(new[] { tanFile }, Ids(TestWorld.Admin, north));
+            Assert.Equal(new[] { limFile }, Ids(TestWorld.Admin, south));
+            Assert.Equal(new[] { tanFile }, Ids(TestWorld.Sam, north));
+            // Not one of the person's territories: nothing.
+            Assert.Empty(Ids(TestWorld.Sam, south));
+        }
+    }
+
+    [Fact]
     public void A_company_s_files_are_refused_to_who_may_not_open_it()
     {
         var (world, tan, lim, tanFile, _, _) = World();

@@ -137,7 +137,7 @@ public static class CrmFactory
             CostingSheets = new CostingSheets(orders, ordersAccess),
             RequestForms = new RequestForms(orders, ordersAccess),
             MyFilesData = files,
-            MyFiles = new MyFiles(files, access, store, clock),
+            MyFiles = new MyFiles(files, access, store, clock, territories),
             AdvanceMachines = machines,
             MachineAccess = machineAccess,
             Machines = new Machines(machines, machineAccess, access, store, clock),

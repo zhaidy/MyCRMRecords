@@ -16,8 +16,15 @@
     $('#loading').hidden = true;
     page.hidden = false;
     if (!answer.result.ok) {
-      page.innerHTML = `<div class="empty"><h3>${esc(answer.result.code === 'NOT_FOUND' ? 'That project is not there (it may have been deleted).' : answer.result.message)}</h3>
-        <p><a class="button secondary" href="projects.aspx">Back to the projects</a></p></div>`;
+      // Deleted (MyCRM keeps it, inactive), not there, or not the person's: said as such, with the way back.
+      const deleted = answer.result.code === 'DELETED';
+      const title = deleted ? 'Project deleted' : answer.result.code === 'NOT_FOUND' ? 'Project not found' : 'Project';
+      page.innerHTML = `<div class="page-heading proj-heading"><div>${crumbs(title, [['Projects', 'projects.aspx']])}<h1>${esc(title)}</h1></div></div>
+        <div class="empty proj-gone"><span data-icon="${deleted ? 'trash' : 'search'}" class="proj-gone-icon"></span>
+          <h3>${esc(deleted ? answer.result.message : answer.result.code === 'NOT_FOUND' ? 'That project is not there.' : answer.result.message)}</h3>
+          ${deleted ? '<p class="muted">Its members no longer have temporary access to its companies. Activities linked to it stay on each company.</p>' : ''}
+          <p><a class="button secondary" href="projects.aspx"><span data-icon="arrow-left"></span>Back to the projects</a></p></div>`;
+      drawIcons(page);
       return;
     }
     d = answer;
@@ -75,7 +82,7 @@
   function members() {
     return head(`<b>${plural(d.members.length, 'member', 'members')}</b> · the owner, ${esc(d.project.ownerName)}, is Project Manager and needs no temporary territory`,
         d.can.members ? '<button type="button" class="button secondary small-btn" id="add-member"><span data-icon="plus"></span>Add member</button>' : '')
-      + `<div class="table-wrap"><table class="data proj-inner"><thead><tr><th>Name</th><th>Role</th><th>Temporary access</th><th class="open-col"><span class="sr-only">Remove</span></th></tr></thead><tbody>
+      + `<div class="table-wrap"><table class="data proj-inner"><thead><tr><th>Name</th><th>Role</th><th>Temporary territory</th><th class="open-col"><span class="sr-only">Remove</span></th></tr></thead><tbody>
       ${d.members.map(m => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.roleLabel)}</td>
         <td>${m.isOwner ? '<span class="muted">Project Manager: none needed</span>' : m.reached.length ? `<span class="act-status done">${plural(m.reached.length, 'company', 'companies')}</span> <span class="muted small">${esc(m.reached.join(', '))}</span>`
           : `<span class="muted">${d.project.open ? 'Has own territory' : 'None (project not open)'}</span>`}</td>

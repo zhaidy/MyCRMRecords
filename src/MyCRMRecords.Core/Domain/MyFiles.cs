@@ -11,7 +11,7 @@ namespace MyCRMRecords.Domain;
 /// that open every company see every file; everyone else the files of the companies they may open and the files of no
 /// company. (MyFile's department rule is not applied: MyCRMRecords does not know a person's department.)
 /// </summary>
-public sealed class MyFiles(IMyFilesData data, Access access, IRecordStore store, Func<DateTime> clock)
+public sealed class MyFiles(IMyFilesData data, Access access, IRecordStore store, Func<DateTime> clock, Territories territories)
 {
     public const int PageSize = 50;
     /// <summary>At most this many files in one zip (a page of the list).</summary>
@@ -19,13 +19,40 @@ public sealed class MyFiles(IMyFilesData data, Access access, IRecordStore store
 
     public IMyFilesData Data => data;
 
-    /// <summary>A page of the files the person may see, matching the search, newest first.</summary>
-    public FilePage List(Actor actor, FileSearch search)
+    /// <summary>
+    /// A page of the files the person may see, matching the search, newest first, each with its company's territory. With
+    /// a territory (<paramref name="territoryId"/>), only the files of its companies (not those of no company).
+    /// </summary>
+    public FilePage List(Actor actor, FileSearch search, long? territoryId = null)
     {
-        search.Companies = access.CompanyIds(actor);
+        var allowed = access.CompanyIds(actor);
+        if (territoryId is { } territory)
+        {
+            var of = store.Find<CompanyTerritory>(Query.Where("TerritoryId", territory).And("IsActive", true)).Select(ct => ct.CompanyId);
+            search.Companies = allowed is null ? of.Distinct().ToList() : of.Where(allowed.Contains).Distinct().ToList();
+            search.NoCompanyToo = false;
+        }
+        else search.Companies = allowed;
         search.Skip = Math.Max(0, search.Skip);
         search.Take = PageSize;
-        return data.Search(search);
+        var page = data.Search(search);
+        var owners = territories.Owners(page.Rows.Where(r => r.CompanyId is not null).Select(r => r.CompanyId!.Value));
+        return page with
+        {
+            Rows = page.Rows.Select(r => r.CompanyId is { } c && owners.TryGetValue(c, out var o) ? r with { Territory = Territories.Title(o.Territory) } : r).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// The territories the Files page filters by: every active territory for the roles that open every company, else
+    /// those of the people whose companies the person opens (their own and their team's).
+    /// </summary>
+    public IReadOnlyList<Territory> TerritoryChoices(Actor actor)
+    {
+        var all = territories.All();
+        if (actor.SeesAllCompanies) return all;
+        var people = access.UserList(actor.Login, actor.CrmRole);
+        return all.Where(t => people.Contains(t.Owner)).ToList();
     }
 
     /// <summary>Whether the person's list is only some companies' files (and those of no company).</summary>
