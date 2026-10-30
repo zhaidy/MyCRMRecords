@@ -74,7 +74,7 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                 // ---- Companies ----
                 case "companies" when get && parts.Length == 1:
                     return ListCompanies(actor, new Companies.ListFilter(Q("q"), Q("customerType"),
-                        long.TryParse(Q("groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q("postalCode"), Skip()));
+                        long.TryParse(Q("groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q("postalCode"), Skip(), Q("show")));
                 case "companies" when get && parts.Length == 2:
                     return CompanyDetail(actor, Id(1));
                 case "companies" when post && parts.Length == 2:
@@ -218,7 +218,7 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
         return ApiResponse.Of(new
         {
             total, skip = filter.Skip, take = Companies.PageSize,
-            rows = rows.Select(r => new { r.Id, r.Name, r.Brn, r.PostalCode, salesperson = Name(r.Owner), createdBy = Name(r.CreatedBy) }),
+            rows = rows.Select(r => new { r.Id, r.Name, r.Brn, r.PostalCode, salesperson = Name(r.Owner), r.Territory, r.CustomerType, createdBy = Name(r.CreatedBy) }),
             can = new { create = actor.IsSalesAdmin, uploadEmployees = actor.IsAdmin || actor.CrmRole == CrmRoles.Admin },
         });
     }

@@ -375,6 +375,42 @@ public sealed class CompanyTests
     }
 
     [Fact]
+    public void The_company_list_shows_mine_or_those_with_no_salesperson()
+    {
+        using var world = new TestWorld();
+        var tan = world.Company("Tan & Sons", "T1000");
+        var lim = world.Company("Lim Pte Ltd", "L1000");
+        var kwan = world.Company("Kwan Trading", "K1000");
+        var vacant = world.Company("Vacant Pte Ltd", "V1000");
+        var ended = world.Company("Ended Pte Ltd", "E1000");
+        var gone = world.Company("Gone Pte Ltd", "G1000");
+        gone.IsActive = false;
+        world.Store.Update(gone);
+        world.Territory("North", 1, TestWorld.Sam, tan.Id);
+        world.Territory("East", 2, TestWorld.Ken, kwan.Id);
+        // A territory with no salesperson still counts as a permanent territory (MyCRM's "Unassigned Companies").
+        world.Territory("West", 3, null, vacant.Id);
+        var old = world.Territory("South", 4, TestWorld.Ken, ended.Id);
+        Assert.True(world.D.Territories.Remove(world.Actor(TestWorld.Admin), old.Id).Ok);
+
+        Companies.ListFilter Show(string show, string? q = null) => new(Q: q, Show: show);
+        // No salesperson: active companies with no active link to an active permanent territory.
+        var none = world.D.Companies.List(world.Actor(TestWorld.SalesAdmin), Show(Companies.NoSalesperson));
+        Assert.Equal(new[] { "Ended Pte Ltd", "Lim Pte Ltd" }, none.Rows.Select(r => r.Name));
+        Assert.Equal(2, none.Total);
+        Assert.Equal(new[] { lim.Id }, world.D.Companies.List(world.Actor(TestWorld.SalesAdmin), Show(Companies.NoSalesperson, "l1000")).Rows.Select(r => r.Id));
+        // Mine: the person's (and by their role their team's) permanent territories. Mia manages Sam; Ken has his own.
+        Assert.Equal(new[] { tan.Id }, world.D.Companies.List(world.Actor(TestWorld.Mia), Show(Companies.Mine)).Rows.Select(r => r.Id));
+        Assert.Equal(new[] { kwan.Id }, world.D.Companies.List(world.Actor(TestWorld.Ken), Show(Companies.Mine)).Rows.Select(r => r.Id));
+        Assert.Empty(world.D.Companies.List(world.Actor(TestWorld.Admin), Show(Companies.Mine)).Rows);
+        // Someone who opens only their territories' companies has none without a salesperson.
+        Assert.Empty(world.D.Companies.List(world.Actor(TestWorld.Sam), Show(Companies.NoSalesperson)).Rows);
+
+        var row = world.D.Companies.List(world.Actor(TestWorld.Admin), new Companies.ListFilter(Q: "t1000")).Rows.Single();
+        Assert.Equal("North", row.Territory);
+    }
+
+    [Fact]
     public void The_company_page_shows_movements_to_all_but_Sales_and_Telemarketers()
     {
         using var world = new TestWorld();
