@@ -6,7 +6,9 @@ namespace MyCRMRecords.Api;
 
 /// <summary>
 /// The Machines pages' API (api.ashx/machines..., api.ashx/machineaccess...), as the signed-in person: Advance's machines
-/// they see (read only), a company's (machines?company=) and its copies per month (machines/copies?company=), a machine's page (machines/detail?serial=&amp;item=), and for
+/// they see (read only), a company's (machines?company=), its copies per month (machines/copies?company=, with months=N
+/// or from=yyyy-MM&amp;to=yyyy-MM) and per year (machines/years?company=&amp;years=N), the machines it sold as a dealer
+/// (machines/dealer?company=), its Invoice / SOA emails (machines/invoiceemails?company=), a machine's page (machines/detail?serial=&amp;item=), and for
 /// Sales Admins MyMachines' temporary access, given and removed only when switched on.
 /// </summary>
 public sealed class MachinesApi(CrmApp w)
@@ -47,16 +49,38 @@ public sealed class MachinesApi(CrmApp w)
                     months, from = Machines.From(w.Clock().Date, months),
                 });
             }
-            if (parts.Length == 2 && parts[1] == "copies")
+            if (parts.Length == 2 && parts[1] is "copies" or "years")
             {
                 if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
-                if (w.Machines.CompanyCopies(actor, ofCompany) is not { } copies)
-                    return ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+                const string refused = "You don't have permissions to view this company's machines: it is not in your or your team's territories.";
+                if (parts[1] == "years")
+                {
+                    var count = int.TryParse(Q("years"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var y) ? y : 5;
+                    if (w.Machines.CompanyYears(actor, ofCompany, count) is not { } years) return ApiResponse.Forbidden(refused);
+                    return ApiResponse.Of(new
+                    {
+                        company = CompanyOf(years.Company), machines = years.Machines,
+                        years = years.Years.Select(x => new { year = x.Year, machines = x.Machines, blackWhite = x.BlackWhite, colour = x.Colour }),
+                    });
+                }
+                var (from, to) = Span(query, w.Clock().Date);
+                if (w.Machines.CompanyCopies(actor, ofCompany, from, to) is not { } copies) return ApiResponse.Forbidden(refused);
                 return ApiResponse.Of(new
                 {
-                    machines = copies.Machines,
+                    company = CompanyOf(copies.Company), machines = copies.Machines,
                     months = copies.Months.Select(m => new { year = m.Year, month = m.Month, blackWhite = m.BlackWhite, colour = m.Colour }),
                 });
+            }
+            if (parts.Length == 2 && parts[1] is "dealer" or "invoiceemails")
+            {
+                if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
+                if (parts[1] == "dealer")
+                    return w.Machines.DealerSold(actor, ofCompany) is { } sold
+                        ? ApiResponse.Of(new { rows = sold.Select(m => Row(new MachineListRow(m, "", ofCompany))) })
+                        : ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+                return w.Machines.CustomerEmails(actor, ofCompany) is { } emails
+                    ? ApiResponse.Of(new { rows = emails.Select(e => new { contractType = e.ContractType, contractNo = e.ContractNo, email = e.Email, ccEmail = e.CcEmail }) })
+                    : ApiResponse.Forbidden("You don't have permissions to view this company.");
             }
             if (parts.Length != 1) return ApiResponse.NotFound();
             if (long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var companyId) && companyId > 0)
@@ -65,7 +89,11 @@ public sealed class MachinesApi(CrmApp w)
                 var found = w.Machines.ForCompany(actor, companyId, all);
                 if (found is not { } company)
                     return ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
-                return ApiResponse.Of(new { total = company.Total, active = company.ActiveCount, all, rows = company.Rows.Select(Row) });
+                return ApiResponse.Of(new
+                {
+                    total = company.Total, active = company.ActiveCount, all, rows = company.Rows.Select(Row),
+                    company = w.Store.Get<Company>(companyId) is { } c ? CompanyOf(c) : null,
+                });
             }
             var search = Search(query);
             var page = w.Machines.List(actor, search);
@@ -81,6 +109,26 @@ public sealed class MachinesApi(CrmApp w)
         {
             return ApiResponse.Fail(503, "UNAVAILABLE", "Advance's machines could not be read: " + ex.Message);
         }
+    }
+
+    /// <summary>The company whose machines are shown: its name and BRN and Advance's customer number, for the page's heading.</summary>
+    private static object CompanyOf(Company c) => new { id = c.Id, name = c.Name, brn = c.Brn, customerNo = c.CustomerNo };
+
+    /// <summary>
+    /// The months of a company's copies from the address: from=yyyy-MM and to=yyyy-MM, or months=N (the last N months,
+    /// 12 when not given), ending this month at the latest.
+    /// </summary>
+    public static (DateTime From, DateTime To) Span(IReadOnlyDictionary<string, string> query, DateTime today)
+    {
+        string Q(string name) => query.TryGetValue(name, out var v) ? (v ?? "").Trim() : "";
+        DateTime? Month(string text) =>
+            DateTime.TryParseExact(text, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var at) ? at : null;
+        var thisMonth = new DateTime(today.Year, today.Month, 1);
+        var to = Month(Q("to")) ?? thisMonth;
+        if (to > thisMonth) to = thisMonth;
+        if (Month(Q("from")) is { } from) return (from > to ? to : from, to);
+        var months = int.TryParse(Q("months"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? Math.Max(1, Math.Min(Machines.MaxMonths, n)) : 12;
+        return (to.AddMonths(-(months - 1)), to);
     }
 
     /// <summary>A machine as the pages read it.</summary>

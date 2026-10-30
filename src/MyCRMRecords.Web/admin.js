@@ -158,7 +158,7 @@
           ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'ordersModule', 'MyOrders module')}${field(c, 'filesModule', 'MyFiles module')}${field(c, 'machinesModule', 'MyMachines module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
           ${field(c, 'advanceTables.dailyMif', 'Machines: daily_mif')}${field(c, 'advanceTables.serial', 'Machines: serial')}${field(c, 'advanceTables.customer', 'Machines: customer')}
           ${field(c, 'advanceTables.meterCard', 'Machines: meter_card')}${field(c, 'advanceTables.service', 'Machines: Service')}${field(c, 'advanceTables.sMeterHistory', 'Machines: SMeter_History')}
-          ${field(c, 'advanceTables.dailyTm', 'Machines: daily_TM')}
+          ${field(c, 'advanceTables.dailyTm', 'Machines: daily_TM')}${field(c, 'advanceTables.customerMapping', 'Invoice / SOA emails: CustomerMapping')}${field(c, 'advanceTables.emailMaster', 'Invoice / SOA emails: Email_Master')}
         </div></details></section>
       <div class="action-buttons"><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="conn-result" hidden></div></form>`;

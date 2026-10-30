@@ -277,6 +277,15 @@ public sealed class OrdersSqlServerTests
         if (string.IsNullOrEmpty(TestDatabase.Server)) return;
         var fake = new FakeAdvanceMachines();
         MachinesTests.Fill(fake);
+        // Machines sold by a dealer (serial-stat SALDLR, mif-type MTR) and a company's Invoice / SOA emails (CustomerMapping → Email_Master).
+        fake.Machine("6100D0001", "T1000ABC", "TAN PTE LTD", "MTR", contractNo: "CT-D", serialStat: "SALDLR", custNo: "C1");
+        fake.Machine("6100D0002", "T1000ABC", "TAN PTE LTD", "CMA", serialStat: "SALDLR", custNo: "C1");
+        fake.Add("CustomerMapping", new { Company_ID = 7L, Cust_No = "C1" });
+        fake.Add("CustomerMapping", new { Company_ID = 8L, Cust_No = "C2" });
+        fake.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "MPS", ContractNo = "CT-1", EmailAddress = "ap@tan.example", CCEmail = "" });
+        fake.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "MPS", ContractNo = "CT-1", EmailAddress = "ap@tan.example", CCEmail = "" });
+        fake.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "Rental", ContractNo = "CT-4", EmailAddress = "finance@tan.example", CCEmail = "boss@tan.example" });
+        fake.Add("Email_Master", new { Cust_No = "C2", Contract_Type = "MPS", ContractNo = "CT-L", EmailAddress = "lim@lim.example", CCEmail = "" });
         using var advance = new TestDatabase();
         // The tables with their real names ([serial-no], [SO-status], [Meter_Type]…), not MyMachines' (serial_no…).
         advance.Execute(fake.AdvanceSql());
@@ -302,7 +311,13 @@ public sealed class OrdersSqlServerTests
             search.Today = today;
             Assert.Equal(J(fake.Search(search)), J(sql.Search(search)));
         }
-        Assert.Equal(8, sql.Search(new MachineSearch { Today = today }).Total);
+        Assert.Equal(10, sql.Search(new MachineSearch { Today = today }).Total);
+        foreach (var brn in new[] { "T1000ABC", "L2000XYZ", "NOPE" })
+            Assert.Equal(J(fake.DealerSold(brn, today)), J(sql.DealerSold(brn, today)));
+        Assert.Equal("6100D0001", sql.DealerSold("T1000ABC", today).Single().Serial);
+        foreach (var company in new long[] { 7, 8, 9 })
+            Assert.Equal(J(fake.CustomerEmails(company)), J(sql.CustomerEmails(company)));
+        Assert.Equal(2, sql.CustomerEmails(7).Count);
         var from = Machines.From(today, 12);
         foreach (var row in fake.Search(new MachineSearch { Today = today, Take = 500 }).Rows)
         {
@@ -321,6 +336,13 @@ public sealed class OrdersSqlServerTests
         Assert.Equal(J(fake.MonthlyCopies(tan, from)), J(sql.MonthlyCopies(tan, from)));
         Assert.Equal(5000L, sql.MonthlyCopies(tan, from).Single(m => m.Month == 9).BlackWhite);
         Assert.Empty(sql.MonthlyCopies(new[] { new MeterMachine("NOPE", "") }, from));
+        // A company's copies per year, with how many of its machines were billed each year.
+        var years = new DateTime(2024, 1, 1);
+        Assert.Equal(J(fake.YearlyCopies(listed, years)), J(sql.YearlyCopies(listed, years)));
+        Assert.Equal(J(fake.YearlyCopies(tan, years)), J(sql.YearlyCopies(tan, years)));
+        Assert.Equal(new[] { 2025, 2026 }, sql.YearlyCopies(tan, years).Select(y => y.Year));
+        Assert.Equal(2, sql.YearlyCopies(tan, years).Single(y => y.Year == 2026).Machines);
+        Assert.Empty(sql.YearlyCopies(new[] { new MeterMachine("NOPE", "") }, years));
         Assert.Null(sql.Get("NOPE", "", today));
         Assert.Equal(41882L, sql.Services("3100R0001", "C1", "CT-1", from).Single().BlackWhite);
         Assert.Equal("Mei", sql.Get("3100R0002", "", today)!.Contact);

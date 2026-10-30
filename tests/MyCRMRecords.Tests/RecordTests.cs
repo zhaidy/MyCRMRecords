@@ -180,7 +180,7 @@ public sealed class RecordTests
     public void The_machines_have_no_way_to_change_Advance()
     {
         // Advance's machines are only read: IAdvanceMachines has no method that writes, and its SQL has no statement that could.
-        Assert.Equal(new[] { "Get", "LastContract", "Meters", "MonthlyCopies", "Search", "Services", "Toner", "get_Available" },
+        Assert.Equal(new[] { "CustomerEmails", "DealerSold", "Get", "LastContract", "Meters", "MonthlyCopies", "Search", "Services", "Toner", "YearlyCopies", "get_Available" },
             typeof(IAdvanceMachines).GetMethods().Select(m => m.Name).OrderBy(n => n, StringComparer.Ordinal));
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Core"))) root = root.Parent;
