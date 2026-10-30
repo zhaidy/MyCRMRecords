@@ -137,26 +137,33 @@ you may see; click a number to open it. **See all** opens the list of all of the
 For Sales Admins and MD. Each territory has a name, a number and a salesperson, and holds companies. A company is in
 one territory: putting it in another moves it there. MyCRM's territories built from Advance are replaced by these.
 
-- The list shows each territory with its salesperson and how many companies it has; search by territory, number or
-  salesperson. **Show territories taken away** lists those too.
-- **New territory**: give its **Name**, **Number** (not used by another territory) and **Salesperson** (people with
-  the MyCRM role Sales), or none: a territory with no salesperson is vacant.
-- **Open** a territory to work on it:
-  - **Edit** changes its name, number or salesperson. A new salesperson has all its companies from then on; each
-    company's move is recorded in its Territory Movement History.
+- The list shows each territory on one line with its number, salesperson, how many companies it has and when it was
+  created (and by whom); search by territory, number or salesperson. The switch beside the search shows **All** the
+  territories in use, the **Vacant** ones (no salesperson, so their companies have no salesperson either) or those
+  **Taken away**. Click a territory's name, or anywhere on its line, to open it.
+- **New territory**: give its **Name**, **Number** (not used by another territory: the form says at once when it is)
+  and its salesperson: search the people with the MyCRM role Sales and pick one, or **No salesperson (vacant)**.
+  Press **Create territory**; it starts with no companies.
+- A territory shows its number and salesperson under its name. Its buttons:
+  - **Edit** changes its name, number or salesperson (**Save changes**). A new salesperson has all its companies from
+    then on (the form says so before you save); each company's move is recorded in its Territory Movement History.
   - **Take away** takes the territory away: its companies are taken out of it (each move recorded). It is kept,
-    marked as taken away.
-  - **Companies of the territory**: search by name or BRN; tick companies (or **Tick all shown**) and press **Take out
-    of territory** to take them out (after asking).
-  - **Put companies in this territory**, three ways:
+    marked as taken away. On a phone the button is **Take away territory**, at the bottom of the page.
+  - **Companies** (the first tab, with how many there are): each company with its BRN, postal code and the date it was
+    put in the territory. Search by name or BRN; tick companies (or **Tick all shown**): a bar shows how many are
+    ticked, with **Clear** and **Take out of territory**, which takes them out (after asking).
+  - **Add companies** (the second tab) puts companies in the territory. Pick one of three ways:
     - **Search**: type 2 letters or more of a company's name or BRN, or tick **Only companies with no salesperson**;
-      tick companies and press **Put the ticked companies here**.
+      tick companies (or **Tick all shown**) and press **Put the ticked companies here**. Each company shows where it
+      is now, and whose it leaves.
     - **Paste a list**: paste company names or BRNs, one per line (or both, as copied from Excel), and press **Find the
-      companies**. The list shows what was found, and why a line was not (**Company could not be found.**, or already
-      in this territory). Press **Put the … found companies here**.
-    - **Excel workbook**: choose a workbook with the columns **Company** and **BRN** (**Download a sample** gives one);
-      the companies found are shown the same way.
-    Before anything changes you are asked to confirm, and told how many companies leave another salesperson.
+      companies**.
+    - **Excel workbook**: choose a workbook with the columns **Company** and **BRN** (**Download a sample** gives one).
+    For a pasted list or a workbook, **Check the list** shows the companies **Found** (marked when they leave another
+    salesperson) and those **Not found**, with why (**Company could not be found.**, or already in this territory).
+    Press **Put the … found companies here**.
+    Before anything changes you are asked to confirm (**Put them here**), with the companies that leave another
+    salesperson listed.
 
 ## CRM users
 
