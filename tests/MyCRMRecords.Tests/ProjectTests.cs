@@ -169,6 +169,27 @@ public sealed class ProjectTests
     }
 
     [Fact]
+    public void The_projects_list_reads_only_its_page_and_still_counts_and_searches_them_all()
+    {
+        var (world, tan, lim, _) = Setup();
+        using var _w = world;
+        var mia = world.Actor(TestWorld.Mia);
+        for (var i = 1; i <= 55; i++)
+            Assert.True(world.D.Projects.Create(mia, Input("Batch " + i, world.Now.Date.AddDays(30), lim.Id)).Ok);
+        var admin = world.Actor(TestWorld.SalesAdmin);
+        var first = world.D.Projects.List(admin, "open", null, 0);
+        Assert.Equal(56, first.Total);
+        Assert.Equal(Projects.PageSize, first.Rows.Count);
+        Assert.Equal("Batch 55", first.Rows[0].Project.ProjectName);
+        Assert.Equal(6, world.D.Projects.List(admin, "open", null, Projects.PageSize).Rows.Count);
+        // By a company's name: Tan is only in the first project; by the project's name.
+        Assert.Equal(new[] { "Cover" }, world.D.Projects.List(admin, "open", "tan", 0).Rows.Select(r => r.Project.ProjectName));
+        Assert.Equal(56, world.D.Projects.List(admin, "open", "lim", 0).Total);
+        Assert.Equal(7, world.D.Projects.List(admin, "open", "batch 5", 0).Total);
+        Assert.Equal(new[] { "Lim" }, first.Rows[0].Companies);
+    }
+
+    [Fact]
     public void Projects_are_listed_to_their_members_and_their_teams()
     {
         var (world, tan, _, p) = Setup();

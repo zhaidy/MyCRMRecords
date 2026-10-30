@@ -213,14 +213,15 @@ public sealed class ProjectsApi(CrmApp w)
     private ApiResponse ListProjects(Actor actor, string show, string q, int skip)
     {
         var (total, rows) = w.Projects.List(actor, show.Length == 0 ? "open" : show, q, skip);
+        var name = w.People.NamesOf(rows.SelectMany(r => new[] { r.Project.Owner, r.Project.UpdatedBy }));
         return ApiResponse.Of(new
         {
             total, skip, take = Projects.PageSize,
             rows = rows.Select(r => new
             {
                 id = r.Project.Id, name = r.Project.ProjectName, status = ProjectStatuses.List.Label(r.Project.Status), companies = r.Companies, members = r.Members,
-                caretaker = r.Caretaker, owner = w.People.NameOf(r.Project.Owner), endDate = Date(r.Project.EndDate), updatedDate = Date(r.Project.UpdatedDate),
-                updatedBy = w.People.NameOf(r.Project.UpdatedBy), closed = r.Project.IsClosed,
+                caretaker = r.Caretaker, owner = name(r.Project.Owner), endDate = Date(r.Project.EndDate), updatedDate = Date(r.Project.UpdatedDate),
+                updatedBy = name(r.Project.UpdatedBy), closed = r.Project.IsClosed,
             }),
             canCreate = Projects.MayCreate(actor),
             statuses = ProjectStatuses.List.All.Where(c => c.Code != ProjectStatuses.Close).Select(c => new { code = c.Code, label = c.Label }),
@@ -238,13 +239,14 @@ public sealed class ProjectsApi(CrmApp w)
         var names = activities.Where(a => a.CompanyId is not null).Select(a => a.CompanyId!.Value).Distinct()
             .ToDictionary(c => c, c => w.Store.Get<Company>(c)?.Name.Trim() ?? "");
         var mayChangeMembers = Projects.MayChangeMembers(actor, p);
+        var personName = w.People.NamesOf(activities.Select(a => a.Owner).Concat(new[] { p.Owner, p.UpdatedBy }));
         return ApiResponse.Of(new
         {
             project = new
             {
                 id = p.Id, name = p.ProjectName, status = p.Status, statusLabel = ProjectStatuses.List.Label(p.Status), remarks = p.Remarks, startDate = Date(p.StartDate),
-                endDate = Date(p.EndDate), owner = p.Owner, ownerName = w.People.NameOf(p.Owner), closed = p.IsClosed, open = ProjectTerritories.IsOpen(p, today),
-                updatedDate = Date(p.UpdatedDate), updatedBy = w.People.NameOf(p.UpdatedBy),
+                endDate = Date(p.EndDate), owner = p.Owner, ownerName = personName(p.Owner), closed = p.IsClosed, open = ProjectTerritories.IsOpen(p, today),
+                updatedDate = Date(p.UpdatedDate), updatedBy = personName(p.UpdatedBy),
             },
             companies = w.Projects.Companies(p.Id).Select(CompanyJson),
             members = w.Projects.Members(p.Id).Select(m => new
@@ -255,7 +257,7 @@ public sealed class ProjectsApi(CrmApp w)
             activities = activities.Select(a => new
             {
                 id = a.Id, date = Date(a.VisitDate), action = ActivityActions.List.Label(a.Action), remarks = a.Remarks, companyId = a.CompanyId,
-                company = a.CompanyId is { } c && names.TryGetValue(c, out var n) ? n : "", owner = w.People.NameOf(a.Owner), status = Activities.StatusOf(a, today),
+                company = a.CompanyId is { } c && names.TryGetValue(c, out var n) ? n : "", owner = personName(a.Owner), status = Activities.StatusOf(a, today),
             }),
             history = w.Projects.History(p.Id).Select(h => new { at = h.At, what = h.What, by = h.By }),
             losing, companyCount,
