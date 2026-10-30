@@ -214,26 +214,41 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
             _ => projects.Where(p => !p.IsClosed).ToList(),
         };
         if (projects.Count == 0) return (0, Array.Empty<Row>());
-        var pids = projects.Select(p => (object)p.Id).ToList();
+        // Searched by name or remarks on the projects read, and by company: the companies whose name has the text, then
+        // their projects. Only the page shown reads its companies, members and names (one query each, not one per project).
+        var text = (q ?? "").Trim();
+        if (text.Length > 0)
+        {
+            var match = new HashSet<long>(projects.Where(p => p.ProjectName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                || p.Remarks.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0).Select(p => p.Id));
+            var found = store.Find<Company>(Query.All().Search(text, "Name")).Select(c => (object)c.Id).ToList();
+            if (found.Count > 0)
+                foreach (var l in store.Find<ProjectCompany>(Query.Where("IsActive", true).In("CompanyId", found))) match.Add(l.ProjectId);
+            projects = projects.Where(p => match.Contains(p.Id)).ToList();
+        }
+        var total = projects.Count;
+        var page = projects.OrderByDescending(p => p.Id).Skip(Math.Max(0, skip)).Take(PageSize).ToList();
+        if (page.Count == 0) return (total, Array.Empty<Row>());
+        var pids = page.Select(p => (object)p.Id).ToList();
         var links = store.Find<ProjectCompany>(Query.Where("IsActive", true).In("ProjectId", pids));
         var names = CompanyNames(links.Select(l => l.CompanyId));
         var members = store.Find<ProjectMember>(Query.Where("IsActive", true).In("ProjectId", pids));
-        var text = (q ?? "").Trim();
-        var rows = projects.Select(p =>
+        var leads = page.Select(p =>
+            {
+                var own = members.Where(m => m.ProjectId == p.Id).ToList();
+                return own.FirstOrDefault(m => m.Role is ProjectRoles.SalespersonCaretaker or ProjectRoles.SalespersonAccountOwner)
+                       ?? own.FirstOrDefault(m => m.Role != ProjectRoles.ProjectManager);
+            }).ToList();
+        var nameOf = people.NamesOf(leads.Where(m => m is not null).Select(m => m!.User));
+        var rows = page.Select((p, i) =>
             {
                 var companies = links.Where(l => l.ProjectId == p.Id).OrderBy(l => l.Id).Select(l => names.TryGetValue(l.CompanyId, out var n) ? n : "#" + l.CompanyId.ToString(CultureInfo.InvariantCulture))
                     .Distinct().ToList();
-                var own = members.Where(m => m.ProjectId == p.Id).ToList();
-                var lead = own.FirstOrDefault(m => m.Role is ProjectRoles.SalespersonCaretaker or ProjectRoles.SalespersonAccountOwner)
-                           ?? own.FirstOrDefault(m => m.Role != ProjectRoles.ProjectManager);
-                var caretaker = lead is null ? "" : people.NameOf(lead.User) + " (" + ProjectRoles.List.Label(lead.Role) + ")";
-                return new Row(p, companies, own.Select(m => m.User).Distinct(StringComparer.OrdinalIgnoreCase).Count(), caretaker);
-            })
-            .Where(r => text.Length == 0 || r.Project.ProjectName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
-                || r.Project.Remarks.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
-                || r.Companies.Any(c => c.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0))
-            .OrderByDescending(r => r.Project.Id).ToList();
-        return (rows.Count, rows.Skip(Math.Max(0, skip)).Take(PageSize).ToList());
+                var lead = leads[i];
+                var caretaker = lead is null ? "" : nameOf(lead.User) + " (" + ProjectRoles.List.Label(lead.Role) + ")";
+                return new Row(p, companies, members.Where(m => m.ProjectId == p.Id).Select(m => m.User).Distinct(StringComparer.OrdinalIgnoreCase).Count(), caretaker);
+            }).ToList();
+        return (total, rows);
     }
 
     /// <summary>The project's active companies, by name, with their salesperson and territory.</summary>
@@ -244,8 +259,9 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         var companies = new List<Company>();
         foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v)) companies.AddRange(store.Find<Company>(Query.All().In("Id", chunk)));
         var owners = territories.Owners(ids);
+        var nameOf = people.NamesOf(owners.Values.Select(o => o.Owner));
         return companies.Select(c => owners.TryGetValue(c.Id, out var o)
-                ? new CompanyRow(c.Id, c.Name.Trim(), c.Brn, people.NameOf(o.Owner), Territories.Title(o.Territory), c.IsActive)
+                ? new CompanyRow(c.Id, c.Name.Trim(), c.Brn, nameOf(o.Owner), Territories.Title(o.Territory), c.IsActive)
                 : new CompanyRow(c.Id, c.Name.Trim(), c.Brn, "", "", c.IsActive))
             .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
@@ -254,8 +270,10 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     public IReadOnlyList<MemberRow> Members(long projectId)
     {
         var names = CompanyNames(CompanyIds(store, projectId));
-        return ActiveMembers(store, projectId)
-            .Select(m => new MemberRow(m, people.NameOf(m.User), ProjectTerritories.Reached(store, m).Select(c => names.TryGetValue(c, out var n) ? n : "").Where(n => n.Length > 0).ToList()))
+        var members = ActiveMembers(store, projectId);
+        var nameOf = people.NamesOf(members.Select(m => m.User));
+        return members
+            .Select(m => new MemberRow(m, nameOf(m.User), ProjectTerritories.Reached(store, m).Select(c => names.TryGetValue(c, out var n) ? n : "").Where(n => n.Length > 0).ToList()))
             .OrderBy(m => m.Member.Role == ProjectRoles.ProjectManager ? 0 : 1).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
