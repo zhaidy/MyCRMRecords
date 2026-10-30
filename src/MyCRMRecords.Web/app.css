@@ -615,3 +615,57 @@ body.menu-open .menu-backdrop{background:var(--scrim);z-index:40}
 @media(max-width:560px){.install-qr-row{flex-direction:column}}
 @media(max-width:560px){.data td[data-label]:not([data-label=""])::before{font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-2)}}
 @media(prefers-reduced-motion:reduce){.button,.icon-button,.install-button,.tab,.tab-item{transition:none}.button:hover:not(:disabled),.icon-button:hover,.install-button:hover,.button:active:not(:disabled),.icon-button:active,.install-button:active,.tab-item:active{transform:none}}
+
+/* The Files page (files.js): MyFiles' files in a one-line table, the chosen one's PDF beside it; on a phone a card per file */
+.tabs .tab[aria-pressed=true]{background:var(--accent);color:#fff;font-weight:700;border:0}
+.files-toolbar{align-items:center}
+.files-toolbar .search-box{flex:1 1 320px}
+.files-toolbar .tabs{margin:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.files-toolbar .tabs::-webkit-scrollbar{display:none}
+.files-toolbar .tab{white-space:nowrap}
+.selection-pill{display:inline-flex;align-items:center;gap:10px;height:44px;padding:0 8px 0 18px;border-radius:22px;font-weight:600;border:1px solid var(--rim);background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));box-shadow:inset 0 1px 0 var(--spec),var(--glass-shadow)}
+.button.disabled{opacity:.5;cursor:not-allowed}
+.files-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+.files-list{min-width:0}
+table.data.files-table{table-layout:fixed}
+.files-table td,.files-table th{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.files-table td{padding-top:8px;padding-bottom:8px}
+.files-table .tick{width:42px;padding-right:0}
+.files-table .tick input{accent-color:var(--accent);width:16px;height:16px;margin:0;vertical-align:middle}
+.files-table .file-name{width:30%}
+.files-table .file-type-col{width:120px}
+.files-table .file-date{width:112px}
+.files-table .file-size{width:84px}
+.files-table .file-open{width:96px;text-align:right}
+.files-table .file-open .row-first{justify-content:flex-end;flex-wrap:nowrap}
+.files-table tr.open td{background:var(--accent-tint)}
+.files-table a:not(.icon-button){color:var(--accent);font-weight:600}
+.link-button{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.link-button:hover{color:var(--accent);text-decoration:underline}
+.tag.file-type{padding:2px 10px;font-size:12px}
+.file-preview{position:sticky;top:96px;padding:18px}
+.file-preview-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.file-preview-head h2{flex:1;min-width:0;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-frame{display:block;width:100%;height:min(440px,55vh);border:0;border-radius:14px;background:var(--surface)}
+.file-facts{grid-template-columns:max-content minmax(0,1fr);font-size:14px}
+.file-facts .text-button{padding:0;font-size:14px}
+.file-preview .action-buttons{margin-top:14px}
+.file-cards{display:none}
+@media(max-width:1200px) and (min-width:901px){.files-layout{grid-template-columns:minmax(0,1fr) 300px}.files-table .file-size,.files-table .file-type-col{display:none}}
+@media(max-width:900px){
+.files-layout{grid-template-columns:minmax(0,1fr)}
+.files-list>#rows,.file-preview,#selection{display:none!important}
+.files-toolbar{flex-direction:column;align-items:stretch}
+.files-toolbar .search-box{flex:none}
+.files-toolbar .tabs{display:flex;max-width:100%}
+.files-toolbar .since select{width:100%}
+.file-cards{display:block;border-radius:22px;background:var(--card);overflow:hidden}
+.file-card{display:flex;align-items:center;gap:10px;padding:12px 16px;color:var(--ink)}
+.file-card+.file-card{border-top:1px solid var(--line)}
+.file-card:hover{background:var(--row-tint)}
+.file-card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.file-card-top{display:flex;align-items:center;gap:8px;min-width:0}
+.file-card-top b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.file-card-line{font-size:13.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-card-line.strong{color:var(--ink)}
+}

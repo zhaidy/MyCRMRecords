@@ -37,6 +37,7 @@ public static class Services
 
     private static readonly Lazy<CrmApi> LazyApi = new(() => new CrmApi(LazyApp.Value, Auth.DirectorySearch.Find));
     private static readonly Lazy<OrdersApi> LazyOrdersApi = new(() => new OrdersApi(LazyApp.Value));
+    private static readonly Lazy<MyFilesApi> LazyMyFilesApi = new(() => new MyFilesApi(LazyApp.Value));
     private static readonly Lazy<FilesApi> LazyFilesApi = new(() => new FilesApi(LazyApp.Value));
     private static readonly Lazy<UsersApi> LazyUsersApi = new(() => new UsersApi(LazyApp.Value, Auth.DirectorySearch.Find));
 
@@ -51,6 +52,8 @@ public static class Services
     public static CrmApi Api => LazyApi.Value;
     /// <summary>The costing sheets and request forms (read only from MyOrders).</summary>
     public static OrdersApi OrdersApi => LazyOrdersApi.Value;
+    /// <summary>The Files page (read only from MyFiles).</summary>
+    public static MyFilesApi MyFilesApi => LazyMyFilesApi.Value;
     public static FilesApi FilesApi => LazyFilesApi.Value;
     public static UsersApi UsersApi => LazyUsersApi.Value;
     public static AdminApi AdminApi => LazyAdminApi.Value;

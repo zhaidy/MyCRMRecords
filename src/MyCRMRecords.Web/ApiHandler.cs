@@ -8,7 +8,7 @@ namespace MyCRMRecords.Web;
 
 /// <summary>
 /// Serves <c>api.ashx/...</c> (IIS maps .ashx to ASP.NET by default, so nothing is registered in IIS). The pages call it
-/// as the signed-in person (<see cref="CrmApi"/>, <see cref="OrdersApi"/> (read only), <see cref="UsersApi"/>, and for
+/// as the signed-in person (<see cref="CrmApi"/>, <see cref="OrdersApi"/> and <see cref="MyFilesApi"/> (read only), <see cref="UsersApi"/>, and for
 /// administrators <see cref="AdminApi"/> and <see cref="DeploymentApi"/>). Every change (each POST) goes into the audit log.
 /// </summary>
 public sealed class ApiHandler : IHttpHandler
@@ -109,6 +109,7 @@ public sealed class ApiHandler : IHttpHandler
         if (route == "users/impersonate" && request.HttpMethod == "POST") return Impersonate(context, body, user);
         if (UsersApi.Handles(path)) return Services.UsersApi.Handle(request.HttpMethod, path, body, query, user);
         if (OrdersApi.Handles(path)) return Services.OrdersApi.Handle(request.HttpMethod, path, body, query, user);
+        if (MyFilesApi.Handles(path)) return Services.MyFilesApi.Handle(request.HttpMethod, path, body, query, user);
         return Services.Api.Handle(request.HttpMethod, path, body, query, user);
     }
 

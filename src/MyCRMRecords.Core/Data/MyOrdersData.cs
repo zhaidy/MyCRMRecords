@@ -11,18 +11,20 @@ public sealed record OsEntity(OsModule Module, string Name)
     public override string ToString() => Module + "." + Name;
 }
 
-/// <summary>The OutSystems modules MyCRMRecords reads (their names are settings: MyOrders and MyCRM).</summary>
+/// <summary>The OutSystems modules MyCRMRecords reads (their names are settings: MyOrders, MyCRM and MyFiles).</summary>
 public enum OsModule
 {
     MyOrders,
     MyCRM,
+    /// <summary>MyFiles' files (the PDFs MyFile keeps in MyFiles' tables), read only for the Files page.</summary>
+    MyFiles,
 }
 
 /// <summary>
 /// The entities MyCRMRecords reads, all read only: MyOrders' costing sheets with their items, statuses and
-/// attachments, and MyCRM's companies, contacts, addresses and users (for the names on a costing sheet and for MyCRM's
-/// roles and teams, which decide who sees which costing sheets). Their tables are found by module and entity name; their
-/// columns are the attribute names in upper case.
+/// attachments, MyCRM's companies, contacts, addresses and users (for the names on a costing sheet and for MyCRM's
+/// roles and teams, which decide who sees which costing sheets), and MyFiles' files (the Files page). Their tables are
+/// found by module and entity name; their columns are the attribute names in upper case.
 /// </summary>
 public static class Entities
 {
@@ -66,6 +68,11 @@ public static class Entities
     public static readonly OsEntity CompanyGroup = new(OsModule.MyCRM, "CompanyGroup");
     /// <summary>MyCRM's event tags (a costing sheet's Event Tag); read when there is one, its name shown.</summary>
     public static readonly OsEntity EventTag = new(OsModule.MyCRM, "EventTag");
+
+    /// <summary>MyFiles' files (the Files page): a PDF each, with its numbers and MyCRM company.</summary>
+    public static readonly OsEntity File = new(OsModule.MyFiles, "File");
+    /// <summary>MyFiles' static entity FileType (matched by label, never by Id).</summary>
+    public static readonly OsEntity FileType = new(OsModule.MyFiles, "FileType");
 
     /// <summary>Every entity read, with the columns MyCRMRecords needs from it (the Connections tab's Test checks each).</summary>
     public static readonly IReadOnlyList<(OsEntity Entity, string[] Columns)> Checked =
@@ -130,7 +137,24 @@ public static class Entities
             (CompanyGroup, new[] { "ID", "LABEL" }),
             (CrmUser, new[] { "ID", "USERID", "ROLEID", "TEAMID", "ISACTIVE", "SALESMANCODE" }),
             (CrmRole, new[] { "ID", "LABEL" }),
+            (File, new[] { "ID", "FILENAME", "INVOICENUMBER", "DONUMBER", "REFERENCENUMBER", "PPSNUMBER", "CONTRACTNUMBER", "SERVICENUMBER", "RMANUMBER",
+                "PSDREFNUMBER", "MSDREFNUMBER", "COMPANYID", "COMPANYNAME", "BRN", "CREATEDBY", "CREATEDAT", "ISACTIVE", "FILEBINARY", "FILETYPEID" }),
+            (FileType, new[] { "ID", "LABEL" }),
         };
+
+    /// <summary>The name of a module, as set on the Connections tab.</summary>
+    public static string ModuleName(ConnectionSettings connections, OsModule module) => (module switch
+    {
+        OsModule.MyOrders => connections.OrdersModule,
+        OsModule.MyFiles => connections.FilesModule,
+        _ => connections.CrmModule,
+    }).Trim();
+
+    /// <summary>
+    /// Whether a module is found even after it is retired in OutSystems (its tables kept): MyOrders and MyFiles, which
+    /// MyCRMRecords only reads; never MyCRM, which it may write.
+    /// </summary>
+    public static bool ReadOnly(OsModule module) => module != OsModule.MyCRM;
 }
 
 /// <summary>Values of an OutSystems row (column → value, case ignored): empty dates (1900-01-01) and Ids (0) read as null.</summary>
@@ -262,10 +286,8 @@ public sealed partial class SqlMyOrdersData(ExternalDatabases databases, Func<Co
     /// <summary>The databases, for the parts of this class in other files (a primary constructor's parameter is seen only in its own part).</summary>
     private ExternalDatabases Databases => databases;
 
-    private string ModuleName(OsModule module) =>
-        module == OsModule.MyOrders ? connections().OrdersModule.Trim() : connections().CrmModule.Trim();
-
-    public string TableOf(DbConnection connection, OsEntity entity) => databases.EntityTable(connection, ModuleName(entity.Module), entity.Name, entity.Module == OsModule.MyOrders);
+    public string TableOf(DbConnection connection, OsEntity entity) =>
+        databases.EntityTable(connection, Entities.ModuleName(connections(), entity.Module), entity.Name, Entities.ReadOnly(entity.Module));
 
     private T Cached<T>(string key, Func<T> read) where T : class
     {

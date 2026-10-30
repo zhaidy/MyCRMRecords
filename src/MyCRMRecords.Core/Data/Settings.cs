@@ -52,6 +52,9 @@ public sealed class ConnectionSettings
     /// <summary>The OutSystems module with the costing sheets and request forms (read only).</summary>
     public string OrdersModule { get; set; } = "MyOrders";
 
+    /// <summary>The OutSystems module with MyFiles' files (read only, the Files page), as MyFile's FilesModule.</summary>
+    public string FilesModule { get; set; } = "MyFiles";
+
     public AdvanceTables AdvanceTables { get; set; } = new();
 }
 

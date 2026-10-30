@@ -32,13 +32,14 @@
    * from a costing sheet opens the same tab). On a phone the tabs are a list under the company's details, each opening
    * its section on the whole screen with a way back (app.css: .section-list, .section-back).
    */
-  const tabIds = ['overview', 'contacts', 'costing', 'requests', 'relations'];
+  const tabIds = ['overview', 'contacts', 'files', 'costing', 'requests', 'relations'];
   let tab = tabIds.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
-  let orderCounts = {costing: '', requests: ''};
+  let orderCounts = {files: '', costing: '', requests: ''};
   function sections() {
     return [
       {id: 'overview', label: 'Overview', count: '', color: '#0a58f0'},
       {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0'},
+      {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed'},
       {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b'},
       {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b'},
       {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488'}
@@ -96,6 +97,7 @@
         </div></details></section>
       </div>
       <div class="stack tab-panel" role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts"><section class="card" id="contacts"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-files" aria-labelledby="tab-files"><section class="card" id="files"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-costing" aria-labelledby="tab-costing"><section class="card" id="costing"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-requests" aria-labelledby="tab-requests"><section class="card" id="requests"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-relations" aria-labelledby="tab-relations"><section class="card" id="relationships"></section>
@@ -105,6 +107,7 @@
     contacts();
     relationships();
     orders(c);
+    files(c);
     drawIcons(page);
     showTab(tab);
     $('#edit')?.addEventListener('click', async () => { if (await companyForm(lists, c)) load(); });
@@ -146,6 +149,27 @@
     if (forms.result.ok) setCount('requests', forms.total);
     drawIcons(costing);
     drawIcons(requests);
+  }
+
+  /**
+   * The company's files from MyFiles (read only), on its tab: the newest ten, each opening its PDF, and a link to the
+   * Files page with all of this company's.
+   */
+  async function files(c) {
+    const box = $('#files');
+    box.innerHTML = '<h2>Files</h2><p class="muted small">Loading…</p>';
+    const answer = await api('GET', 'files?' + new URLSearchParams({company: String(id)}));
+    const rows = answer.result.ok ? answer.rows.slice(0, 10) : [];
+    const size = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes + ' B';
+    box.innerHTML = `<h2>Files</h2><p class="muted small">From MyFiles, read only: the newest first.</p>
+      ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : rows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>File</th><th>Type</th><th>Number</th><th>Uploaded</th><th class="num">Size</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td class="wide-text"><a href="file.ashx/files/${r.id}?view=1" target="_blank" rel="noopener"><b>${esc(r.fileName || 'File ' + r.id)}</b></a></td>
+          <td class="nowrap">${esc(r.type)}</td><td>${esc(r.numbers.length ? r.numbers[0].kind + ' ' + r.numbers[0].number : '')}</td>
+          <td class="nowrap">${esc(date(r.uploadedAt))}</td><td class="num">${esc(size(r.size))}</td></tr>`).join('')}
+        </tbody></table></div>${answer.total > 10 ? `<p class="small" style="margin:8px 0 0"><a href="files.aspx?${new URLSearchParams({company: String(id), name: c.name})}">See all ${answer.total} files</a></p>` : ''}`
+        : '<p class="muted small" style="margin:6px 0 0">No files of this company in MyFiles.</p>'}`;
+    if (answer.result.ok) setCount('files', answer.total);
+    drawIcons(box);
   }
 
   /** The number of employees, shown with Edit, or an input with Save and Cancel (MyCRM's NoOfEmployees block). */

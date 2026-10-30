@@ -6,7 +6,8 @@ namespace MyCRMRecords.Web;
 
 /// <summary>
 /// Serves <c>file.ashx/&lt;kind&gt;</c>: GET downloads an Excel sample to fill in (<c>sample?of=employees</c> or
-/// <c>sample?of=territory</c>); POST uploads an Excel workbook (<c>employees</c>, or <c>territory-list?territory=</c>)
+/// <c>sample?of=territory</c>), a costing sheet's or request form's attachment, or a file of MyFiles (<c>files/{id}</c>,
+/// shown in the page with <c>?view=1</c>; <c>files/zip?ids=</c> for several, recorded in the audit log); POST uploads an Excel workbook (<c>employees</c>, or <c>territory-list?territory=</c>)
 /// as multipart form data with an
 /// <c>X-MyCRMRecords</c> header. Browsers cannot add that header cross-site without a CORS preflight, which is never
 /// granted, so other sites cannot upload.
@@ -48,7 +49,11 @@ public sealed class FileHandler : IHttpHandler
                 return;
             }
             response.ContentType = file.ContentType;
-            response.AppendHeader("Content-Disposition", "attachment; filename=\"" + file.FileName.Replace("\"", "") + "\"; filename*=UTF-8''" + Uri.EscapeDataString(file.FileName));
+            response.AppendHeader("Content-Disposition", (file.Inline ? "inline" : "attachment") + "; filename=\"" + file.FileName.Replace("\"", "") + "\"; filename*=UTF-8''" + Uri.EscapeDataString(file.FileName));
+            // A file of MyFiles downloaded (not shown in the page) is recorded, as MyFile records it.
+            if (!file.Inline && kind.StartsWith(FilesApi.MyFilesPrefix, StringComparison.Ordinal))
+                Services.Record(context, user, kind == FilesApi.MyFilesZip ? "Download files of MyFiles as a zip" : "Download a file of MyFiles", "file.ashx/" + kind, true,
+                    file.FileName, request.Url.Query, method: "GET", target: kind == FilesApi.MyFilesZip ? (query.TryGetValue("ids", out var ids) ? ids : "") : kind.Substring(FilesApi.MyFilesPrefix.Length));
             response.BinaryWrite(file.Content);
             return;
         }
