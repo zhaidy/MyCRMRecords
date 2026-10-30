@@ -77,30 +77,44 @@ the title says how many there are.
 
 ## A company
 
-The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**,
-**Request forms** and **Relationships & history** (with how many there are). Clicking a tab shows it in place; the
-page remembers the tab, so coming back from a costing sheet opens the same one. On a phone the tabs are a list under
-the company's details: tap one to open it on the whole screen, and the company's name at the top to go back.
+The company's page has everything about it. Under its name, one line says its territory, salesperson, BRN and
+customer code. At the top right:
+
+- **Print summary** opens the company's summary on one A4 page: its details, salesperson and caretake remarks,
+  addresses, primary contacts and the machines whose contract or warranty is running. Press **Print / Save as PDF**
+  (or **Back to the company**). On a phone it is the printer button.
+- **Edit company** (Sales Admins; on a phone the pencil) opens the company form: **Is Active**, **Is HOME USER** (a
+  home user's BRN may be left empty), **Company Name**, **BRN**, **Website**, **Is Channel Partner**, **Customer
+  Type**, **Advance Customer Type**, **Company Group Name**, **Account Type**, **Comp Ownership** and **Remarks**. Two
+  companies cannot have the same BRN (MyCRM checked new companies only; MyCRMRecords checks edited ones too); a home
+  user's is not checked. Next to **Company Group Name**, **Add a group name**, **Rename** and the bin keep the list of
+  group names; a group name a company still has cannot be removed.
+
+The rest is in tabs: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**, **Request forms** and
+**Relationships & history** (with how many there are). Clicking a tab shows it in place; the page remembers the tab,
+so coming back from a costing sheet opens the same one. On a phone the Overview shows the company's details and then
+a list of sections, **More details** first (sales notes, addresses, salesperson, copies per month and more company
+details): tap one to open it on the whole screen, and the company's name at the top to go back.
 
 **Overview**:
 
-- **Company**: BRN, A/C Type, Customer Code (Advance's customer number), the **Salesperson** with their territory,
-  Customer Type, Company Group, Advance Customer Type, Industry, Website, created and last updated, and the billing
-  addresses.
-- **No of Employees**: press the pencil, type the number and press **Save** (or **Cancel**).
-- **Sales Remarks**: type and press **Save**.
-- **Edit company** (Sales Admins) opens the company form: **Is Active**, **Is HOME USER** (a home user's BRN may be
-  left empty), **Company Name**, **BRN**, **Website**, **Is Channel Partner**, **Customer Type**, **Advance Customer
-  Type**, **Company Group Name**, **Account Type**, **Comp Ownership** and **Remarks**. Two companies cannot have the
-  same BRN (MyCRM checked new companies only; MyCRMRecords checks edited ones too); a home user's is not checked.
-  Next to **Company Group Name**, **Add a group name**, **Rename** and the bin keep the list of group names; a group
-  name a company still has cannot be removed.
+- **Company details**: BRN, A/C Type, Customer Code (Advance's customer number), the **Salesperson** with their
+  territory, Customer Type, Company Group, Advance Customer Type, Industry, Website, Is Channel Partner, created and
+  last updated (with by whom). Change them with **Edit company**.
+- **Copies per month**: the black (teal) and colour (coral) copies billed on all the company's machines in Advance
+  (found by its BRN) in each of the last 12 months, each machine's of its contract as on its own page. Point at a
+  month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab.
+- The four tiles count the company's **Machines** (contract or warranty running), **Files**, **Contacts** and
+  **Costing sheets**; click one to open its tab.
+- **Salesperson**: the company's owner and their territory.
+- **Sales notes**, for anyone who opens the company: **No of Employees** (press the pencil, type the number and press
+  **Save**, or **Cancel**) and **Sales Remarks** (type and press **Save remarks**).
 - **Addresses**: the default address first. Choose a type at the top to show only that type. **New address** and
   **Edit** open the address form: **Is Default**, **Address Type**, **Postal Code**, **Block**, **Street**, **Unit
   Number**, **Building Name**, **City**, **State / Province** and **Country**. A company has one default address: tick
   **Is Default** on another only after unticking it on the default one. Change an address's type straight in the list.
   The bin deletes an address (after asking).
-- **More Company Details**: remarks, caretake remarks and the other facts MyCRM keeps.
+- **More company details**: remarks, caretake remarks and the other facts MyCRM keeps.
 
 **Contacts**: the primary contact first, with their phones and emails. **Create Contact** and **Edit** open the
 contact form: **Salutation**, **First Name**, **Christian Name (middle name)**, **Last Name / Surname**,
@@ -137,47 +151,59 @@ you may see; click a number to open it. **See all** opens the list of all of the
 For Sales Admins and MD. Each territory has a name, a number and a salesperson, and holds companies. A company is in
 one territory: putting it in another moves it there. MyCRM's territories built from Advance are replaced by these.
 
-- The list shows each territory with its salesperson and how many companies it has; search by territory, number or
-  salesperson. **Show territories taken away** lists those too.
-- **New territory**: give its **Name**, **Number** (not used by another territory) and **Salesperson** (people with
-  the MyCRM role Sales), or none: a territory with no salesperson is vacant.
-- **Open** a territory to work on it:
-  - **Edit** changes its name, number or salesperson. A new salesperson has all its companies from then on; each
-    company's move is recorded in its Territory Movement History.
+- The list shows each territory on one line with its number, salesperson, how many companies it has and when it was
+  created (and by whom); search by territory, number or salesperson. The switch beside the search shows **All** the
+  territories in use, the **Vacant** ones (no salesperson, so their companies have no salesperson either) or those
+  **Taken away**. Click a territory's name, or anywhere on its line, to open it.
+- **New territory**: give its **Name**, **Number** (not used by another territory: the form says at once when it is)
+  and its salesperson: search the people with the MyCRM role Sales and pick one, or **No salesperson (vacant)**.
+  Press **Create territory**; it starts with no companies.
+- A territory shows its number and salesperson under its name. Its buttons:
+  - **Edit** changes its name, number or salesperson (**Save changes**). A new salesperson has all its companies from
+    then on (the form says so before you save); each company's move is recorded in its Territory Movement History.
   - **Take away** takes the territory away: its companies are taken out of it (each move recorded). It is kept,
-    marked as taken away.
-  - **Companies of the territory**: search by name or BRN; tick companies (or **Tick all shown**) and press **Take out
-    of territory** to take them out (after asking).
-  - **Put companies in this territory**, three ways:
+    marked as taken away. On a phone the button is **Take away territory**, at the bottom of the page.
+  - **Companies** (the first tab, with how many there are): each company with its BRN, postal code and the date it was
+    put in the territory. Search by name or BRN; tick companies (or **Tick all shown**): a bar shows how many are
+    ticked, with **Clear** and **Take out of territory**, which takes them out (after asking).
+  - **Add companies** (the second tab) puts companies in the territory. Pick one of three ways:
     - **Search**: type 2 letters or more of a company's name or BRN, or tick **Only companies with no salesperson**;
-      tick companies and press **Put the ticked companies here**.
+      tick companies (or **Tick all shown**) and press **Put the ticked companies here**. Each company shows where it
+      is now, and whose it leaves.
     - **Paste a list**: paste company names or BRNs, one per line (or both, as copied from Excel), and press **Find the
-      companies**. The list shows what was found, and why a line was not (**Company could not be found.**, or already
-      in this territory). Press **Put the … found companies here**.
-    - **Excel workbook**: choose a workbook with the columns **Company** and **BRN** (**Download a sample** gives one);
-      the companies found are shown the same way.
-    Before anything changes you are asked to confirm, and told how many companies leave another salesperson.
+      companies**.
+    - **Excel workbook**: choose a workbook with the columns **Company** and **BRN** (**Download a sample** gives one).
+    For a pasted list or a workbook, **Check the list** shows the companies **Found** (marked when they leave another
+    salesperson) and those **Not found**, with why (**Company could not be found.**, or already in this territory).
+    Press **Put the … found companies here**.
+    Before anything changes you are asked to confirm (**Put them here**), with the companies that leave another
+    salesperson listed.
 
 ## CRM users
 
 For Sales Admins. A person's MyCRM role and teams decide what they see and do, here and in MyCRM.
 
-- **CRM users** lists everyone with a CRM profile, with their role, teams, salesman and territory codes and number of
-  territories. Type to search by name, login, email, code or role; **Show everyone** also lists the people who are not
-  CRM users (everyone MyCRM knows, and everyone who has opened MyCRMRecords). **Find someone in Active Directory**
-  finds a person MyCRMRecords does not know yet.
-- **Edit** opens the person:
-  - **Role**: their MyCRM role.
-  - **Team**: Sales, PP Specialist and CLETrainer have one team. Manager, PP, MDS and SOL Specialist Managers and
-    CLETrainerManager are put in the team named after them: press **Create team** if it is not there. CSST has one
-    team or none. Every other role ticks any number of teams (**Select All**, **Unselect All**); with none ticked the
-    person is no longer a CRM user, as in MyCRM (the page warns you).
-  - **Designation**, **Phone Number**, **Salesman Code** and **Territory Code**.
-  - **Save** keeps the person's records and changes them (MyCRM deleted and made them again, losing their history).
-  - **Remove CRM user and territories** (after asking) makes the person no longer a CRM user and takes their
-    territories away with their companies.
-- **Teams**: **New team** and **Edit** set a team's **Name**, **Short Name** and **Active**; the **Active** box in the
-  list switches a team on or off at once. Teams are never deleted. **People** shows who is in a team.
+- **People** (the first tab) lists everyone with a CRM profile, A to Z, one line each: name and login, role, teams,
+  salesman code, territory code and number of territories. Type to search by name, login, email, code or role;
+  **Role** shows the people of one role; **Show everyone** also lists the people who are not CRM users (everyone MyCRM
+  knows, and everyone who has opened MyCRMRecords). **Find someone in Active Directory** finds a person MyCRMRecords
+  does not know yet. On a phone, **Role:** opens a list of the roles (with **Show everyone** under it).
+- **Edit** (or **Add** for someone who is not a CRM user), or a click on the person's line, opens them in a panel at
+  the side (the whole screen on a phone):
+  - **Role**: their MyCRM role; the line under it says how many teams the role takes.
+  - **Team**: Sales, PP Specialist and CLETrainer pick one team. Manager, PP, MDS and SOL Specialist Managers and
+    CLETrainerManager are put in the team named after them: press **Create team** if it is not there. CSST picks one
+    team or **None**. Every other role ticks any number of teams (**Select All**, **Unselect All**); with none ticked
+    the person is no longer a CRM user, as in MyCRM (the panel warns you).
+  - **Details**: **Designation**, **Phone Number**, **Salesman Code** and **Territory Code**, and the person's
+    territories (each opens the territory).
+  - **Save** (**Add as CRM user** for someone new) keeps the person's records and changes them (MyCRM deleted and
+    made them again, losing their history).
+  - **Remove CRM user and territories** (under **Remove access**, after asking) makes the person no longer a CRM user
+    and takes their territories away with their companies.
+- **Teams** (the second tab): **New team** and **Edit** set a team's **Name**, **Short Name** and **Active**; the
+  switch in the **Active** column switches a team on or off at once. Teams are never deleted. **People** (or the number
+  of people) shows who is in a team.
 - A change to someone's role or teams counts in MyCRMRecords at once; in MyCRM, from their next sign-in.
 
 ## Files

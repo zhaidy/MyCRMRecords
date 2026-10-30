@@ -107,6 +107,11 @@ public sealed class Territories(IRecordStore store, People people, Func<DateTime
         return (sorted.Count, sorted.Skip(Math.Max(0, skip)).Take(take).ToList());
     }
 
+    /// <summary>When each company of a territory was put in it (its active link's CreatedOn; the earliest when it has two).</summary>
+    public IReadOnlyDictionary<long, DateTime?> Since(long territoryId) =>
+        store.Find<CompanyTerritory>(Query.Where("TerritoryId", territoryId).And("IsActive", true)).GroupBy(ct => ct.CompanyId)
+            .ToDictionary(g => g.Key, g => g.Select(ct => ct.CreatedOn).Where(d => d.HasValue).OrderBy(d => d).FirstOrDefault());
+
     /// <summary>Active companies whose name or BRN has the text, by name, with their salesperson (to put in a territory).</summary>
     public (int Total, IReadOnlyList<CompanyRow> Rows) Search(string? q, bool unassignedOnly, int skip, int take = PageSize)
     {
