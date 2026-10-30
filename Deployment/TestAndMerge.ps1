@@ -64,6 +64,16 @@ function Test-StillMergeable {
     $true
 }
 
+# Cheap check before any build: a run that waited in the queue may start after its pull request was merged by hand or
+# pushed to again, and building and testing it would only keep the runner from the runs that matter. (Drafts and the
+# no-automerge label are not checked here: those pull requests are still tested.)
+function Test-StillCurrent {
+    $pull = Invoke-RestMethod -Uri ($api + '/pulls/' + $PullRequest) -Headers $headers -TimeoutSec 30
+    if ($pull.state -ne 'open') { Write-Host "Pull request #$PullRequest is $($pull.state); nothing to test."; return $false }
+    if ($pull.head.sha -ne $Head) { Write-Host "Pull request #$PullRequest has a newer commit; the run for that commit tests it."; return $false }
+    $true
+}
+
 $pull = Invoke-RestMethod -Uri ($api + '/pulls/' + $PullRequest) -Headers $headers -TimeoutSec 30
 # The same message GitHub's merge button writes; the Deployment page's change log reads the number and title from it.
 # Through a file: Windows PowerShell 5.1 passes arguments that contain double quotes to git wrongly.
@@ -73,6 +83,7 @@ if ($pull.title) { $message += "`n`n" + $pull.title }
 [IO.File]::WriteAllText($messageFile, $message + "`n", [Text.UTF8Encoding]::new($false))
 
 for ($attempt = 1; ; $attempt++) {
+    if (-not (Test-StillCurrent)) { exit 0 }
     $base = Get-Master
     Write-Host "Attempt $attempt`: testing $Head merged with master $base."
     Invoke-Git checkout -q --force --detach $base | Out-Null
