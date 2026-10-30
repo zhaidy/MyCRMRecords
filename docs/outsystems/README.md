@@ -314,7 +314,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       MyCRM's First Appointment Attended adjustment (that type is not offered, as in MyCRM's form). A member's role is
       changed by removing and adding them again. The project's **History** lists the changes made in MyCRMRecords
       (`dbo.CrChange`), not MyCRM's own.
-24. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
+26. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
     (`MyCustomerEmails`: AdvanceConnector's `CustomerMapping` with `Company_ID` = the company, joined to `Email_Master`
     by customer number, each row once; read only, its tables are settings and in the connection test), *Machines sold by
     dealer* (`DealerSoldMachines`: `daily_mif` of the BRN with `serial-stat` SALDLR and `mif-type` MTR), the caretakers
