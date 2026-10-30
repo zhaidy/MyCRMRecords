@@ -89,13 +89,15 @@ public class AppPage : Page
     protected string TopBar(string current, string guideSection = "")
     {
         string Item(string page, string icon, string label) =>
-            $"<a class=\"nav-item{(current == page ? " selected" : "")}\" href=\"{page}\"{(current == page ? " aria-current=\"page\"" : "")}><span data-icon=\"{icon}\"></span>{HttpUtility.HtmlEncode(label)}</a>";
+            $"<a class=\"nav-item{(current == page ? " selected" : "")}\" href=\"{page}\"{(current == page ? " aria-current=\"page\"" : "")}>{HttpUtility.HtmlEncode(label)}</a>";
         var html = new StringBuilder();
+        // Separate glass pieces floating over the page (app.css): the menu capsule (the brand and the pages), then the search,
+        // the user guide, Install app and the person. On a phone only the step back floats at the top: the menu is the
+        // bottom bar and the rest is in More.
         html.Append("<header class=\"appbar\">")
-            .Append("<button class=\"icon-button menu-button\" id=\"menu-button\" aria-label=\"Menu\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span></button>")
             // On a phone, the step back of the page's breadcrumb (common.js fills it in from WH.crumbs' .crumb-back).
             .Append("<a class=\"icon-button appbar-back\" id=\"appbar-back\" href=\"./\" hidden><span data-icon=\"chevron-left\"></span></a>")
-            .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
+            .Append("<div class=\"appbar-menu\"><a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
         html.Append(Item("./", "file", "Companies"));
         // MyCRM's projects and sales activities: everyone sees their own and their team's.
@@ -114,20 +116,22 @@ public class AppPage : Page
         {
             var adminPages = new[] { "users.aspx", "admin.aspx", "deployment.aspx", "audit.aspx" };
             html.Append("<details class=\"nav-group\"><summary class=\"nav-item").Append(adminPages.Contains(current) ? " selected" : "")
-                .Append("\"><span data-icon=\"key\"></span>Admin<span class=\"nav-caret\" aria-hidden=\"true\"></span></summary><div class=\"nav-menu\">")
+                .Append("\">Admin<span class=\"nav-caret\" aria-hidden=\"true\"></span></summary><div class=\"nav-menu\">")
                 .Append(Item("users.aspx", "key", "User roles")).Append(Item("admin.aspx", "database", "Settings"))
                 .Append(Item("deployment.aspx", "history", "Deployment")).Append(Item("audit.aspx", "audit", "Audit log"))
                 .Append("</div></details>");
         }
-        html.Append("</nav><div class=\"appbar-right\">")
+        html.Append("</nav></div><div class=\"appbar-right\">")
+            // Search: the Companies page with its search box ready (companies.js reads #search).
+            .Append("<a class=\"appbar-search\" id=\"search-button\" href=\"./#search\" title=\"Search companies\" aria-label=\"Search companies\"><span data-icon=\"search\"></span></a>")
+            .Append($"<a class=\"help-button{(current == "guide.aspx" ? " selected" : "")}\" id=\"guide-button\" href=\"guide.aspx{(guideSection.Length > 0 ? "#" + guideSection : "")}\" title=\"User guide\" aria-label=\"User guide\"><span data-icon=\"help\"></span></a>")
             // Install app (common.js): on a computer, a QR code to open MyCRMRecords on a phone and install it there.
             .Append("<button type=\"button\" class=\"install-button\" id=\"install-button\" hidden><span data-icon=\"phone-download\"></span><span class=\"install-label\">Install app</span></button>")
-            .Append($"<a class=\"help-button{(current == "guide.aspx" ? " selected" : "")}\" id=\"guide-button\" href=\"guide.aspx{(guideSection.Length > 0 ? "#" + guideSection : "")}\" title=\"User guide\" aria-label=\"User guide\"><span data-icon=\"help\"></span></a>")
             // The person: their initials; a click shows their name and login and Sign out (common.js).
             .Append($"<span class=\"avatar-wrap\"><button type=\"button\" class=\"avatar\" id=\"avatar-button\" aria-haspopup=\"true\" aria-expanded=\"false\" aria-controls=\"avatar-menu\" title=\"{HttpUtility.HtmlAttributeEncode(DisplayName)} ({HttpUtility.HtmlAttributeEncode(Login)})\" aria-label=\"Signed in as {HttpUtility.HtmlAttributeEncode(DisplayName)}\">{HttpUtility.HtmlEncode(InitialsOf(DisplayName))}</button>")
             .Append($"<span class=\"avatar-menu\" id=\"avatar-menu\" hidden><span class=\"avatar-menu-name\">{HttpUtility.HtmlEncode(DisplayName)}</span><span class=\"avatar-menu-login\">{HttpUtility.HtmlEncode(Login)}</span>")
             .Append("<a class=\"avatar-menu-item\" href=\"logout.aspx\"><span data-icon=\"logout\"></span>Sign out</a></span></span>")
-            .Append("</div></header><div class=\"menu-backdrop\" id=\"menu-backdrop\"></div>");
+            .Append("</div></header>");
         // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Files, Machines, Orders (the costing
         // sheets and request forms) and More, which opens the rest of the menu over the page (MoreSheet).
         string Tab(string href, string icon, string label, bool selected) =>

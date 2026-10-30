@@ -65,10 +65,6 @@
   };
   drawIcons();
 
-  // Phones and tablets hide the menu links; the menu button in the top bar slides them in over the page.
-  const menuButton = $('#menu-button');
-  const setMenu = open => { document.body.classList.toggle('menu-open', open); menuButton?.setAttribute('aria-expanded', open); };
-  menuButton?.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
   /* On a phone, More in the bottom bar opens the More screen over the page (AppPage.MoreSheet): the person, Install the
      app, the rest of the menu and Sign out. The ×, More again, Escape or the phone's Back close it. */
   const moreButton = $('#more-button'), moreSheet = $('#more-sheet');
@@ -100,10 +96,9 @@
   });
   // Grown wider than a phone (a tablet turned), the menu is in the top bar again.
   matchMedia('(min-width: 901px)').addEventListener?.('change', event => { if (event.matches) setMore(false); });
-  $('#menu-backdrop')?.addEventListener('click', () => setMenu(false));
   const closeNavGroups = target => $$('.nav-group[open]').forEach(group => { if (!group.contains(target)) group.open = false; });
   document.addEventListener('click', event => closeNavGroups(event.target));
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') { setMenu(false); closeNavGroups(null); } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNavGroups(null); });
 
   /** Calls api.ashx; resolves with the JSON answer (its result says whether a change was made); sends people to sign in when needed. */
   async function api(method, path, body) {
@@ -123,8 +118,15 @@
   let toastTimer = 0;
   function toast(message, error = false) {
     let el = $('#toast');
-    if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.append(el); }
-    el.textContent = message;
+    // A glass message at the bottom: a check (or ! for a refusal), the words and OK, which closes it sooner.
+    if (!el) {
+      el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+      el.innerHTML = '<span class="toast-icon" aria-hidden="true"></span><span class="toast-text"></span><button type="button" class="toast-ok">OK</button>';
+      $('.toast-ok', el).addEventListener('click', () => { clearTimeout(toastTimer); el.classList.remove('show'); });
+      document.body.append(el);
+    }
+    $('.toast-text', el).textContent = message;
+    $('.toast-icon', el).innerHTML = error ? '<b>!</b>' : icon('check');
     el.classList.toggle('error', !!error);
     el.classList.add('show');
     clearTimeout(toastTimer);

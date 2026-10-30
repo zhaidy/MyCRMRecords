@@ -58,6 +58,15 @@
     drawIcons(page);
     const later = () => { clearTimeout(timer); filter.skip = 0; timer = setTimeout(load, 400); };
     $('#q').addEventListener('input', event => { filter.q = event.target.value; later(); });
+    // The top bar's search button opens this page at #search: the search box is ready to type in.
+    const focusSearch = () => {
+      if (location.hash !== '#search') return;
+      history.replaceState(history.state, '', location.pathname + location.search);
+      $('#q').focus();
+      $('#q').select();
+    };
+    focusSearch();
+    addEventListener('hashchange', focusSearch);
     $('#postalCode').addEventListener('input', event => { filter.postalCode = event.target.value; later(); });
     $('#customerType').addEventListener('change', event => { filter.customerType = event.target.value; filter.skip = 0; load(); });
     $('#groupName').addEventListener('change', event => { filter.groupName = event.target.value; filter.skip = 0; load(); });

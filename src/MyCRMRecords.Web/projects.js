@@ -47,7 +47,7 @@
         <th class="proj-members">Members</th><th>Owner</th><th class="proj-date">End date</th><th class="proj-updated">Updated</th><th class="proj-closed">Closed</th></tr></thead><tbody>
       ${rows.map(r => `<tr data-href="project.aspx?id=${r.id}"${r.closed ? ' class="closed"' : ''}><td class="co-name"><a href="project.aspx?id=${r.id}">${esc(r.name)}</a></td><td>${esc(r.status)}</td>
         <td>${companies(r)}</td><td>${r.members}${r.caretaker ? ` <span class="muted">· ${esc(r.caretaker)}</span>` : ''}</td><td>${esc(r.owner)}</td>
-        <td class="nowrap">${esc(date(r.endDate))}</td><td>${esc(date(r.updatedDate))}${r.updatedBy ? ` <span class="muted">· ${esc(r.updatedBy)}</span>` : ''}</td>
+        <td class="nowrap">${esc(date(r.endDate))}</td><td><span class="nowrap">${esc(date(r.updatedDate))}</span>${r.updatedBy ? ` <span class="muted">· ${esc(r.updatedBy)}</span>` : ''}</td>
         <td>${r.closed ? '<span class="act-status pending">Closed</span>' : '<span class="muted">–</span>'}</td></tr>`).join('')}</tbody></table>`
       : `<div class="empty"><h3>No projects</h3><p class="muted">No projects match. Try another name or company, or choose All.</p></div>`;
     $('#cards').innerHTML = rows.map(r => `<a class="file-card" href="project.aspx?id=${r.id}"><span class="file-card-body"><span class="file-card-top"><b>${esc(r.name)}</b></span>
