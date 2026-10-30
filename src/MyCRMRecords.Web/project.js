@@ -75,7 +75,7 @@
       + `<div class="table-wrap"><table class="data proj-inner"><thead><tr><th>Company</th><th>BRN</th><th>Salesperson · territory</th><th class="open-col"><span class="sr-only">Remove</span></th></tr></thead><tbody>
       ${d.companies.map(c => `<tr><td><a href="company.aspx?id=${c.id}"><b>${esc(c.name)}</b></a>${c.active ? '' : ' <span class="pill warn">Inactive</span>'}</td><td>${esc(c.brn)}</td>
         <td>${c.salesperson ? esc(c.salesperson) + ` <span class="muted">· ${esc(c.territory)}</span>` : '<span class="muted">No salesperson</span>'}</td>
-        <td class="open-col">${can ? `<button type="button" class="button secondary small-btn" data-remove-company="${c.id}" aria-label="Remove ${esc(c.name)} from the project">Remove</button>` : ''}</td></tr>`).join('')}
+        <td class="open-col">${can ? `<button type="button" class="text-button danger" data-remove-company="${c.id}" aria-label="Remove ${esc(c.name)} from the project">Remove</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>`;
   }
 
@@ -86,7 +86,7 @@
       ${d.members.map(m => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.roleLabel)}</td>
         <td>${m.isOwner ? '<span class="muted">Project Manager: none needed</span>' : m.reached.length ? `<span class="act-status done">${plural(m.reached.length, 'company', 'companies')}</span> <span class="muted small">${esc(m.reached.join(', '))}</span>`
           : `<span class="muted">${d.project.open ? 'Has own territory' : 'None (project not open)'}</span>`}</td>
-        <td class="open-col">${d.can.members && !m.isOwner ? `<button type="button" class="button secondary small-btn" data-remove-member="${m.id}" aria-label="Remove ${esc(m.name)} from the project">Remove</button>` : ''}</td></tr>`).join('')}
+        <td class="open-col">${d.can.members && !m.isOwner ? `<button type="button" class="text-button danger" data-remove-member="${m.id}" aria-label="Remove ${esc(m.name)} from the project">Remove</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div><p class="muted small proj-note">Temporary territories are taken away when the project closes or ends. Projects past their end date close automatically each morning.</p>`;
   }
 

@@ -33,17 +33,25 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 
 ## Finding your way around
 
-The menu is in the top bar. When you scroll down a page the menu folds to the page you are on and the bar shows the
-page's title; scroll up a little and the whole menu comes back. Click your initials at the right of the bar to see who
-you are signed in as, and **Sign out**.
+The menu is at the top left of every page: **MyCRMRecords** (back to the companies), then the pages your role opens.
+When you scroll down a page the menu folds to the page you are on and the page's title shows beside it; scroll up a
+little and the whole menu comes back. At the top right are four round buttons:
+
+- the magnifying glass opens the **Companies** page with the cursor in its search box, ready to type a name or BRN;
+- **?** opens this guide beside the page, at the part about that page;
+- **Install app** (see [Using MyCRMRecords on a phone](#using-mycrmrecords-on-a-phone));
+- your initials: click them to see who you are signed in as, and **Sign out**.
+
+On a narrower screen the buttons keep only their icons.
 
 Above the title of a record's page (a company, a costing sheet, a request form, a territory, a machine, a project) is the
 way you came, for example **Costing sheets › Costing Sheet # 23052 › TRUE COLOURS PRINT HOUSE PTE. LTD.**: click any
 step to go back to it (a company opens again on the tab you were on). Choosing a page in the menu starts the way again;
 a page you open from a link or a bookmark shows its usual list instead (**Companies › …**). On a phone only the step
-back is shown, as the round back button at the left of the top bar.
+back is shown, as the round back button at the top left of the screen.
 
-Forms and questions open in a window over the page. Its title is in the middle; the round **×** at the left closes it
+Forms and questions open in a window at the top of the page (on a phone, a sheet that slides up from the bottom).
+Its title is in the middle; the round **×** at the left closes it
 without saving (so does the Esc key); the button at the right does what the window is for, for example **Save**,
 **Create territory**, **Save changes** or **Take away** (red when it takes something away). When something cannot be
 saved, the window stays open, says why under the form and marks the fields to correct.
@@ -59,21 +67,22 @@ them), **Machines** (Machine access, for Sales Admins) and **App** (User guide, 
 Settings, Deployment and Audit log, marked **Admin**). **Sign out** is at the bottom. The round **×** at the top left,
 **More** again or the phone's Back closes it.
 
-On a record's page (a company, a territory, a project, a machine…) the round back button at the left of the top bar
-goes back the way you came (in a company's section, back to the company). Once you scroll past a page's large title,
-the title shows in the middle of the top bar.
+On a phone there is no bar at the top: the page starts with its large title. On a record's page (a company, a
+territory, a project, a machine…) the round back button at the top left goes back the way you came (in a company's
+section, back to the company), and the page's buttons (for example print and edit on a company) float at the top right,
+as icons. Once you scroll past a page's large title, the title shows at the top of the screen. The user guide, Install
+the app, your name and **Sign out** are on the **More** screen.
 
 On Territories, Activities, Projects and a company's page, the round **+** beside the bottom bar is the page's create
 button: **New territory**, **New activity** or **Create project**.
 
 To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
 
-- **On a computer**: click **Install app** in the top bar. Scan the QR code with your phone's camera, sign in on the
+- **On a computer**: click **Install app** at the top right of the page. Scan the QR code with your phone's camera, sign in on the
   phone, then install it there as below. When your browser can, **Install on this computer** at the top right of the
   window installs MyCRMRecords on the computer too.
-- **On an Android phone**: tap the install button (the phone with an arrow) in the top bar, or **Install** on the
-  **More** screen, then **Install**.
-- **On an iPhone**: tap the install button (or **Install** on the **More** screen) for the steps: in Safari, tap
+- **On an Android phone**: tap **Install** on the **More** screen, then **Install**.
+- **On an iPhone**: tap **Install** on the **More** screen for the steps: in Safari, tap
   **Share**, then **Add to Home Screen**.
 
 The button is not shown once MyCRMRecords runs as the installed app (the **More** screen then says **Installed**). The phone needs the office network or the VPN,

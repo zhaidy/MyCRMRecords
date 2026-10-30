@@ -521,7 +521,7 @@
       const open = openContacts.has(p.id);
       const phone = p.phones[0], email = p.emails[0];
       return `<div class="contact-item${open ? ' open' : ''}"><div class="contact-row">
-          <button type="button" class="icon-button small contact-toggle" data-toggle-contact="${p.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} details of ${esc(p.name)}"><span data-icon="arrow-right"></span></button>
+          <button type="button" class="icon-button small contact-toggle" data-toggle-contact="${p.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} details of ${esc(p.name)}"><span data-icon="chevron-right"></span></button>
           <span class="contact-name"><b>${esc(p.name)}</b>${p.isDefault ? ' <span class="pill">Primary</span>' : ''}</span>
           <span class="contact-role muted">${esc([p.designation, p.department].filter(Boolean).join(' · ')) || '–'}</span>
           <span class="contact-phone">${phone ? esc(phone.number) + (p.phones.length > 1 ? ` <span class="muted small">+${p.phones.length - 1}</span>` : '') : '<span class="muted">–</span>'}</span>

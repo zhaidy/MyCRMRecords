@@ -19,42 +19,15 @@ svg{width:18px;height:18px;display:block;stroke:currentColor;stroke-width:2;fill
 [hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
-/* Top bar: brand, menu links, then the guide and the signed-in person */
-.appbar{position:sticky;top:0;z-index:30;height:72px;display:flex;align-items:center;gap:28px;padding:0 36px;border-bottom:1px solid var(--line);background:var(--card)}
 .brand{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.1;color:var(--ink);flex:none}
 .brand-mark{display:flex;align-items:center;justify-content:center;color:var(--accent);width:32px;height:32px;flex:none}
 .brand-mark svg{width:30px;height:30px}
-.sidebar{display:flex;align-items:stretch;gap:6px;height:100%}
-.nav-item{position:relative;display:flex;align-items:center;gap:9px;border:0;background:none;padding:0 12px;color:var(--ink-2);font-size:15px;font-weight:600;white-space:nowrap}
-.nav-item svg{width:18px;height:18px}
-.nav-item:hover{color:var(--accent)}
-.nav-item.selected{color:var(--ink);font-weight:700}
-.nav-item.selected:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--accent)}
-.nav-group{position:relative;display:flex}
-.nav-group>summary{list-style:none;cursor:pointer;user-select:none}
-.nav-group>summary::-webkit-details-marker{display:none}
-.nav-caret{width:7px;height:7px;margin-left:1px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
-.nav-group[open] .nav-caret{transform:translateY(2px) rotate(-135deg)}
-.nav-menu{position:absolute;top:calc(100% + 1px);right:0;min-width:230px;display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--card);border:1px solid var(--border);border-radius:0 0 14px 14px;box-shadow:0 14px 30px rgba(20,30,70,.14);z-index:31}
-.nav-menu .nav-item{padding:10px 12px;border-radius:10px}
-.nav-menu .nav-item:hover{background:var(--accent-tint)}
-.nav-menu .nav-item.selected{background:var(--accent-light);color:var(--accent-dark)}
-.nav-menu .nav-item.selected:after{display:none}
-.appbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:var(--ink);min-width:0}
-.appbar-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-.avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-light);color:var(--accent);font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none}
-.sign-out,.help-button{display:inline-flex;padding:7px;border-radius:50%;color:var(--ink-2)}
-.sign-out:hover,.help-button:hover{background:var(--surface-2);color:var(--accent)}
-.help-button svg{width:20px;height:20px}
-.help-button.selected,.help-button[aria-expanded=true]{background:var(--accent-light);color:var(--accent)}
 .impersonation-bar{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:10px 36px;background:var(--yellow-bg);color:var(--yellow-fg);border-bottom:1px solid var(--yellow-border);font-size:14.5px;font-weight:600}
 .impersonation-bar strong{color:var(--yellow-strong)}
 .warning-bar{background:var(--error-bg);color:var(--red);border-color:var(--error-border)}
 .icon-button{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:var(--control);border:1.5px solid var(--border);border-radius:50%;color:var(--ink);flex:none}
 .icon-button:hover{background:var(--surface-2);border-color:var(--field);color:var(--accent)}
 .icon-button.danger:hover{color:var(--red);border-color:var(--error-border)}
-/* After .icon-button: the menu button shows only on narrow screens (the media query below). */
-.menu-button,.menu-backdrop{display:none}
 
 /* Page */
 main{max-width:1500px;margin:auto;padding:30px 36px 60px}
@@ -281,20 +254,6 @@ pre.log{font:12.5px/1.5 Consolas,monospace;background:var(--surface-2);border-ra
 .login-submit{width:100%;height:46px;margin-top:8px}
 
 @media(max-width:900px){
-.appbar{gap:12px;padding:0 16px;height:64px}
-.appbar-name{display:none}
-.sidebar{display:none}
-.menu-button{display:inline-flex}
-body.menu-open{overflow:hidden}
-body.menu-open .appbar{z-index:41}
-body.menu-open .sidebar{display:flex;flex-direction:column;align-items:stretch;gap:4px;position:fixed;inset:0 auto 0 0;height:auto;width:min(290px,85vw);padding:24px 14px;background:var(--card);z-index:40;box-shadow:4px 0 30px rgba(20,30,70,.2);overflow-y:auto}
-body.menu-open .nav-item{padding:12px 14px;border-radius:12px}
-body.menu-open .nav-item.selected{background:var(--accent-light);color:var(--accent-dark)}
-body.menu-open .nav-item.selected:after{display:none}
-body.menu-open .nav-group{flex-direction:column}
-body.menu-open .nav-caret{margin-left:auto;margin-right:4px}
-body.menu-open .nav-menu{position:static;min-width:0;padding:2px 0 0 16px;border:0;border-radius:0;box-shadow:none}
-body.menu-open .menu-backdrop{display:block;position:fixed;inset:0;background:rgba(24,33,61,.45);z-index:39}
 main{padding:20px 16px 50px}
 .impersonation-bar{padding:10px 16px}
 .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -307,19 +266,9 @@ h1{font-size:25px}
 .form-grid,.form-grid.two,.facts{grid-template-columns:minmax(0,1fr)}
 .form-grid .half,.facts .half{grid-column:1/-1}
 .card{padding:16px}
-.brand span:last-child{display:none}
 }
 
 /* User guide: guide.aspx, and the panel the ? button opens beside every other page (guide.js); as in MyAllocation */
-.help-button{display:inline-flex;padding:7px;border-radius:50%;color:var(--ink-2)}
-.help-button svg{width:20px;height:20px}
-.help-button:hover{background:var(--surface-2);color:var(--accent)}
-.help-button.selected,.help-button[aria-expanded=true]{background:var(--accent-light);color:var(--accent)}
-/* Room for it in the top bar: below 1700px wide (1400px before the Files page joined the menu, 1560px before Machines) the menu drops its icons and Reset sample data its words (as they already
-   did below 1150px), and the brand its name while the whole menu is in the bar */
-@media(min-width:1151px) and (max-width:1700px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
-@media(min-width:901px) and (max-width:1150px){.brand>span:last-child{display:none}.appbar{gap:12px}.sidebar>.nav-item svg,.nav-group>.nav-item svg{display:none}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 8px;font-size:14px}}
-@media(min-width:901px) and (max-width:1000px){.appbar-name{display:none}}
 .guide-main{max-width:1240px}
 .guide-lead{margin:6px 0 0;color:var(--ink-2);font-size:15.5px}
 .guide-layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:24px;align-items:start}
@@ -491,7 +440,7 @@ table.data tr:last-child{border-bottom:0}
    On a phone the menu moves to a floating bar at the bottom (AppPage.TopBar: .tabbar), whose More opens the rest of
    the menu as a sheet. Text is the device's own font (SF Pro on Apple devices, Segoe UI on Windows, Roboto on Android). */
 :root{--bg:#f2f2f7;--card:#fff;--raised:#fff;--surface:#f7f8fb;--surface-2:#eef0f4;--glass:#fff;--control:#fff;--ink:#111114;--ink-2:#5b5f69;--muted:#6b7080;--placeholder:#8a8f9a;--line:rgba(60,60,67,.13);--border:rgba(60,60,67,.18);--border-soft:rgba(60,60,67,.09);--field:rgba(60,60,67,.28);--secondary-border:rgba(0,0,0,.12);--accent:#0a58f0;--accent-dark:#0847c4;--accent-light:rgba(10,88,240,.12);--accent-tint:rgba(10,88,240,.06);--accent-border:rgba(10,88,240,.3);--focus:#0a58f0;--control-solid:#0a58f0;--on-control-solid:#fff;--row-tint:rgba(10,88,240,.04);--teal:#0d9488;--coral:#f2675a;--chart-ok:#0d9488;--chart-over:#f2675a;
-  --glass-rgb:248,248,252;--glass-opacity:.45;--glass-blur:24px;--glass-saturate:180%;--rim:rgba(0,0,0,.12);--spec:rgba(255,255,255,.95);--spec-rim:rgba(255,255,255,.55);--glass-fg:#0b0b0f;--glass-shadow:0 10px 30px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);--scrim:rgba(0,0,0,.22)}
+  --glass-rgb:248,248,252;--glass-opacity:.36;--glass-blur:24px;--glass-saturate:180%;--rim:rgba(0,0,0,.12);--spec:rgba(255,255,255,.95);--spec-rim:rgba(255,255,255,.55);--glass-fg:#0b0b0f;--glass-shadow:0 10px 30px rgba(0,0,0,.14),0 1px 3px rgba(0,0,0,.10);--scrim:rgba(0,0,0,.22)}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--raised:#2c2c2e;--surface:#232326;--surface-2:#2c2c2e;--glass:#1c1c1e;--control:#2c2c2e;--ink:#f5f5f7;--ink-2:#a1a1aa;--muted:#8e8e96;--placeholder:#7c7c84;--line:rgba(235,235,245,.13);--border:rgba(235,235,245,.18);--border-soft:rgba(235,235,245,.08);--field:rgba(235,235,245,.24);--secondary-border:rgba(255,255,255,.16);--accent:#3d82ff;--accent-dark:#7aa8ff;--accent-light:rgba(61,130,255,.2);--accent-tint:rgba(61,130,255,.1);--accent-border:rgba(61,130,255,.4);--focus:#3d82ff;--control-solid:#3d82ff;--on-control-solid:#fff;--row-tint:rgba(255,255,255,.03);--teal:#2dd4bf;--coral:#ff8a7e;--chart-ok:#2dd4bf;--chart-over:#ff8a7e;
   --glass-rgb:44,44,48;--rim:rgba(255,255,255,.16);--spec:rgba(255,255,255,.42);--spec-rim:rgba(255,255,255,.18);--glass-fg:#fff;--glass-shadow:0 10px 30px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);--scrim:rgba(0,0,0,.5)}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--glass-opacity:.94}}
@@ -500,10 +449,10 @@ h1{font-size:34px;font-weight:800;letter-spacing:-.025em}
 h2{letter-spacing:-.01em;font-weight:700}
 
 /* The glass material, and its uses */
-.appbar,.nav-menu,.install-button,.tabbar,.search-box,.toolbar select,.tabs,.button.secondary,.button.primary,.button.danger-btn,.icon-button,dialog,.toast,.help-button,.sign-out,body.menu-open .sidebar{background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow);color:var(--glass-fg)}
+.appbar-menu,.appbar-search,.appbar .avatar,.appbar-back,.nav-menu,.install-button,.tabbar,.search-box,.toolbar select,.tabs,.button.secondary,.button.primary,.button.danger-btn,.icon-button,dialog,.toast,.help-button{background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow);color:var(--glass-fg)}
 .button.primary{background-color:color-mix(in srgb,var(--accent) 86%,transparent);color:#fff;border-color:rgba(0,0,0,.16)}
 .button.primary:hover:not(:disabled){background-color:var(--accent);border-color:rgba(0,0,0,.2)}
-.button.secondary:hover:not(:disabled),.icon-button:hover,.help-button:hover,.sign-out:hover{background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .25));border-color:var(--rim);color:var(--glass-fg)}
+.button.secondary:hover:not(:disabled),.icon-button:hover,.help-button:hover,.appbar-search:hover,.appbar .avatar:hover{background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .25));border-color:var(--rim);color:var(--glass-fg)}
 .button.danger-btn{color:var(--red)}
 .button,.icon-button,.install-button,.tab,.tab-item{transition:transform .42s cubic-bezier(.34,1.56,.64,1),background-color .2s,box-shadow .2s,filter .2s}
 .button:hover:not(:disabled),.icon-button:hover,.install-button:hover{transform:scale(1.03)}
@@ -512,21 +461,6 @@ h2{letter-spacing:-.01em;font-weight:700}
 .button.small-btn{height:36px}
 .icon-button{width:44px;height:44px}
 
-/* Top bar: a floating glass capsule */
-.appbar{position:sticky;top:12px;margin:12px 16px 0;height:60px;gap:16px;padding:0 8px 0 16px;border-radius:30px}
-.sidebar{align-items:center;gap:2px}
-.nav-item{height:44px;padding:0 14px;border-radius:22px;font-weight:500;color:var(--glass-fg)}
-.nav-item:hover{color:var(--accent);background:rgba(var(--glass-rgb),.4)}
-.nav-item.selected{color:var(--accent);font-weight:700;background:rgba(var(--glass-rgb),.65);box-shadow:inset 0 0 0 1px var(--spec-rim)}
-.nav-item.selected:after{display:none}
-.nav-menu{top:calc(100% + 10px);border-radius:24px;padding:8px}
-.nav-menu .nav-item{border-radius:16px}
-.nav-menu .nav-item.selected{background:var(--accent-light)}
-.appbar-right{gap:8px}
-.help-button,.sign-out{padding:0;width:44px;height:44px;align-items:center;justify-content:center}
-.avatar{width:44px;height:44px;background:var(--accent-light)}
-.install-button{display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 16px;border-radius:22px;font-weight:600;font-size:14.5px;white-space:nowrap;cursor:pointer}
-.install-button svg{width:18px;height:18px}
 .impersonation-bar{margin:10px 16px 0;border-radius:18px;border:1px solid var(--yellow-border)}
 .warning-bar{border-color:var(--error-border)}
 main{padding-top:28px}
@@ -664,10 +598,6 @@ svg.qr path{fill:#000;stroke:none}
 /* The phone's bottom bar: hidden on wider screens */
 .tabbar{display:none}
 @media(max-width:900px){
-.appbar{top:8px;margin:8px 12px 0;height:56px;border-radius:28px;padding:0 6px 0 14px}
-.menu-button{display:none}
-.install-label{display:none}
-.install-button{width:44px;padding:0;justify-content:center}
 main{padding:20px 16px calc(120px + env(safe-area-inset-bottom))}
 h1{font-size:30px}
 .impersonation-bar{margin:8px 12px 0}
@@ -676,13 +606,6 @@ h1{font-size:30px}
 .tab-item{flex:1 1 0;min-width:0;height:54px;border:0;border-radius:27px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--glass-fg);font:inherit;font-size:10.5px;font-weight:600;cursor:pointer}
 .tab-item svg{width:24px;height:24px}
 .tab-item.selected{color:var(--accent);font-weight:700;background:rgba(var(--glass-rgb),.55);box-shadow:inset 0 0 0 1px var(--spec-rim)}
-/* A blurred top bar would hold the sheet inside it (backdrop-filter makes fixed children relative to it): while the
-   sheet is open the bar is a plain see-through colour. */
-body.menu-open .appbar{-webkit-backdrop-filter:none;backdrop-filter:none;background-color:rgba(var(--glass-rgb),.92)}
-body.menu-open .sidebar{inset:auto 8px calc(8px + env(safe-area-inset-bottom)) 8px;width:auto;max-height:78vh;overflow:auto;padding:14px 12px 18px;border-radius:34px;z-index:42}
-body.menu-open .sidebar:before{content:"";display:block;align-self:center;width:38px;height:5px;margin:0 0 8px;border-radius:3px;background:var(--rim);flex:none}
-body.menu-open .nav-item{height:52px;border-radius:16px;font-size:16px}
-body.menu-open .menu-backdrop{background:var(--scrim);z-index:40}
 .toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 }
 @media(max-width:560px){.install-qr-row{flex-direction:column}}
@@ -1016,11 +939,6 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
 .terr-results .terr-table tr.leaving td,.terr-results .terr-table tr.ticked td{background:none;box-shadow:none}
 .terr-results .terr-table tr.ticked{background:var(--accent-tint)}
 }
-/* With Machines in the menu, a Sales Admin's or administrator's whole menu needs more room: below 1480px the brand keeps
-   only its mark, Install app only its icon, and the menu's links come closer */
-@media(min-width:901px) and (max-width:1480px){.brand>span:last-child{display:none}.install-label{display:none}.install-button{width:44px;padding:0;justify-content:center}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 10px}}
-@media(min-width:901px) and (max-width:1250px){.appbar{gap:8px}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 7px;font-size:14px}.appbar-name{display:none}}
-@media(min-width:901px) and (max-width:1000px){.sidebar>.nav-item,.nav-group>.nav-item{padding:0 5px;font-size:13px}.appbar{gap:4px}.help-button,.sign-out{width:38px}}
 
 /* The Machines pages (machines.js, machine.js, machineaccess.js) and a company's Machines tab: Advance's machines, read only */
 .tag.coverage{padding:2px 10px;font-size:12px}
@@ -1407,9 +1325,6 @@ dialog.users-panel{inset:0;width:100vw;max-width:none;height:100%;border-radius:
 /* ==== Activities and Projects (activities.js, activityform.js, projects.js, project.js) and a company's Activities,
    Prospects and Projects tabs: MyCRM's activities and projects. The status tags, the activity panel (a glass dialog with
    solid cards inside), the month calendar, the project's sections. Two more menu links: the menu compacts sooner. ==== */
-@media(min-width:901px) and (max-width:1640px){.brand>span:last-child{display:none}.install-label{display:none}.install-button{width:44px;padding:0;justify-content:center}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 9px}}
-@media(min-width:901px) and (max-width:1420px){.appbar{gap:8px}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 6px;font-size:14px}.appbar-name{display:none}.sidebar .nav-item>[data-icon]{display:none}}
-@media(min-width:901px) and (max-width:1120px){.sidebar>.nav-item,.nav-group>.nav-item{padding:0 4px;font-size:12.5px}.appbar{gap:4px}.help-button,.sign-out{width:36px}}
 .act-status{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap}
 .act-status.done{background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
 .act-status.late{background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral)}
@@ -1569,21 +1484,6 @@ table.data.proj-table tr.closed td{color:var(--muted)}
 }
 @media(max-width:560px){.act-dates{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.act-owner{flex-direction:column;align-items:stretch}}
 
-/* ==== Top bar while scrolling, the person's menu and the breadcrumb (2026-10-30, the design's shell) ====
-   Scrolling down folds the menu to the page you are on and shows the page's title in the bar (common.js: body.bar-compact);
-   scrolling up opens it again. Once the page scrolls, a blurred band keeps what passes under the bar readable. */
-.sidebar>.nav-item,.sidebar>.nav-group{max-width:220px;transition:max-width .42s cubic-bezier(.34,1.2,.64,1),opacity .25s,padding .3s}
-.appbar-title{flex:1 1 auto;min-width:0;font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--glass-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s}
-@media(min-width:901px){
-  body.bar-compact .sidebar>.nav-item:not(.selected),body.bar-compact .sidebar>.nav-group:not(:has(>.nav-item.selected)){overflow:hidden;max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
-  body.bar-compact .appbar-title{opacity:1}
-  body.bar-compact .nav-group[open]{max-width:none}
-  body.bar-compact .install-button .install-label{display:none}
-  body:not(.bar-compact) .appbar-title{flex:0 0 0;width:0}
-}
-body:before{content:"";position:fixed;top:0;left:0;right:0;height:84px;z-index:18;pointer-events:none;background:color-mix(in srgb,var(--bg) 55%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent);mask-image:linear-gradient(to bottom,#000 70%,transparent);opacity:0;transition:opacity .25s}
-body.bar-scrolled:before{opacity:1}
-@media print{body:before{display:none}}
 
 /* The person's menu, behind the avatar */
 .avatar-wrap{position:relative;display:inline-flex}
@@ -1922,20 +1822,6 @@ body.more-open .tabbar{z-index:38}
 .more-signout .more-tile{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
 .more-foot{margin:0;text-align:center;font-size:13px;color:var(--ink-2)}
 
-/* The phone's top bar: the round glass back button (the breadcrumb's step back, common.js #appbar-back) in place of the
-   brand, and the page's title in the middle once its large title has scrolled away (body.bar-titled). */
-.appbar-back{display:none}
-@media(max-width:900px){
-  body.has-back .appbar-back{display:grid;place-items:center;flex:none;border-radius:22px;color:var(--glass-fg)}
-  body.has-back .appbar-back svg{width:20px;height:20px;stroke-width:2.3}
-  body.has-back .appbar{padding-left:6px}
-  body.has-back .brand{display:none}
-  body.has-back main .crumbs{display:none}
-  body.has-back #page.in-section .section-back{display:none}
-  .appbar-title{text-align:center;padding:0 4px}
-  body.bar-titled .appbar-title{opacity:1}
-  body.bar-titled:not(.has-back) .brand>span:last-child{display:none}
-}
 
 /* The page's create button (.phone-fab: New territory, New activity, Create project): on a phone a round accent "+"
    floating beside the bottom bar, which makes room for it (body.has-fab, common.js). */
@@ -1951,3 +1837,244 @@ body.more-open .tabbar{z-index:38}
 .act-panel-in.install-modal{width:auto}
 .more-install .more-who>span{white-space:normal}
 @media(max-width:900px){body.more-open.has-fab .tabbar{right:14px}}
+
+/* ==== Visual parity with the designs (2026-10-30): the shell, type, flat content controls, tables, tags, toasts,
+   dialogs and the phone ====
+   Top bar: no glass of its own; separate glass pieces float over the page, which shows between them: the menu capsule
+   (the brand, always named, then the pages, no icons), then the search (the Companies page's search box), the user guide,
+   Install app and the person. Narrower screens shrink the pieces (labels become icons) rather than overflow. On a phone
+   there is no top bar: the step back floats at the top left, the page's actions at the top right, the menu is the bottom
+   bar and the rest is in More. Content is solid: what sits in a card, a table or a dialog's body is flat (soft or plain
+   buttons, icon buttons without a rim, red text for what takes away); only what floats is glass. */
+.appbar{position:sticky;top:16px;z-index:30;display:flex;align-items:center;gap:12px;height:56px;margin:16px 24px 0;padding:0;background:none;border:0;box-shadow:none;pointer-events:none}
+.appbar>*{pointer-events:auto}
+.appbar-menu{flex:0 1 auto;min-width:0;height:56px;display:flex;align-items:center;gap:2px;padding:6px;border-radius:28px}
+.appbar .brand{flex:none;height:44px;padding:0 12px 0 8px;border-radius:22px;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--glass-fg);white-space:nowrap}
+.appbar .brand-mark{width:28px;height:28px;border-radius:14px;background:var(--accent);color:#fff}
+.appbar .brand-mark svg{width:16px;height:16px;stroke-width:2.2}
+.sidebar{display:flex;align-items:center;gap:2px;min-width:0;height:auto}
+.nav-item{position:relative;flex:none;height:44px;display:flex;align-items:center;gap:6px;padding:0 11px;border:0;border-radius:22px;background:none;font-size:14px;font-weight:500;color:var(--glass-fg);white-space:nowrap}
+.nav-item:hover{color:var(--accent);background:rgba(var(--glass-rgb),.4)}
+.nav-item.selected{color:var(--accent);font-weight:700;background:rgba(var(--glass-rgb),.6);box-shadow:inset 0 0 0 1px var(--spec-rim)}
+.nav-group{position:relative;display:flex}
+.nav-group>summary{list-style:none;cursor:pointer;user-select:none}
+.nav-group>summary::-webkit-details-marker{display:none}
+.nav-caret{width:7px;height:7px;margin-left:2px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.nav-group[open] .nav-caret{transform:translateY(2px) rotate(-135deg)}
+.nav-menu{position:absolute;top:calc(100% + 12px);left:0;min-width:220px;display:flex;flex-direction:column;gap:2px;padding:8px;border-radius:24px;z-index:31;background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .5))}
+.nav-menu .nav-item{height:44px;padding:0 14px;border-radius:16px;font-size:15px}
+.nav-menu .nav-item.selected{background:var(--accent-light);box-shadow:none}
+.appbar-right{margin-left:auto;flex:none;display:flex;align-items:center;gap:12px}
+.appbar-search,.help-button,.appbar .avatar{flex:none;width:48px;height:48px;padding:0;border-radius:24px;display:grid;place-items:center;color:var(--glass-fg)}
+.appbar-search svg{width:19px;height:19px;stroke-width:2.2}
+.help-button svg{width:20px;height:20px}
+.help-button.selected,.help-button[aria-expanded=true]{color:var(--accent);background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .3))}
+.install-button{flex:none;display:inline-flex;align-items:center;gap:7px;height:48px;padding:0 16px;border-radius:24px;font:inherit;font-size:15px;font-weight:600;white-space:nowrap;cursor:pointer}
+.install-button svg{width:18px;height:18px}
+.appbar .avatar{font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.appbar .avatar:hover,.appbar .avatar[aria-expanded=true]{color:var(--accent)}
+.appbar-back{display:none}
+.appbar-search:hover,.help-button:hover,.appbar .avatar:hover,.appbar .install-button:hover{transform:scale(1.05)}
+.appbar-search,.help-button,.appbar .avatar{transition:transform .42s cubic-bezier(.34,1.56,.64,1),background-color .2s}
+.impersonation-bar{margin:12px 24px 0;border-radius:18px;border:1px solid var(--yellow-border)}
+.warning-bar{border-color:var(--error-border)}
+/* Scrolling down folds the menu to the page you are on, with the page's title beside it (common.js: body.bar-compact);
+   scrolling up opens it again. Once the page scrolls, a blurred band keeps what passes under the pieces readable. */
+.sidebar>.nav-item,.sidebar>.nav-group{max-width:200px;transition:max-width .42s cubic-bezier(.34,1.2,.64,1),opacity .25s,padding .3s}
+.appbar-title{flex:1 1 auto;min-width:0;font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s;pointer-events:none}
+@media(min-width:901px){
+  body.bar-compact .sidebar>.nav-item:not(.selected),body.bar-compact .sidebar>.nav-group:not(:has(>.nav-item.selected)){overflow:hidden;max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
+  body.bar-compact .appbar-title{opacity:1}
+  body.bar-compact .nav-group[open]{max-width:none}
+  body:not(.bar-compact) .appbar-title{flex:0 0 0;width:0}
+}
+body:before{content:"";position:fixed;top:0;left:0;right:0;height:96px;z-index:18;pointer-events:none;background:color-mix(in srgb,var(--bg) 55%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent);mask-image:linear-gradient(to bottom,#000 70%,transparent);opacity:0;transition:opacity .25s}
+body.bar-scrolled:before{opacity:1}
+@media print{body:before{display:none}.appbar{display:none}}
+/* Narrower screens: the menu's links come closer, then the pieces keep only their icons. */
+@media(min-width:901px) and (max-width:1520px){.nav-item{padding:0 9px}.appbar .brand{padding-right:8px}.appbar{margin-left:20px;margin-right:20px}}
+@media(min-width:901px) and (max-width:1380px){.install-label{display:none}.install-button{width:48px;padding:0;justify-content:center}}
+@media(min-width:901px) and (max-width:1340px){.appbar{gap:8px;margin-left:16px;margin-right:16px}.appbar-right{gap:8px}.appbar .brand>span:last-child{display:none}.appbar .brand{padding:0 8px}.nav-item{padding:0 8px;font-size:13.5px}.appbar-search,.help-button,.appbar .avatar,.install-button{width:44px;height:44px}}
+@media(min-width:901px) and (max-width:1080px){.nav-item{padding:0 6px;font-size:13px}.appbar-menu{padding:4px;height:52px}.nav-item{height:40px}.appbar .brand{height:40px;padding:0 6px}.appbar-search{display:none}.appbar-right{gap:6px}.appbar-search,.help-button,.appbar .avatar,.install-button{width:40px;height:40px}}
+@media(min-width:901px) and (max-width:980px){.nav-item{padding:0 5px;font-size:12.5px}.install-button{display:none}}
+
+/* The page: 1280px of content (1360px less 40px each side), 22px between its parts */
+main{max-width:1360px;margin:0 auto;padding:32px 40px 96px}
+.admin-main{max-width:1080px}
+.page-heading{margin-bottom:22px}
+
+/* Type: 16px rows, fields and subtitles; every page's title 40px (32px on a phone) */
+body{font-size:16px;line-height:1.45}
+h1{font-size:40px;line-height:1.08;font-weight:800;letter-spacing:-.03em}
+.page-heading p,.page-heading .company-info{font-size:16px}
+.field input,.field select,.field textarea,.field-value{font-size:16px}
+.field select{font-weight:500}
+dl.facts dt,.fact-label{font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-2);margin-bottom:2px}
+dl.facts dd{font-size:16px}
+
+/* Buttons that float (page actions, filters): 46px, the main one accent */
+.button{height:46px;padding:0 20px;border-radius:23px;font-size:15px;font-weight:600}
+.button.primary{font-weight:700;background-color:color-mix(in srgb,var(--accent) 82%,transparent);border-color:rgba(0,0,0,.18)}
+.button.small-btn{height:36px;padding:0 15px;border-radius:18px;font-size:14px}
+/* In content (cards, tables, list cards, a dialog's body) buttons are flat: soft (accent tint) for what adds or
+   changes, solid accent for the main one, icon buttons without a rim, red words for what takes away. */
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty,.stat-tile,.section-list) :is(.button,.icon-button,.text-button){-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none;transform:none}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button{height:36px;padding:0 14px;border:0;border-radius:18px;font-size:14px;font-weight:600;gap:6px}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button svg{width:15px;height:15px;stroke-width:2.3}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.secondary{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.secondary:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);transform:none}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.secondary.plain,.button.btn-plain{background:var(--surface);color:var(--ink)}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.primary{background:var(--accent);color:#fff}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.primary:hover:not(:disabled){background:var(--accent-dark);transform:none}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.danger-btn{background:none;color:var(--red);padding:0 10px}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .button.danger-btn:hover:not(:disabled){background:color-mix(in srgb,var(--red) 10%,transparent);transform:none}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .icon-button{width:36px;height:36px;border:0;border-radius:18px;background:transparent;color:var(--ink-2)}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .icon-button:hover{background:var(--surface);color:var(--accent);transform:none}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .icon-button.danger,.icon-button.danger:hover{color:var(--red)}
+:is(.card,.table-wrap,table.data,.dlg-card,.act-panel-body,.file-card,.empty) .icon-button svg{width:17px;height:17px}
+.button.soft{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.text-button.danger,.text-button.remove{color:var(--red);font-weight:600}
+/* Segmented choices inside content: flat on the card's tint, the chosen one an accent pill */
+:is(.card,.table-wrap,.dlg-card,.act-panel-body) .tabs{padding:3px;gap:2px;border:0;border-radius:18px;background:var(--surface);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+:is(.card,.table-wrap,.dlg-card,.act-panel-body) .tab{height:30px;padding:0 12px;border-radius:15px;font-size:13px;color:var(--ink)}
+
+/* Tabs and filters that float: 44px capsules with 36px choices; counts are plain numbers */
+.tabs{padding:4px;gap:2px;border-radius:22px}
+.tab{height:36px;padding:0 16px;border-radius:18px;font-size:14px;gap:6px}
+.count,.tab .count{background:none;color:var(--ink-2);padding:0;min-width:0;border-radius:0;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.tab[aria-selected=true] .count,.tab[aria-pressed=true] .count{background:none;color:rgba(255,255,255,.8)}
+.count.hot{background:var(--red);color:#fff;padding:0 7px;border-radius:999px;font-weight:700}
+.company-tabs.tabs{padding:4px}
+.company-tabs .tab{height:40px;padding:0 14px}
+.search-box{padding:0 18px;height:48px;border-radius:24px}
+.search-box input{font-size:16px;font-weight:400}
+
+/* Tables and list cards: rows to the card's edges, a 13px header row, 16px rows */
+.data th{padding:14px 12px;font-size:13px;font-weight:600;color:var(--ink-2);text-transform:none;letter-spacing:0}
+.data td{height:52px;padding:8px 12px;font-size:16px;vertical-align:middle}
+.data :is(th,td):first-child{padding-left:24px}
+.data :is(th,td):last-child{padding-right:24px}
+table.data{font-size:16px}
+.data a.row-link,.data td a.row-link{font-size:16px;font-weight:600;color:var(--accent)}
+.data .sub,.data td .sub{font-size:14px}
+.card>.table-wrap,.card>table.data,.card>.card-table{margin-left:-24px;margin-right:-24px;width:calc(100% + 48px);border-radius:0;background:none}
+.card>.table-wrap:last-child,.card>table.data:last-child{margin-bottom:-22px}
+.card:has(>.table-wrap,>table.data){overflow:clip}
+.card>.card-heading:has(+.table-wrap),.card>.card-heading:has(+table.data){margin-bottom:6px}
+
+/* Soft tags: the colour's tint behind its own colour */
+.tag{height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--tag,#7a8299) 15%,transparent);color:color-mix(in srgb,var(--tag,#7a8299) 85%,var(--ink))}
+.tag.light{color:color-mix(in srgb,var(--tag,#7a8299) 45%,var(--ink))}
+
+/* A warning: a soft amber callout with its sign */
+.notice.warn{display:flex;align-items:flex-start;gap:10px;border:0;background:color-mix(in srgb,var(--amber) 16%,var(--card));color:var(--ink);font-weight:500}
+.notice.warn:before{content:"";flex:none;width:20px;height:20px;margin-top:1px;background:#c27c0e;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 2 20h20z'/%3E%3Cpath d='M12 10v4M12 17h.01'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 2 20h20z'/%3E%3Cpath d='M12 10v4M12 17h.01'/%3E%3C/svg%3E") center/contain no-repeat}
+
+/* Messages: glass at the bottom with a teal check and OK */
+.toast{bottom:28px;display:flex;align-items:center;gap:12px;padding:6px 6px 6px 14px;border-radius:26px;font-size:15px;font-weight:600;max-width:min(760px,calc(100vw - 32px))}
+.toast.show{pointer-events:auto}
+.toast-icon{flex:none;width:28px;height:28px;border-radius:14px;display:grid;place-items:center;background:var(--teal);color:#fff}
+.toast-icon svg{width:16px;height:16px;stroke-width:2.6}
+.toast.error .toast-icon{background:#fff;color:var(--red);font-weight:800}
+.toast-text{min-width:0}
+.toast-ok{flex:none;height:36px;padding:0 16px;border:0;border-radius:18px;background:var(--accent);color:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.toast.error .toast-ok{background:rgba(255,255,255,.25)}
+
+/* Dialogs: at the top of the screen, not in the middle */
+dialog.act-panel,dialog.dlg,dialog.dlg-ask{margin:32px auto auto;max-height:calc(100vh - 64px)}
+
+/* ---- Phone ---- */
+@media(max-width:900px){
+  .appbar{position:fixed;top:calc(8px + env(safe-area-inset-top));left:12px;right:12px;margin:0;height:44px;gap:8px}
+  .appbar-menu,.appbar-right{display:none}
+  body.has-back .appbar-back{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:22px;color:var(--glass-fg)}
+  body.has-back .appbar-back svg{width:20px;height:20px;stroke-width:2.3}
+  body.has-back main .crumbs{display:none}
+  body.has-back #page.in-section .section-back{display:none}
+  .appbar-title{flex:1 1 auto;text-align:center;padding:0 52px 0 0}
+  body:not(.has-back) .appbar-title{padding:0 0 0 0}
+  body.bar-titled .appbar-title{opacity:1}
+  body:before{height:calc(64px + env(safe-area-inset-top))}
+  .impersonation-bar{margin:calc(60px + env(safe-area-inset-top)) 12px 0}
+  .impersonation-bar~.impersonation-bar{margin-top:8px}
+  main{padding:calc(64px + env(safe-area-inset-top)) 16px calc(130px + env(safe-area-inset-bottom))}
+  .impersonation-bar~main{padding-top:20px}
+  h1{font-size:32px;line-height:1.12}
+  /* The page's actions float at the top right, level with the step back */
+  main .page-heading>.heading-actions{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;left:auto;width:auto;z-index:31;margin:0;flex-wrap:nowrap;gap:8px}
+  main .page-heading>.heading-actions .button:not(.phone-fab){height:44px}
+  main .page-heading>.heading-actions .action-label{display:none}
+  /* The bottom bar */
+  .tabbar{bottom:max(26px,calc(8px + env(safe-area-inset-bottom)))}
+  .tab-item{font-size:10px;font-weight:600}
+  body .button.primary.phone-fab{bottom:calc(max(26px,calc(8px + env(safe-area-inset-bottom))) + 3px)}
+  .toast{bottom:calc(106px + env(safe-area-inset-bottom))}
+  /* Dialogs: a sheet from the bottom with a grab handle */
+  dialog.act-panel,dialog.act-panel.wide,dialog.dlg,dialog.dlg.wide,dialog.dlg-ask{width:100vw;max-width:100vw;margin:auto 0 0;max-height:calc(100vh - 24px - env(safe-area-inset-top));border-radius:32px 32px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+  dialog.act-panel:before,dialog.dlg:before,dialog.dlg-ask:before{content:"";display:block;width:38px;height:5px;margin:8px auto 0;border-radius:3px;background:var(--rim)}
+}
+@media(max-width:560px){
+  .data td,.data td.num,.data td.nowrap,.data td.center,.data :is(th,td):first-child,.data :is(th,td):last-child{padding:3px 0}
+  table.data tr{padding:12px 16px}
+  .data td[data-label]:not([data-label=""])::before{font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-2)}
+  .card>.table-wrap,.card>table.data{margin-left:-16px;margin-right:-16px;width:calc(100% + 32px)}
+  .card>.table-wrap:last-child,.card>table.data:last-child{margin-bottom:-16px}
+}
+/* Pages, as the designs: links in rows are accent; the CRM users' roles as words and teams as teal tags; Machine access's
+   form as grouped rows; the Files list's chosen row; a company's contacts to the card's edges; the costing sheet's tabs */
+.data td>a:not(.button):not(.text-button):not(.icon-button),.data td>a:not(.button) b{color:var(--accent);font-weight:600}
+.users-table .users-role{height:auto;padding:0;background:none;color:var(--ink);font-size:16px;font-weight:400}
+.users-tag{background:color-mix(in srgb,var(--teal) 14%,transparent);color:var(--teal)}
+.access-layout{gap:22px;margin-top:22px}
+.access-layout>.card{margin:0}
+.give-card form.stack{gap:0;margin-top:12px}
+.give-card .field{flex-direction:row;align-items:center;gap:12px;min-height:48px;padding:0 16px;background:var(--surface);font-size:15px;font-weight:500}
+.give-card .field:first-child{border-radius:16px 16px 0 0;border-bottom:1px solid var(--line)}
+.give-card .field:nth-child(2){border-radius:0 0 16px 16px}
+.give-card .field>span{flex:none;width:72px}
+.give-card .field input,.give-card .field select{flex:1;min-height:46px;border:0;border-radius:0;padding:0;background-color:transparent;color:var(--accent)}
+.give-card .field select{background:transparent var(--select-arrow) no-repeat right 0 center;padding-right:22px}
+.give-card #chosen{margin:12px 4px}
+.give-card .action-buttons{margin-top:8px}
+.give-card .action-buttons .button{width:100%;height:44px;border-radius:22px}
+.files-table td{height:48px;font-size:15px}
+.files-table tr.open td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.files-table tr.open td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.file-preview .button.secondary{background:var(--surface);color:var(--ink)}
+.cs-tabs{margin:22px 0}
+.card .tabs.machine-switch{padding:3px;border:0;background:var(--surface);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+@media(min-width:901px){
+  .card>.contact-list{margin:0 -24px -22px}
+  .contact-list .contact-row{padding:6px 24px}
+  .contact-list .contact-th{min-height:48px;font-size:13px;font-weight:600;color:var(--ink-2)}
+  .contact-list .contact-detail{margin:0;border-radius:0;padding:12px 24px 16px 76px}
+}
+@media(max-width:900px){
+  .ov-details>.card-heading h2{display:none}
+  /* The page's actions at the top right keep only their icons */
+  main .page-heading>.heading-actions .button:not(.phone-fab):has(svg),main .page-heading>.heading-actions .capsule-button:has(svg){flex:none;width:44px;padding:0;gap:0;font-size:0;justify-content:center}
+  main .page-heading>.heading-actions :is(.button:not(.phone-fab),.capsule-button) svg{width:19px;height:19px}
+  main .page-heading>.heading-actions .capsule-button{height:44px}
+  main .page-heading>.heading-actions .filter-capsule{display:none}
+  /* Projects: the search on its own line, then Open / Closed / All, then the count */
+  .companies-filter-row:has(>.proj-show){flex-wrap:wrap}
+  .companies-filter-row:has(>.proj-show)>.search-box{flex:1 1 100%}
+  .companies-filter-row>.proj-show{display:flex;flex:1 1 100%;flex-wrap:nowrap}
+  .proj-show .tab{flex:1 1 0;justify-content:center}
+  .companies-filter-row>.proj-count{flex:1 1 100%;margin:0 4px}
+}
+/* Nothing is cut off with "…": cells, names and notes wrap onto another line; dates, numbers, codes and the buttons of a
+   row stay on one line and their columns grow to fit them. A cell with many companies shows the first and "+N more"
+   (the pages' scripts), never half a name. */
+table.data:is(.companies-table,.terr-table,.orders-table,.users-table,.files-table,.act-table,.proj-table,.machines-table){table-layout:auto}
+table.data:is(.companies-table,.terr-table,.orders-table,.users-table,.files-table,.act-table,.proj-table,.machines-table) :is(th,td):not(.tick){width:auto}
+table.data :is(td.co-name,td.c-company,td.file-name,td.machine-company,td.u-name,td.t-name){min-width:170px}
+table.data :is(th,td){overflow:visible;text-overflow:clip}
+table.data td{white-space:normal;overflow-wrap:break-word}
+table.data th{white-space:nowrap}
+table.data td:is(.nowrap,.num,.tick,.c-date,.c-money,.c-no,.c-rf,.c-open,.file-date,.file-size,.file-open,.proj-date,.act-time,.act-status-col,.h-date,.t-last,.t-since,.t-number,.t-postal,.co-brn,.co-postal,.u-code,.u-edit,.open-col,.actions),table.data .nowrap{white-space:nowrap}
+.machines-table .machine-company{max-width:none}
+:is(.link-button,.file-card-top b,.file-card-line,.company-card-owner .salesperson,.company-card-owner>span:last-child,.recent-top b,.recent-note,.contact-row>span,.stat-sub,.orders-status,.users-role,.users-not,.users-tag,.users-more,.act-type,.cs-summary,.cs-file b,.terr-owner-text b,.terr-results .terr-table td.t-line,.file-group-name,.proj-pick-name,.usage-year-card dt,.put-companies li,.terr-put-row>span:first-child,.file-preview-head h2,.users-panel-title h2,.users-panel-title span,.users-option span,.bar-row .bar-label,.section-name,.terr-name h1,.terr-ticked-note,.orders-status-button b,.users-role-button b,.crumb-trail a,.crumb-here,.install-app .small,.company-heading .company-info,.act-panel-title h2){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+:is(.orders-status,.users-role,.users-not,.users-tag,.users-more,.act-type,.company-card-owner .salesperson){height:auto;min-height:24px;padding-top:2px;padding-bottom:2px;line-height:20px;max-width:none}
+.crumb-trail a,.crumb-here{max-width:none}
+.cs-summary{max-width:none}
