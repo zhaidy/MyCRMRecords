@@ -363,45 +363,55 @@ Fusion specialist of; MDS and Fusion specialist managers and specialist senior m
 specialist, and PP specialists and their managers those whose PP specialist is in their team.
 
 - **Search** finds a request form by its number, status, reference or company. The list changes as you type.
-- **Request Form Status**, **Request Form Type**, **Sales Rep** and **From/To Creation Date** narrow the list.
+- **All** / each type (for example **Delivery** and **Collection**), **Status** and **Sales rep** narrow the list;
+  **Created** shows **From/To Creation Date**. On a phone, **Costing sheets** / **Request forms** at the top switches
+  between the two lists, **Status:** opens the list of statuses, and the round filter button the other filters (press
+  **Apply**).
 - **Reset** clears the search and filters. MyCRMRecords remembers your search and filters for next time.
 - Click a column heading to sort by it; click it again to reverse the order.
 - **Download** saves the list as it is filtered as an Excel workbook, MyOrders' Download: a row for each request form
   and delivery or collection date.
-- **Open** (or the number) opens the request form. The printer button prints it, when MyOrders would have let you (see
-  [Printing a request form](#printing-a-request-form)).
-- Each row shows the reference and type under the number, the contact under the company, when it was created, updated
-  and recalled with its delivery or collection dates, its status (with **Pending print** when MyOrders had not printed
-  it since it reached a printable status or was recalled), when it was printed, and whether OPO checked it.
+- Click a request form's number, its arrow or anywhere on its line to open it. The printer button prints it, when
+  MyOrders would have let you (see [Printing a request form](#printing-a-request-form)).
+- Each line shows the number with the reference, the type, the company with its contact, the sales rep, the status
+  (with **Pending print** when MyOrders had not printed it since it reached a printable status or was recalled), the
+  delivery or collection dates, when it was created and (on wide screens) printed. Point at the status or the date to
+  see when it was updated, recalled and printed and whether OPO checked it. On a phone each request form is a card
+  with all of these.
 - A request form deleted in MyOrders is not in the list.
 - Opened from a company's page, the list shows only that company's request forms; **Show every company** goes back
   to the whole list.
 
 ## A request form
 
-A request form's page shows what MyOrders' request form summary showed, read only:
+A request form's page shows what MyOrders' request form summary showed, read only. Under the number are its type and
+status, the reference, the company (click it to open the company; **Back to** the company goes there too, **All
+request forms** to the list) and the salesman. Then the key details: contact and their phone numbers, customer number
+and type, billing address, its costing sheet (click it to open the costing sheet), the specialists (a yellow tag while
+their part was still pending), the dates, the event tag and the delivery declaration.
 
-- **Request form**: type, reference, salesman, status, the specialists (a yellow tag while their part was still
-  pending), dates, company (click it to open the company), billing address, contact and their phone numbers, customer number and type, event tag, its
-  costing sheet (click it to open the costing sheet), and the delivery declaration.
+The tabs **Items** and **Delivery** (or **Collection items**) and **More details** show one part at a time, with
+**History** and **Attachments** beside them. On a phone each part is a card: tap it to open or close it.
+
 - **Items** (every type but Collection): each product with its sub items and complex items, their quantities and street
   prices, the item's street price and the **Request Total Street Price**, as MyOrders stored them.
 - **Delivery**: each product with its parts, where and when it is delivered, to whom, Is FSA, No Lift, the remarks,
   and the model and serial number.
-- **Collection Items** (Collection): the collection details of the first item (collection type, contract, fees, asset
+- **Collection items** (Collection): the collection details of the first item (collection type, contract, fees, asset
   type, brand, date, address, contacts, instructions), then every item collected.
 - **History**: when it was created, approved by the manager and the head, sent for the credit check, endorsed and
   approved by credit, checked by OPO, sent, printed, recalled and last updated, with who did it when MyOrders kept the
   name; then the sales order, picking slip and invoice numbers.
 - **Attachments**: the files attached in MyOrders, with their size and who uploaded them. **Download** saves one.
+- **More details**: the proposal, option and previous request form, when it was printed, EPP and recon billed.
 - When its costing sheet's products differ from it, a yellow note and the **Costing sheet and request form** box list
   the products whose quantities differ.
 - A request form deleted in MyOrders still opens from a link, with a red note saying when and by whom it was deleted.
 
 ## Printing a request form
 
-**Print** (on a request form's page, or the printer button in the list) opens MyOrders' request form PDF as a page in a
-new tab. As in MyOrders, it is there once the request form is **Pending Credit Check**, **Pending Allocation**,
+**Print delivery form** or **Print collection form** (on a request form's page), or the printer button in the list,
+opens MyOrders' request form PDF as a page in a new tab. As in MyOrders, it is there once the request form is **Pending Credit Check**, **Pending Allocation**,
 **Pending Invoicing** or **Backordered**, for Sales Admins, Admins, Managers, Heads, MD, Stock Allocators, Schedulers,
 Credit GM, PP Specialist Managers and Specialist Senior Managers.
 

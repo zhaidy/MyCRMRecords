@@ -867,7 +867,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
 .orders-table .c-ref{width:11%}
 .orders-table .c-rep{width:9%}
 .orders-table .c-status{width:168px}
-.orders-table .c-date{width:112px;font-variant-numeric:tabular-nums}
+.orders-table .c-date{width:122px;font-variant-numeric:tabular-nums}
 .orders-table .c-money{width:110px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .orders-table .c-invoice{width:10%;font-variant-numeric:tabular-nums}
 .orders-table .c-opo{width:56px}
@@ -1001,3 +1001,19 @@ table.data.orders-table{table-layout:fixed;width:100%}
 .cs-section-body table.data tr.total{background:var(--surface);border-radius:12px}
 .cs-section-body table.data tr.total td{width:auto;background:none}
 }
+
+/* The request forms (requestforms.js, requestform.js): MyOrders' lists and the costing sheet's page above, with the
+   type as a switch in the filters, the Pending print tag and the delivery or collection dates */
+.orders-segments{margin:0;flex:none}
+.orders-segments .tab{white-space:nowrap}
+.orders-status.other{background:color-mix(in srgb,#8b5cf6 15%,transparent);color:#8b5cf6}
+.orders-status.rf-type{background:var(--surface-2);color:var(--ink-2)}
+.rf-pending{margin-left:6px}
+.rf-table .c-rf{width:18%}
+.rf-table td.c-rf a{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+.rf-table .c-type{width:96px}
+.rf-table .c-rfstatus{width:276px}
+.rf-table .c-when{width:16%;font-variant-numeric:tabular-nums}
+.rf-declaration{margin:14px 0 0}
+@media(max-width:1200px) and (min-width:901px){.rf-table .c-type,.rf-table .c-rep{display:none}}
+@media(max-width:900px){.orders-card-foot .rf-pending{margin-left:0;flex:none}}
