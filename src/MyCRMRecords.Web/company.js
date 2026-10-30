@@ -32,14 +32,15 @@
    * from a costing sheet opens the same tab). On a phone the tabs are a list under the company's details, each opening
    * its section on the whole screen with a way back (app.css: .section-list, .section-back).
    */
-  const tabIds = ['overview', 'contacts', 'files', 'costing', 'requests', 'relations'];
+  const tabIds = ['overview', 'contacts', 'files', 'machines', 'costing', 'requests', 'relations'];
   let tab = tabIds.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
-  let orderCounts = {files: '', costing: '', requests: ''};
+  let orderCounts = {files: '', machines: '', costing: '', requests: ''};
   function sections() {
     return [
       {id: 'overview', label: 'Overview', count: '', color: '#0a58f0'},
       {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0'},
       {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed'},
+      {id: 'machines', label: 'Machines', count: orderCounts.machines, color: '#0d9488'},
       {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b'},
       {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b'},
       {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488'}
@@ -98,6 +99,7 @@
       </div>
       <div class="stack tab-panel" role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts"><section class="card" id="contacts"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-files" aria-labelledby="tab-files"><section class="card" id="files"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-machines" aria-labelledby="tab-machines"><section class="card" id="machines"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-costing" aria-labelledby="tab-costing"><section class="card" id="costing"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-requests" aria-labelledby="tab-requests"><section class="card" id="requests"></section></div>
       <div class="stack tab-panel" role="tabpanel" id="panel-relations" aria-labelledby="tab-relations"><section class="card" id="relationships"></section>
@@ -108,6 +110,7 @@
     relationships();
     orders(c);
     files(c);
+    machines(false);
     drawIcons(page);
     showTab(tab);
     $('#edit')?.addEventListener('click', async () => { if (await companyForm(lists, c)) load(); });
@@ -169,6 +172,42 @@
         </tbody></table></div>${answer.total > 10 ? `<p class="small" style="margin:8px 0 0"><a href="files.aspx?${new URLSearchParams({company: String(id), name: c.name})}">See all ${answer.total} files</a></p>` : ''}`
         : '<p class="muted small" style="margin:6px 0 0">No files of this company in MyFiles.</p>'}`;
     if (answer.result.ok) setCount('files', answer.total);
+    drawIcons(box);
+  }
+
+  /**
+   * The company's machines from Advance (read only, MyCRM's Machines tab): by its BRN, those whose contract or warranty
+   * ends after today (Active), or every one (All). Past dates are dimmed.
+   */
+  async function machines(all) {
+    const box = $('#machines');
+    const {coverageTag, machineUrl} = window.WH;
+    box.innerHTML = '<h2>Machines</h2><p class="muted small">Loading…</p>';
+    const answer = await api('GET', 'machines?' + new URLSearchParams(all ? {company: String(id), all: '1'} : {company: String(id)}));
+    const today = new Date().toISOString().slice(0, 10);
+    const day = v => v ? `<span class="${v.slice(0, 10) < today ? 'past' : ''}">${esc(date(v))}</span>` : '<span class="muted">–</span>';
+    const rows = answer.result.ok ? answer.rows : [];
+    const active = answer.result.ok ? answer.active : 0;
+    box.innerHTML = `<div class="card-heading machines-heading"><h2>Machines</h2>
+        ${answer.result.ok ? `<div class="tabs machine-switch" role="group" aria-label="Machines shown">
+          <button type="button" class="tab" data-machines="active" aria-pressed="${String(!all)}">Active${!all ? ' · ' + answer.total : ''}</button>
+          <button type="button" class="tab" data-machines="all" aria-pressed="${String(all)}">All${all ? ' · ' + answer.total : ''}</button></div>` : ''}</div>
+      <p class="muted small">${all ? 'Every machine of this BRN in Advance, with time and materials, ended and no contract.' : 'Contract or warranty still running (from Advance, by BRN).'}</p>
+      ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : rows.length ? `<div class="file-cards machine-cards">${rows.map(r => `<a class="file-card" href="${machineUrl(r)}">
+          <span class="file-card-body"><span class="file-card-top"><b>${esc(r.serial)} <span class="muted small">${esc(r.model)}</span></b>${coverageTag(r)}</span>
+            <span class="file-card-line">${esc([r.contractNo, r.contractEnd ? 'contract ends ' + date(r.contractEnd) : '', r.warrantyEnd ? 'warranty ends ' + date(r.warrantyEnd) : ''].filter(Boolean).join(' · '))}</span>
+            <span class="file-card-line">${esc(r.finance || 'No finance type')}</span></span>
+          <span data-icon="arrow-right" class="section-chevron"></span></a>`).join('')}</div>
+        <div class="table-wrap machines-wide"><table class="data company-machines"><thead><tr>
+        <th>Serial</th><th>Model</th><th>Status</th><th>Contract</th><th>Contract start</th><th>Contract end</th><th>Warranty start</th><th>Warranty end</th><th>Finance type</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td class="nowrap"><a href="${machineUrl(r)}"><b>${esc(r.serial)}</b></a></td><td class="nowrap">${esc(r.model)}</td><td>${coverageTag(r)}</td>
+          <td class="nowrap">${r.contractNo ? `${esc(r.contractNo)} <span class="muted small">${esc(r.contractType)}</span>` : '<span class="muted">–</span>'}</td>
+          <td class="nowrap">${day(r.contractStart)}</td><td class="nowrap">${day(r.contractEnd)}</td><td class="nowrap">${day(r.warrantyStart)}</td><td class="nowrap">${day(r.warrantyEnd)}</td>
+          <td class="nowrap">${r.finance ? `${esc(r.finance)} <span class="muted small">${esc(r.financeCode)}</span>` : '<span class="muted">–</span>'}</td></tr>`).join('')}
+        </tbody></table></div>`
+        : `<p class="muted small" style="margin:6px 0 0">${all ? 'Advance has no machines with this BRN.' : 'No machine of this BRN has a contract or warranty running.'}</p>`}`;
+    if (answer.result.ok) setCount('machines', all ? active : answer.total);
+    $$('[data-machines]', box).forEach(b => b.addEventListener('click', () => machines(b.dataset.machines === 'all')));
     drawIcons(box);
   }
 
