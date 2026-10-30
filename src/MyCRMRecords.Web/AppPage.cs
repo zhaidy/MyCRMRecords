@@ -103,6 +103,8 @@ public class AppPage : Page
         // MyCRM's projects and sales activities: everyone sees their own and their team's.
         html.Append(Item("projects.aspx", "briefcase", "Projects"));
         html.Append(Item("activities.aspx", "calendar", "Activities"));
+        // MyCRM's prospects, read only: everyone sees their own and their team's.
+        html.Append(Item("prospects.aspx", "chart", "Prospects"));
         // Old prospects and visited companies worth a second look, in the person's (or their team's) territories.
         html.Append(Item("dormant.aspx", "clock", "Dormant"));
         if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
@@ -197,7 +199,8 @@ public class AppPage : Page
             .Append("<section class=\"more-card more-install\" id=\"more-install\" aria-label=\"Install the app\" hidden><span class=\"more-app-icon\" aria-hidden=\"true\">").Append(Brand.Mark).Append("</span>")
             .Append("<span class=\"more-who\"><b data-install-title>Install the app</b><span data-install-text>Add MyCRMRecords to your home screen.</span></span>")
             .Append("<button type=\"button\" class=\"button primary small-btn\" id=\"more-install-button\" aria-haspopup=\"dialog\">Install</button></section>")
-            .Append(Group("Sales", new[] { Row("projects.aspx", "briefcase", "#0d9488", "Projects"), Row("activities.aspx", "calendar", "#f2675a", "Activities"), Row("dormant.aspx", "clock", "#7c6ad9", "Dormant") }))
+            .Append(Group("Sales", new[] { Row("projects.aspx", "briefcase", "#0d9488", "Projects"), Row("activities.aspx", "calendar", "#f2675a", "Activities"),
+                Row("prospects.aspx", "chart", "#e59a0b", "Prospects"), Row("dormant.aspx", "clock", "#7c6ad9", "Dormant") }))
             .Append(Group("Records", records))
             .Append(Group("Machines", machines))
             .Append(Group("App", app))

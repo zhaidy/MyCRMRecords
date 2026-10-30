@@ -460,8 +460,22 @@ public sealed class SqlServerTests
         Assert.False(d.Access.CanOpen(new ApiUser(@"RSP\ken", "Ken Kwan").ToActor(d.People), d.Companies.Get(tan)!));
 
         // A prospect is only read.
-        outSystems.Execute($"INSERT INTO dbo.[OSUSR_ab1_PROSPECT] (REMARKS, ISACTIVE, COMPANYID, STAGEID) VALUES (N'6 MFPs', 1, 7, {old.StaticId("Stages", "Negotiation")})");
+        outSystems.Execute($"INSERT INTO dbo.[OSUSR_ab1_PROSPECT] (REMARKS, ISACTIVE, COMPANYID, STAGEID, PROSPECTTYPE, OWNERID, DATECREATED, ESTIMATEDORDERDATE, ISCLOSED, ISCANCELLED) " +
+            $"VALUES (N'6 MFPs', 1, 7, {old.StaticId("Stages", "Negotiation")}, {old.StaticId("ProspectType", "R2R")}, 1, '2026-09-01', '2026-11-15', 0, 0)");
         var prospect = d.Activities.Prospects(7).Single();
+        // The Prospects page finds, filters, counts and pages them in SQL (owner; remarks or company name by UNION).
+        string[] Listed(Activities.ProspectFilter f) => d.Activities.ProspectList(admin, f).Rows.Select(r => r.Prospect.Remarks).ToArray();
+        Assert.Equal(new[] { "6 MFPs" }, Listed(new Activities.ProspectFilter(Owner: "me")));
+        Assert.Equal(new[] { "6 MFPs" }, Listed(new Activities.ProspectFilter(Q: "lim pte", Owner: "me", Status: "all")));
+        Assert.Equal(new[] { "6 MFPs" }, Listed(new Activities.ProspectFilter(Q: "mfps", Owner: "me", Stage: "Negotiation", Type: "R2R")));
+        Assert.Equal(new[] { "6 MFPs" }, Listed(new Activities.ProspectFilter(Owner: "me", From: new DateTime(2026, 11, 15), To: new DateTime(2026, 11, 15))));
+        Assert.Empty(Listed(new Activities.ProspectFilter(Owner: "me", Status: "closed")));
+        Assert.Empty(Listed(new Activities.ProspectFilter(Owner: "me", Stage: "Prove")));
+        Assert.Empty(Listed(new Activities.ProspectFilter(Q: "nothing like it", Owner: "me")));
+        var listedProspects = d.Activities.ProspectList(admin, new Activities.ProspectFilter(Owner: "me", Skip: 50));
+        Assert.Empty(listedProspects.Rows);
+        Assert.Equal(1, listedProspects.Total);
+        Assert.Equal("Lim Pte Ltd", d.Activities.ProspectList(admin, new Activities.ProspectFilter(Owner: "me")).Rows.Single().Company);
         Assert.Equal("Negotiation", prospect.Stage);
         Assert.Throws<MyCrmRefusedException>(() => d.Store.Update(prospect));
         Assert.Throws<MyCrmRefusedException>(() => d.Store.Insert(new Prospect { CompanyId = 7 }));

@@ -62,7 +62,7 @@ MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a
 **Companies**, **Files**, **Machines**, **Orders** (the costing sheets and request forms) and **More**.
 
 **More** opens a screen with everything else: your name and MyCRM role, **Install the app** (see below), then the
-other pages in groups: **Sales** (Projects, Activities, Dormant), **Records** (Territories and CRM users, for the roles that keep
+other pages in groups: **Sales** (Projects, Activities, Prospects, Dormant), **Records** (Territories and CRM users, for the roles that keep
 them), **Machines** (Machine access, for Sales Admins) and **App** (User guide, and for administrators User roles,
 Settings, Deployment and Audit log, marked **Admin**). **Sign out** is at the bottom. The round **×** at the top left,
 **More** again or the phone's Back closes it.
@@ -244,6 +244,19 @@ choose and **Add**:
   **Attendees** (the company's contacts) and **Related Prospects**. The cross on a chip takes it off.
 
 Press **Save**. The Marketing role can read activities but not save them. Reminders and notifications are not kept here.
+
+## Prospects
+
+The **Prospects** page lists the prospects in MyCRM that you own (**Owner: Me**), or your team's (**My team**, or one
+person of your team), newest first, 50 to a page. It is **view only**: prospects are created and changed in MyCRM.
+
+- Type in the search box to find prospects by company name or remarks. Choose **Open** (neither closed nor cancelled),
+  **Closed**, **Cancelled** or **All**, a **Stage** and a **Type**. **Estimated order** shows **From** and **To** dates
+  to see only the prospects whose estimated order date is between them. **Reset** clears the filters. MyCRMRecords
+  remembers your choices.
+- Each row shows the company, remarks, stage, type, forecast, estimated order date, owner and the day it was last
+  updated. Click a row to open the company on its **Prospects** tab, where you can see the prospect's details and
+  **Open in MyCRM** to change it.
 
 ## Dormant opportunities
 
