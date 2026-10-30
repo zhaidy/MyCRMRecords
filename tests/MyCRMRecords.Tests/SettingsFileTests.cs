@@ -25,6 +25,14 @@ public sealed class SettingsFileTests
             using (new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
                 file.Change(s => s.Jobs.Enabled = false);
             Assert.False(file.Load().Jobs.Enabled);
+            // A program that keeps the file open for good, letting others write but not replace it: the settings are
+            // written into the file itself.
+            using (new FileStream(file.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                file.Change(s => s.Jobs.Enabled = true);
+                Assert.True(file.Load().Jobs.Enabled);
+            }
+            Assert.True(file.Load().Jobs.Enabled);
         }
         finally { Directory.Delete(folder, true); }
     }

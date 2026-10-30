@@ -214,13 +214,38 @@ public sealed class SettingsFile<T>(string path, ISecretProtector protector) whe
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path)!);
             var temp = _path + ".tmp";
             var text = Json.Serialize(copy, indented: true);
-            Retrying(() =>
+            try
             {
-                File.WriteAllText(temp, text);
-                if (File.Exists(_path)) File.Replace(temp, _path, null);
-                else File.Move(temp, _path);
-                return 0;
-            });
+                Retrying(() =>
+                {
+                    File.WriteAllText(temp, text);
+                    if (File.Exists(_path)) File.Replace(temp, _path, null);
+                    else File.Move(temp, _path);
+                    return 0;
+                });
+            }
+            catch (IOException) when (File.Exists(_path))
+            {
+                // Something keeps the file open so it cannot be replaced (another program reading it without letting it
+                // be replaced): write the new settings into the file itself instead, which only needs write sharing.
+                try
+                {
+                    Retrying(() =>
+                    {
+                        using var stream = new FileStream(_path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                        var bytes = new System.Text.UTF8Encoding(false).GetBytes(text);
+                        stream.SetLength(0);
+                        stream.Write(bytes, 0, bytes.Length);
+                        return 0;
+                    });
+                }
+                catch (IOException ex)
+                {
+                    throw new IOException($"The settings could not be saved: {_path} is kept open by another program ({ex.Message}). " +
+                        "Close it there (an editor, a backup or a virus scan on the server) and save again.", ex);
+                }
+                try { File.Delete(temp); } catch (IOException) { /* Left for the next save, which overwrites it. */ }
+            }
         }
     }
 
