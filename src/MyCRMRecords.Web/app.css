@@ -1572,11 +1572,12 @@ table.data.proj-table tr.closed td{color:var(--muted)}
 /* ==== Top bar while scrolling, the person's menu and the breadcrumb (2026-10-30, the design's shell) ====
    Scrolling down folds the menu to the page you are on and shows the page's title in the bar (common.js: body.bar-compact);
    scrolling up opens it again. Once the page scrolls, a blurred band keeps what passes under the bar readable. */
-.sidebar>.nav-item,.sidebar>.nav-group{max-width:220px;overflow:hidden;transition:max-width .42s cubic-bezier(.34,1.2,.64,1),opacity .25s,padding .3s}
+.sidebar>.nav-item,.sidebar>.nav-group{max-width:220px;transition:max-width .42s cubic-bezier(.34,1.2,.64,1),opacity .25s,padding .3s}
 .appbar-title{flex:1 1 auto;min-width:0;font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--glass-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s}
 @media(min-width:901px){
-  body.bar-compact .sidebar>.nav-item:not(.selected),body.bar-compact .sidebar>.nav-group:not(:has(>.nav-item.selected)){max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
+  body.bar-compact .sidebar>.nav-item:not(.selected),body.bar-compact .sidebar>.nav-group:not(:has(>.nav-item.selected)){overflow:hidden;max-width:0;padding-left:0;padding-right:0;opacity:0;pointer-events:none}
   body.bar-compact .appbar-title{opacity:1}
+  body.bar-compact .nav-group[open]{max-width:none}
   body.bar-compact .install-button .install-label{display:none}
   body:not(.bar-compact) .appbar-title{flex:0 0 0;width:0}
 }
