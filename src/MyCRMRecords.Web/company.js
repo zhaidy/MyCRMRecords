@@ -263,7 +263,7 @@
         <div class="copies-bars"><span class="bar-black" style="height:${pct(m.blackWhite)}%"></span><span class="bar-colour" style="height:${pct(m.colour)}%"></span></div>
         <span class="copies-label">${esc(name(m))}</span></div>`).join('')}</div>
       <p class="muted small copies-note">Billed copies from Advance, each machine's of its contract. Last 12 months: <b>${number(total('blackWhite'))}</b> black, <b>${number(total('colour'))}</b> colour.
-        <button type="button" class="text-button" data-tab="machines">Machines</button></p>`;
+        <button type="button" class="text-button" data-tab="machines">Machines</button> · <a href="usage.aspx?company=${id}">Usage &amp; history ›</a></p>`;
   }
 
   /**
@@ -337,7 +337,8 @@
         ${answer.result.ok ? `<div class="tabs machine-switch" role="group" aria-label="Machines shown">
           <button type="button" class="tab" data-machines="active" aria-pressed="${String(!all)}">Active${!all ? ' · ' + answer.total : ''}</button>
           <button type="button" class="tab" data-machines="all" aria-pressed="${String(all)}">All${all ? ' · ' + answer.total : ''}</button></div>` : ''}</div>
-      <p class="muted small">${all ? 'Every machine of this BRN in Advance, with time and materials, ended and no contract.' : 'Contract or warranty still running (from Advance, by BRN).'}</p>
+      <p class="muted small">${all ? 'Every machine of this BRN in Advance, with time and materials, ended and no contract.' : 'Contract or warranty still running (from Advance, by BRN).'}
+        <a href="usage.aspx?company=${id}">Usage &amp; history ›</a> · <a href="companymachines.aspx?company=${id}">Grouped by coverage ›</a></p>
       ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : rows.length ? `<div class="file-cards machine-cards">${rows.map(r => `<a class="file-card" href="${machineUrl(r)}">
           <span class="file-card-body"><span class="file-card-top"><b>${esc(r.serial)} <span class="muted small">${esc(r.model)}</span></b>${coverageTag(r)}</span>
             <span class="file-card-line">${esc([r.contractNo, r.contractEnd ? 'contract ends ' + date(r.contractEnd) : '', r.warrantyEnd ? 'warranty ends ' + date(r.warrantyEnd) : ''].filter(Boolean).join(' · '))}</span>

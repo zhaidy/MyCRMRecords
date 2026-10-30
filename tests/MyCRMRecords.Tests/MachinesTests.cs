@@ -188,6 +188,55 @@ public sealed class MachinesTests
     }
 
     [Fact]
+    public void A_company_s_usage_and_history_reads_any_range_of_months_and_the_years()
+    {
+        var s = World();
+        using var world = s.World;
+        JObject Get(string path, Dictionary<string, string> query)
+        {
+            query["company"] = s.Tan.Id.ToString();
+            var answer = Call(world, TestWorld.Sam, path, query);
+            Assert.Equal(200, answer.Status);
+            return JObject.Parse(answer.Json);
+        }
+        // The last 24 months with the company's name for the page; the year before's copies are there to compare.
+        var two = Get("machines/copies", new() { ["months"] = "24" });
+        Assert.Equal("Tan", (string)two["company"]!["name"]!);
+        var months = two["months"]!.ToArray();
+        Assert.Equal(24, months.Length);
+        Assert.Equal((2024, 11), ((int)months[0]["year"]!, (int)months[0]["month"]!));
+        Assert.Equal(1, (long)months.Single(m => (int)m["year"]! == 2025 && (int)m["month"]! == 1)["blackWhite"]!);
+        // Dates chosen: from and to a month, never after this one, never more than MaxMonths.
+        var chosen = Get("machines/copies", new() { ["from"] = "2026-06", ["to"] = "2027-03" })["months"]!.ToArray();
+        Assert.Equal(5, chosen.Length);
+        Assert.Equal(300, (long)chosen[0]["blackWhite"]!);
+        Assert.Equal(Machines.MaxMonths, Get("machines/copies", new() { ["months"] = "999" })["months"]!.Count());
+        Assert.Single(Get("machines/copies", new() { ["from"] = "2026-09", ["to"] = "2026-01" })["months"]!);
+        // The yearly history: every year, this one so far included, with how many machines were billed.
+        var years = Get("machines/years", new() { ["years"] = "3" })["years"]!.ToArray();
+        Assert.Equal(new[] { 2024, 2025, 2026 }, years.Select(y => (int)y["year"]!));
+        Assert.Equal(0, (int)years[0]["machines"]!);
+        Assert.Equal(1, (int)years[1]["machines"]!);
+        Assert.Equal(2, (int)years[2]["machines"]!);
+        Assert.Equal(5300, (long)years[2]["blackWhite"]!);
+        // The company rule, as for its Machines tab; and the download for the same people.
+        Assert.Equal(403, Call(world, TestWorld.Sam, "machines/years", new() { ["company"] = s.Lim.Id.ToString() }).Status);
+        var file = new FilesApi(world.D).Download(FilesApi.Usage, new Dictionary<string, string> { ["company"] = s.Tan.Id.ToString(), ["months"] = "12" }, TestWorld.Sam);
+        Assert.Equal(200, file.Status);
+        Assert.StartsWith("Usage-Tan-", file.FileName);
+        using (var stream = new MemoryStream(file.Content))
+        {
+            var rows = MyCRMRecords.Documents.Xlsx.Read(stream);
+            Assert.Equal(12, rows.Count);
+            Assert.Equal("Sep 2026", rows[10]["Month"]);
+            Assert.Equal("5000", rows[10]["Black & white"]);
+        }
+        Assert.Equal(403, new FilesApi(world.D).Download(FilesApi.Usage, new Dictionary<string, string> { ["company"] = s.Lim.Id.ToString() }, TestWorld.Sam).Status);
+        // The Machines tab's answer names the company too (the grouped page's heading).
+        Assert.Equal("T1000ABC", (string)Get("machines", new() { ["all"] = "1" })["company"]!["brn"]!);
+    }
+
+    [Fact]
     public void Machines_are_listed_for_their_copies_as_XML_whatever_they_hold()
     {
         Assert.Equal("<l><m s=\"A&amp;1\" c=\"&quot;C&lt;2&gt;\"/><m s=\"B\" c=\"\"/></l>",

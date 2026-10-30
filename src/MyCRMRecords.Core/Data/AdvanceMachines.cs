@@ -162,6 +162,9 @@ public sealed record MeterMachine(string Serial, string ContractNo);
 /// <summary>A month's copies on some machines together (<see cref="IAdvanceMachines.MonthlyCopies"/>).</summary>
 public sealed record MonthCopies(int Year, int Month, long BlackWhite, long Colour);
 
+/// <summary>A year's copies on some machines together, and how many of them were billed that year (<see cref="IAdvanceMachines.YearlyCopies"/>).</summary>
+public sealed record YearCopies(int Year, int Machines, long BlackWhite, long Colour);
+
 /// <summary>A service call done (Service, SO-status F90) with its meter readings (SMeter_History).</summary>
 public sealed record ServiceCall
 {
@@ -207,6 +210,11 @@ public interface IAdvanceMachines
     /// machine's invoices as <see cref="Meters"/> reads them (of its contract, when it has one), added up by month.
     /// </summary>
     IReadOnlyList<MonthCopies> MonthlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from);
+    /// <summary>
+    /// The copies billed per year since <paramref name="from"/> on these machines together, oldest year first, as
+    /// <see cref="MonthlyCopies"/> adds them up, with how many of the machines had an invoice that year.
+    /// </summary>
+    IReadOnlyList<YearCopies> YearlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from);
     /// <summary>The service calls done since <paramref name="from"/> at this customer (and contract, when there is one), newest first.</summary>
     IReadOnlyList<ServiceCall> Services(string serial, string customerNo, string contractNo, DateTime from);
     /// <summary>The toner orders since <paramref name="from"/> (of the contract, when there is one), newest first.</summary>
@@ -425,28 +433,53 @@ public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<Connect
         return xml.Append("</l>").ToString();
     }
 
+    /// <summary>
+    /// The invoices of the machines listed (@machines, <see cref="XmlMachines"/>) since @from, each machine's of its
+    /// contract when it has one: a row per serial and invoice with its date and the most copies of each meter type.
+    /// </summary>
+    private static string Invoices(ExternalTable t)
+    {
+        // An invoice counts once whatever the machines listed: EXISTS, not a join.
+        var listed = "SELECT x.m.value('@s', 'nvarchar(400)') AS [s], x.m.value('@c', 'nvarchar(400)') AS [c] " +
+                     "FROM (SELECT CAST(@machines AS xml) AS d) q CROSS APPLY q.d.nodes('/l/m') AS x(m)";
+        return $"SELECT mc.{t["serial_no"]} AS [Serial], mc.{t["Invoice_date"]} AS [InvoiceDate], " +
+               $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'B%' THEN mc.{t["Copies"]} ELSE 0 END) AS [BlackWhite], " +
+               $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'C%' THEN mc.{t["Copies"]} ELSE 0 END) AS [Colour] " +
+               $"FROM {t} mc WHERE mc.{t["Invoice_date"]} >= @from AND EXISTS (SELECT 1 FROM ({listed}) k " +
+               $"WHERE k.[s] = mc.{t["serial_no"]} AND (k.[c] = N'' OR k.[c] = mc.{t["Contract_no"]})) " +
+               $"GROUP BY mc.{t["serial_no"]}, mc.{t["Invoice_no"]}, mc.{t["Invoice_date"]}";
+    }
+
     public IReadOnlyList<MonthCopies> MonthlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from)
     {
         if (machines.Count == 0) return Array.Empty<MonthCopies>();
         return databases.Use(ExternalNames.AdvanceConnector, connection =>
         {
             var t = ExternalTable.Of(connection, Tables.MeterCard);
-            // An invoice counts once whatever the machines listed: EXISTS, not a join.
-            var listed = "SELECT x.m.value('@s', 'nvarchar(400)') AS [s], x.m.value('@c', 'nvarchar(400)') AS [c] " +
-                         "FROM (SELECT CAST(@machines AS xml) AS d) q CROSS APPLY q.d.nodes('/l/m') AS x(m)";
             return (IReadOnlyList<MonthCopies>)Sql.Rows(connection, null,
-                    "SELECT YEAR(i.[InvoiceDate]) AS [Year], MONTH(i.[InvoiceDate]) AS [Month], SUM(i.[BlackWhite]) AS [BlackWhite], SUM(i.[Colour]) AS [Colour] FROM (" +
-                    $"SELECT mc.{t["Invoice_date"]} AS [InvoiceDate], " +
-                    $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'B%' THEN mc.{t["Copies"]} ELSE 0 END) AS [BlackWhite], " +
-                    $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'C%' THEN mc.{t["Copies"]} ELSE 0 END) AS [Colour] " +
-                    $"FROM {t} mc WHERE mc.{t["Invoice_date"]} >= @from AND EXISTS (SELECT 1 FROM ({listed}) k " +
-                    $"WHERE k.[s] = mc.{t["serial_no"]} AND (k.[c] = N'' OR k.[c] = mc.{t["Contract_no"]})) " +
-                    $"GROUP BY mc.{t["serial_no"]}, mc.{t["Invoice_no"]}, mc.{t["Invoice_date"]}) i " +
-                    "GROUP BY YEAR(i.[InvoiceDate]), MONTH(i.[InvoiceDate]) ORDER BY [Year], [Month]",
+                    "SELECT YEAR(i.[InvoiceDate]) AS [Year], MONTH(i.[InvoiceDate]) AS [Month], SUM(i.[BlackWhite]) AS [BlackWhite], SUM(i.[Colour]) AS [Colour] " +
+                    $"FROM ({Invoices(t)}) i GROUP BY YEAR(i.[InvoiceDate]), MONTH(i.[InvoiceDate]) ORDER BY [Year], [Month]",
                     ("@machines", XmlMachines(machines)), ("@from", from))
                 .Select(MonthOf).ToList();
         });
     }
+
+    public IReadOnlyList<YearCopies> YearlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from)
+    {
+        if (machines.Count == 0) return Array.Empty<YearCopies>();
+        return databases.Use(ExternalNames.AdvanceConnector, connection =>
+        {
+            var t = ExternalTable.Of(connection, Tables.MeterCard);
+            return (IReadOnlyList<YearCopies>)Sql.Rows(connection, null,
+                    "SELECT YEAR(i.[InvoiceDate]) AS [Year], COUNT(DISTINCT i.[Serial]) AS [Machines], SUM(i.[BlackWhite]) AS [BlackWhite], SUM(i.[Colour]) AS [Colour] " +
+                    $"FROM ({Invoices(t)}) i GROUP BY YEAR(i.[InvoiceDate]) ORDER BY [Year]",
+                    ("@machines", XmlMachines(machines)), ("@from", from))
+                .Select(YearOf).ToList();
+        });
+    }
+
+    public static YearCopies YearOf(IReadOnlyDictionary<string, object?> r) =>
+        new((int)r.Long("Year"), (int)r.Long("Machines"), r.Long("BlackWhite"), r.Long("Colour"));
 
     public static MonthCopies MonthOf(IReadOnlyDictionary<string, object?> r) =>
         new((int)r.Long("Year"), (int)r.Long("Month"), r.Long("BlackWhite"), r.Long("Colour"));
