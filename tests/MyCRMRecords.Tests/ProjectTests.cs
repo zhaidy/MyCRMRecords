@@ -163,13 +163,24 @@ public sealed class ProjectTests
         Assert.False(run.Failed);
         Assert.True(world.Store.Get<TemporaryTerritory>(territory.Id)!.IsActive);
 
-        // More orphans than the safety limit: nothing is taken away, and the run says so.
+        // Territories no project member has (the CSST part's) are never taken away.
         var orphans = Enumerable.Range(0, Projects.SafetyLimit + 1)
             .Select(i => world.Store.Insert(new TemporaryTerritory { Number = 100 + i, Owner = TestWorld.Tom.Login, IsActive = true })).ToList();
         run = world.D.Projects.RunDaily("Scheduled");
+        Assert.False(run.Failed);
+        Assert.All(orphans, o => Assert.True(world.Store.Get<TemporaryTerritory>(o.Id)!.IsActive));
+        // More project territories to take away than the safety limit (members removed): nothing is taken away.
+        var ended = world.Store.Insert(new Project { ProjectName = "Old", IsActive = true, IsClosed = true, EndDate = world.Now.Date.AddDays(-10), Owner = TestWorld.Mia.Login });
+        var leftovers = Enumerable.Range(0, Projects.SafetyLimit + 1).Select(i =>
+        {
+            var t = world.Store.Insert(new TemporaryTerritory { Number = 500 + i, Owner = TestWorld.Tom.Login, IsActive = true });
+            world.Store.Insert(new ProjectMember { ProjectId = ended.Id, User = TestWorld.Tom.Login, Role = "Salesperson", TerritoryId = t.Id, IsActive = true });
+            return t;
+        }).ToList();
+        run = world.D.Projects.RunDaily("Scheduled");
         Assert.True(run.Failed);
         Assert.Contains("Stopped before taking away", run.Summary);
-        Assert.All(orphans, o => Assert.True(world.Store.Get<TemporaryTerritory>(o.Id)!.IsActive));
+        Assert.All(leftovers, o => Assert.True(world.Store.Get<TemporaryTerritory>(o.Id)!.IsActive));
 
         // Undo: the territories a run of the task switched off today (by its records of the changes) are switched back on.
         var start = world.Now.AddMinutes(-30);
@@ -177,18 +188,22 @@ public sealed class ProjectTests
         territory.IsActive = false;
         world.Store.Update(territory);
         world.Store.Insert(new MyCrmChange { ChangedOn = start.AddMinutes(2), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = territory.Id, Column = "ISACTIVE", Before = "1", After = "0" });
-        // One it was right to switch off (no member has it): not switched back on.
+        // One with no project member (the CSST part's): switched back on too. One of a closed project: rightly off.
         orphans[1].IsActive = false;
         world.Store.Update(orphans[1]);
         world.Store.Insert(new MyCrmChange { ChangedOn = start.AddMinutes(3), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = orphans[1].Id, Column = "ISACTIVE", Before = "1", After = "0" });
+        leftovers[0].IsActive = false;
+        world.Store.Update(leftovers[0]);
+        world.Store.Insert(new MyCrmChange { ChangedOn = start.AddMinutes(4), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = leftovers[0].Id, Column = "ISACTIVE", Before = "1", After = "0" });
         // Not the task's: another day, or someone else at another time.
         world.Store.Insert(new MyCrmChange { ChangedOn = start.AddDays(-1), ChangedBy = "Zhai Dongyu", TableName = "Territory", RowId = orphans[0].Id, Column = "ISACTIVE", Before = "1", After = "0" });
-        Assert.Equal(new[] { territory.Id }, world.D.Projects.TerritoriesTakenAway(world.Now.Date));
+        Assert.Equal(new[] { territory.Id, orphans[1].Id }.OrderBy(i => i), world.D.Projects.TerritoriesTakenAway(world.Now.Date).OrderBy(i => i));
         Assert.Equal(ResultCodes.Forbidden, world.D.Projects.RestoreTerritoriesTakenAway(world.Actor(TestWorld.Mia), world.Now.Date).Code);
         Assert.True(world.D.Projects.RestoreTerritoriesTakenAway(world.Actor(TestWorld.Admin), world.Now.Date).Ok);
         Assert.True(world.Store.Get<TemporaryTerritory>(territory.Id)!.IsActive);
         Assert.Empty(world.D.Projects.TerritoriesTakenAway(world.Now.Date));
-        Assert.False(world.Store.Get<TemporaryTerritory>(orphans[1].Id)!.IsActive);
+        Assert.True(world.Store.Get<TemporaryTerritory>(orphans[1].Id)!.IsActive);
+        Assert.False(world.Store.Get<TemporaryTerritory>(leftovers[0].Id)!.IsActive);
     }
 
     [Fact]
@@ -198,13 +213,13 @@ public sealed class ProjectTests
         using var __ = world;
         var mia = world.Actor(TestWorld.Mia);
         world.D.Projects.AddMember(mia, p.Id, new Projects.MemberInput { Login = TestWorld.Ken.Login, Role = "Salesperson" });
-        // An orphan temporary territory (no member has it), as MyCRM's other parts left some.
+        // A temporary territory no project member has (the CSST part's): MyCRM's timer leaves it alone, and so does this.
         var orphan = world.Store.Insert(new TemporaryTerritory { Number = 1, Owner = TestWorld.Tom.Login, IsActive = true });
         world.Store.Insert(new TemporaryCompanyTerritory { TerritoryId = orphan.Id, CompanyId = lim.Id, IsActive = true });
-        // Before the end date: nothing closes; the orphan is made inactive (FixTerritory).
+        // Before the end date: nothing closes and nothing is taken away.
         var run = world.D.Projects.RunDaily("Scheduled");
-        Assert.Equal("0 projects closed; 1 temporary territory made inactive.", run.Summary);
-        Assert.False(world.Store.Get<TemporaryTerritory>(orphan.Id)!.IsActive);
+        Assert.Equal("0 projects closed; 0 temporary territories made inactive.", run.Summary);
+        Assert.True(world.Store.Get<TemporaryTerritory>(orphan.Id)!.IsActive);
         Assert.True(world.D.Access.CanOpen(world.Actor(TestWorld.Ken), lim));
         // The morning of its end date the project closes and Ken loses Lim.
         world.Now = p.EndDate!.Value.AddHours(5.5);
