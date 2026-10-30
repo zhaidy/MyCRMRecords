@@ -742,9 +742,12 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 var projects = new Dictionary<long, Project>();
                 foreach (var chunk in members.Select(m => m.ProjectId).Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
                     foreach (var p in store.Find<Project>(Query.All().In("Id", chunk))) projects[p.Id] = p;
+                // By territory once: thousands of active temporary territories (the CSST part's too) against thousands of
+                // members, compared each with each, kept the task busy for minutes.
+                var byTerritory = members.Where(m => m.TerritoryId is not null).GroupBy(m => m.TerritoryId!.Value).ToDictionary(g => g.Key, g => g.ToList());
                 foreach (var t in active)
                 {
-                    var of = members.Where(m => m.TerritoryId == t.Id).ToList();
+                    var of = byTerritory.TryGetValue(t.Id, out var list) ? list : new List<ProjectMember>();
                     var keep = of.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && ProjectTerritories.IsOpen(p, today));
                     if (keep) continue;
                     store.Batch(s =>
