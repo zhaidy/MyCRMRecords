@@ -11,7 +11,7 @@ namespace MyCRMRecords.Api;
 /// </summary>
 public sealed class ProjectsApi(CrmApp w)
 {
-    public static bool Handles(string path) => path.Trim('/').Split('/')[0] is "activities" or "projects" or "prospects";
+    public static bool Handles(string path) => path.Trim('/').Split('/')[0] is "activities" or "projects" or "prospects" or "dormant";
 
     public sealed class LoginInput
     {
@@ -37,6 +37,11 @@ public sealed class ProjectsApi(CrmApp w)
                     return Prospects(actor, QId("company"));
                 case "prospects" when get && parts.Length == 1:
                     return ListProspects(actor, ProspectFilter(query));
+
+                case "dormant" when get && parts.Length == 1:
+                    return ListDormant(actor, DormantFilter(query));
+                case "dormant" when post && parts.Length == 2 && parts[1] == "decision":
+                    return ApiResponse.Result(w.Dormant.Decide(actor, Input.Read<Dormant.DecisionInput>(body)));
 
                 case "activities" when get && parts.Length == 1 && QId("company") > 0:
                     return CompanyActivities(actor, QId("company"), Q("when"), Q("action"), Skip());
@@ -112,6 +117,47 @@ public sealed class ProjectsApi(CrmApp w)
         var when = Q("when") is "today" or "past" or "all" ? Q("when") : "upcoming";
         return new Activities.Filter(when, Strings.Shorten(Q("q"), 100), Q("type"), Q("owner").Length > 0 ? Q("owner") : "team", Day("from"), Day("to"),
             int.TryParse(Q("skip"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var skip) ? Math.Max(0, skip) : 0);
+    }
+
+    /// <summary>The Dormant opportunities page's filter from the address: list, owner, territory, reached, years, type, decision, q, skip.</summary>
+    public static Dormant.Filter DormantFilter(IReadOnlyDictionary<string, string> query)
+    {
+        string Q(string name) => query.TryGetValue(name, out var v) ? (v ?? "").Trim() : "";
+        int Number(string name) => int.TryParse(Q(name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? Math.Max(0, n) : 0;
+        return new Dormant.Filter
+        {
+            List = Q("list") == Dormant.Visited ? Dormant.Visited : Dormant.Prospects,
+            Owner = Q("owner").Length > 0 ? Q("owner") : "team",
+            Territory = long.TryParse(Q("territory"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var t) ? t : 0,
+            Reached = Math.Min(6, Number("reached")),
+            LookBackYears = Math.Min(50, Number("years")),
+            Type = Q("type"),
+            Decision = Q("decision"),
+            Q = Strings.Shorten(Q("q"), 100),
+            Skip = Number("skip"),
+        };
+    }
+
+    private static object DormantJson(Dormant.Row r) => new
+    {
+        kind = r.Kind, id = r.RecordId, companyId = r.CompanyId, company = r.Company, brn = r.Brn, territory = r.Territory, territoryId = r.TerritoryId,
+        owner = r.Owner, ownerLogin = r.OwnerLogin, priority = r.Priority, why = r.Why, furthest = r.Furthest, status = r.Status, type = r.ProspectType,
+        value = r.Value, closedOn = Date(r.ClosedOn), lastActivity = Date(r.LastActivity), activities = r.Activities, state = r.State, reason = r.Reason,
+        snoozeUntil = Date(r.SnoozeUntil), decidedBy = r.DecidedBy, decidedAt = Date(r.DecidedAt),
+        history = r.History.Select(h => new { date = Date(h.Date), label = h.Label }),
+    };
+
+    private ApiResponse ListDormant(Actor actor, Dormant.Filter filter)
+    {
+        var page = w.Dormant.List(actor, filter);
+        return ApiResponse.Of(new
+        {
+            total = page.Total, skip = filter.Skip, take = Dormant.PageSize, rows = page.Rows.Select(DormantJson), counts = page.Counts,
+            team = w.Dormant.Team(actor).Select(p => new { login = p.Login, name = p.Name }),
+            territories = w.Dormant.TerritoryChoices(actor, filter.Owner).Select(t => new { id = t.Id, name = t.Name }),
+            types = ProspectTypes.List.All.Select(c => new { code = c.Code, label = c.Label }),
+            me = actor.Login, canDecide = Activities.MaySave(actor), today = Date(w.Clock().Date), stalledDays = Dormant.StalledDays,
+        });
     }
 
     private static object ActivityJson(Activities.Row r) => new

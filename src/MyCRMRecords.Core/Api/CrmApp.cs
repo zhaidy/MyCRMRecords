@@ -72,6 +72,7 @@ public sealed class CrmApp
     public Activities Activities { get; init; } = null!;
     /// <summary>The Company summary and projects downloads (MyCRM's reports 09, 17 and 08).</summary>
     public Reports Reports { get; init; } = null!;
+    public Dormant Dormant { get; init; } = null!;
 
     /// <summary>Whether MyCRMRecords may change MyCRM's data now (the administrator's switch).</summary>
     public bool CanWrite => MyCrm is null || MyCrm.CanWrite;
@@ -147,6 +148,7 @@ public static class CrmFactory
             Projects = projects,
             Activities = new Activities(store, access, people, territories, projects, clock),
             Reports = new Reports(store, companies, projects, territories, people, clock),
+            Dormant = new Dormant(store, access, people, clock),
         };
     }
 }
