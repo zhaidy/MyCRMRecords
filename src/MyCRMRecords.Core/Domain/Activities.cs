@@ -283,6 +283,78 @@ public sealed class Activities(IRecordStore store, Access access, People people,
                + (p.ProspectType.Length > 0 ? " · " + ProspectTypes.List.Label(p.ProspectType) : "");
     }
 
+    public const int ProspectPageSize = 50;
+
+    /// <summary>
+    /// The Prospects page's filter: a search (company name or remarks), a stage and a type (codes), the status (open,
+    /// closed, cancelled, all), the estimated order dates (from–to, both included), whose (me, team or one of the list).
+    /// </summary>
+    public sealed record ProspectFilter(string? Q = null, string? Stage = null, string? Type = null, string Status = "open", string? Owner = "team",
+        DateTime? From = null, DateTime? To = null, int Skip = 0);
+
+    public sealed record ListedProspect(Prospect Prospect, string Company, string OwnerName);
+
+    /// <summary>A page of the Prospects page: how many match, the rows, the person's list and the names of the list and the owners (one read).</summary>
+    public sealed record ListedProspects(int Total, IReadOnlyList<ListedProspect> Rows, IReadOnlyCollection<string> List, Func<string, string> Name);
+
+    private static bool StatusIs(Prospect p, string status) => status switch
+    {
+        "open" => !p.IsClosed && !p.IsCancelled,
+        "closed" => p.IsClosed && !p.IsCancelled,
+        "cancelled" => p.IsCancelled,
+        _ => true,
+    };
+
+    /// <summary>
+    /// The Prospects page (only read): the active prospects the person ("me"), their list ("team", as the Activities page)
+    /// or one of it own, by the filter, newest first, a page of <see cref="ProspectPageSize"/>. In MyCRM the page is found,
+    /// ordered and counted in SQL; only the page's company names and owners are read.
+    /// </summary>
+    public ListedProspects ProspectList(Actor actor, ProspectFilter f)
+    {
+        var list = access.UserList(actor.Login, actor.CrmRole);
+        IReadOnlyCollection<string> who = (f.Owner ?? "team") switch
+        {
+            "me" => new[] { actor.Login },
+            "team" or "" => list,
+            var login => list.FirstOrDefault(l => Strings.SameText(l, login)) is { } one ? new[] { one } : new[] { actor.Login },
+        };
+        var text = (f.Q ?? "").Trim();
+        var status = f.Status is "closed" or "cancelled" or "all" ? f.Status : "open";
+        var before = f.To?.Date.AddDays(1);
+        int total;
+        List<Prospect> page;
+        if (store is RoutedStore { Crm: MyCrmStore crm } && crm.Available)
+        {
+            var (count, ids) = crm.ProspectIds(who, text, f.Stage, f.Type, status, f.From?.Date, before, Math.Max(0, f.Skip), ProspectPageSize);
+            var byId = new Dictionary<long, Prospect>();
+            if (ids.Count > 0) foreach (var p in store.Find<Prospect>(Query.All().In("Id", ids.Cast<object>()))) byId[p.Id] = p;
+            total = count;
+            page = ids.Where(byId.ContainsKey).Select(i => byId[i]).ToList();
+        }
+        else
+        {
+            var found = new List<Prospect>();
+            foreach (var chunk in Chunks(who)) found.AddRange(store.Find<Prospect>(Query.Where("IsActive", true).In("Owner", chunk)));
+            var names = text.Length > 0 ? CompanyNames(found.Select(p => p.CompanyId)) : new Dictionary<long, string>();
+            var matched = found
+                .Where(p => StatusIs(p, status))
+                .Where(p => string.IsNullOrWhiteSpace(f.Stage) || p.Stage == f.Stage!.Trim())
+                .Where(p => string.IsNullOrWhiteSpace(f.Type) || p.ProspectType == f.Type!.Trim())
+                .Where(p => f.From is null || p.EstimatedOrderDate is { } d && d >= f.From.Value.Date)
+                .Where(p => before is null || p.EstimatedOrderDate is { } d && d < before.Value)
+                .Where(p => text.Length == 0 || p.Remarks.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                            || (names.TryGetValue(p.CompanyId, out var n) && n.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0))
+                .OrderByDescending(p => p.DateCreated ?? DateTime.MinValue).ThenByDescending(p => p.Id)
+                .ToList();
+            total = matched.Count;
+            page = matched.Skip(Math.Max(0, f.Skip)).Take(ProspectPageSize).ToList();
+        }
+        var companies = CompanyNames(page.Select(p => p.CompanyId));
+        var name = people.NamesOf(page.Select(p => p.Owner).Concat(list));
+        return new ListedProspects(total, page.Select(p => new ListedProspect(p, companies.TryGetValue(p.CompanyId, out var c) ? c : "", name(p.Owner))).ToList(), list, name);
+    }
+
     /// <summary>A company's active prospects (MyCRM's Prospect), newest first: only read.</summary>
     public IReadOnlyList<Prospect> Prospects(long companyId) =>
         store.Find<Prospect>(Query.Where("CompanyId", companyId).And("IsActive", true)).OrderByDescending(p => p.DateCreated).ThenByDescending(p => p.Id).ToList();

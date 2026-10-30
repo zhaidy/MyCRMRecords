@@ -2092,3 +2092,45 @@ table.data td:is(.nowrap,.num,.tick,.c-date,.c-money,.c-no,.c-rf,.c-open,.file-d
 :is(.orders-status,.users-role,.users-not,.users-tag,.users-more,.act-type,.company-card-owner .salesperson){height:auto;min-height:24px;padding-top:2px;padding-bottom:2px;line-height:20px;max-width:none}
 .crumb-trail a,.crumb-here{max-width:none}
 .cs-summary{max-width:none}
+/* ==== Prospects (prospects.js): MyCRM's prospects, read only. The filters in two rows (search and status; stage, type,
+   owner and the estimated order dates), the stage as a soft tag, nothing cut off. ==== */
+.pros-note{margin:4px 0 0;font-size:14px;color:var(--ink-2)}
+.pros-filters{display:flex;flex-direction:column;gap:10px}
+.pros-filters .tabs{margin:0;flex:none}
+.pros-filters .tab{white-space:nowrap}
+.pros-more{flex-wrap:wrap}
+.pros-more .filter-capsule select{max-width:170px}
+.pros-filters button.filter-capsule{font:inherit;font-size:14px;font-weight:600}
+.pros-filters button.filter-capsule svg{width:16px;height:16px}
+.pros-filters button.filter-capsule[aria-expanded=true]{color:var(--accent)}
+.pros-dates{display:inline-flex;gap:10px;flex-wrap:wrap}
+.pros-dates[hidden]{display:none}
+.pros-dates input{width:132px}
+.pros-count{flex:1 1 auto;text-align:right}
+.pros-stage{display:inline-flex;align-items:center;min-height:24px;padding:2px 10px;border-radius:12px;line-height:20px;background:color-mix(in srgb,var(--ink-2) 12%,transparent);color:var(--ink);font-size:13px;font-weight:600;white-space:nowrap}
+.pros-stage.won{background:color-mix(in srgb,var(--teal) 16%,transparent);color:var(--teal)}
+.pros-stage.lost{background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral)}
+table.data.pros-table{table-layout:auto}
+table.data.pros-table :is(th,td){width:auto}
+table.data.pros-table tr[data-href]{cursor:pointer}
+table.data.pros-table tr.closed td{color:var(--ink-2)}
+table.data.pros-table td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pros-list .file-card .pros-stage{flex:none}
+@media(max-width:900px){
+  .pros-filters .companies-filter-row:first-child{flex-wrap:wrap}
+  .pros-filters .search-box{flex:1 1 100%}
+  .pros-filters .pros-status{display:flex;flex:1 1 100%}
+  .pros-status .tab{flex:1 1 0;min-width:0;padding:0 6px;justify-content:center}
+  .pros-more{gap:8px}
+  .pros-more .filter-capsule{height:40px;padding:0 12px;font-size:13px}
+  .pros-more .filter-capsule select{max-width:120px}
+  .pros-count{flex:1 1 100%;text-align:left;margin:0 4px}
+  #prospects-page .companies-title{flex:1 1 auto}
+}
+/* One more menu link (Prospects): up to 1600px wide Install app and the brand keep only their icons, and narrower the
+   links come closer sooner, so the menu fits beside the round buttons */
+@media(min-width:901px) and (max-width:1600px){.install-label{display:none}.install-button{width:48px;padding:0;justify-content:center}.appbar .brand>span:last-child{display:none}.appbar .brand{padding:0 8px}}
+@media(min-width:901px) and (max-width:1240px){.nav-item{padding:0 6px;font-size:13px}}
+@media(min-width:901px) and (max-width:1160px){.nav-item{padding:0 4px;font-size:12.5px}.install-button{display:none}}
+@media(min-width:901px) and (max-width:980px){.nav-item{padding:0 3px;font-size:12px}.appbar-right{gap:4px}}
+@media(min-width:901px) and (max-width:940px){.nav-item{padding:0 2px;font-size:11.5px}.appbar{gap:6px;margin-left:12px;margin-right:12px}}

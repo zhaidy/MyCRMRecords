@@ -33,8 +33,10 @@ public sealed class ProjectsApi(CrmApp w)
         {
             switch (parts[0])
             {
-                case "prospects" when get && parts.Length == 1:
+                case "prospects" when get && parts.Length == 1 && QId("company") > 0:
                     return Prospects(actor, QId("company"));
+                case "prospects" when get && parts.Length == 1:
+                    return ListProspects(actor, ProspectFilter(query));
 
                 case "activities" when get && parts.Length == 1 && QId("company") > 0:
                     return CompanyActivities(actor, QId("company"), Q("when"), Q("action"), Skip());
@@ -190,6 +192,37 @@ public sealed class ProjectsApi(CrmApp w)
                 updatedBy = w.People.NameOf(a.UpdatedBy), updatedDate = Date(a.UpdatedDate),
             },
             canEdit = d.CanEdit,
+        });
+    }
+
+    /// <summary>The Prospects page's filter from the address: q, stage, type, status, owner, from, to (estimated order), skip.</summary>
+    public static Activities.ProspectFilter ProspectFilter(IReadOnlyDictionary<string, string> query)
+    {
+        string Q(string name) => query.TryGetValue(name, out var v) ? (v ?? "").Trim() : "";
+        DateTime? Day(string name) => DateTime.TryParseExact(Q(name), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+        return new Activities.ProspectFilter(Strings.Shorten(Q("q"), 100), Q("stage"), Q("type"), Q("status") is "closed" or "cancelled" or "all" ? Q("status") : "open",
+            Q("owner").Length > 0 ? Q("owner") : "team", Day("from"), Day("to"),
+            int.TryParse(Q("skip"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var skip) ? Math.Max(0, skip) : 0);
+    }
+
+    /// <summary>The Prospects page (read only): a page of the prospects of the person or their list, and the filters' choices.</summary>
+    private ApiResponse ListProspects(Actor actor, Activities.ProspectFilter filter)
+    {
+        var page = w.Activities.ProspectList(actor, filter);
+        return ApiResponse.Of(new
+        {
+            total = page.Total, skip = filter.Skip, take = Activities.ProspectPageSize,
+            rows = page.Rows.Select(r => new
+            {
+                id = r.Prospect.Id, companyId = r.Prospect.CompanyId, company = r.Company, remarks = r.Prospect.Remarks,
+                stage = ProspectStages.List.Label(r.Prospect.Stage), stageCode = r.Prospect.Stage, type = ProspectTypes.List.Label(r.Prospect.ProspectType),
+                forecast = r.Prospect.Forecast, estimatedOrder = Date(r.Prospect.EstimatedOrderDate), owner = r.OwnerName, ownerLogin = r.Prospect.Owner,
+                updated = Date(r.Prospect.UpdatedDate).Length > 0 ? Date(r.Prospect.UpdatedDate) : Date(r.Prospect.DateCreated), isClosed = r.Prospect.IsClosed, isCancelled = r.Prospect.IsCancelled,
+            }),
+            stages = ProspectStages.List.All.Select(c => new { code = c.Code, label = c.Label }),
+            types = ProspectTypes.List.All.Select(c => new { code = c.Code, label = c.Label }),
+            team = page.List.Where(l => !actor.IsLogin(l)).Select(l => new { login = l, name = page.Name(l) }).OrderBy(p => p.name, StringComparer.OrdinalIgnoreCase),
+            me = actor.Login,
         });
     }
 

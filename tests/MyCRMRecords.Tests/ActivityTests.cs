@@ -108,6 +108,43 @@ public sealed class ActivityTests
     }
 
     [Fact]
+    public void The_Prospects_page_lists_the_prospects_of_the_person_and_their_team_by_the_filters()
+    {
+        using var world = new TestWorld();
+        var tan = world.Company("Tan", "T1000");
+        var lim = world.Company("Lim Trading", "T2000");
+        world.Territory("North", 1, TestWorld.Sam, tan.Id);
+        world.Store.Insert(new Prospect { CompanyId = tan.Id, Remarks = "6 MFPs", IsActive = true, Stage = "Negotiation", ProspectType = "R2R", Owner = TestWorld.Sam.Login,
+            DateCreated = new DateTime(2026, 9, 1), EstimatedOrderDate = new DateTime(2026, 11, 15), Forecast = 12000 });
+        world.Store.Insert(new Prospect { CompanyId = lim.Id, Remarks = "Renewal", IsActive = true, Stage = "Close", ProspectType = "NEW", Owner = TestWorld.Sam.Login,
+            DateCreated = new DateTime(2026, 10, 1), IsClosed = true });
+        world.Store.Insert(new Prospect { CompanyId = lim.Id, Remarks = "Dropped", IsActive = true, Owner = TestWorld.Sam.Login, DateCreated = new DateTime(2026, 10, 2), IsCancelled = true });
+        world.Store.Insert(new Prospect { CompanyId = tan.Id, Remarks = "Gone", IsActive = false, Owner = TestWorld.Sam.Login });
+        world.Store.Insert(new Prospect { CompanyId = tan.Id, Remarks = "Ken's", IsActive = true, Owner = TestWorld.Ken.Login });
+        var sam = world.Actor(TestWorld.Sam);
+        string[] Remarks(Activities.ProspectFilter f) => world.D.Activities.ProspectList(sam, f).Rows.Select(r => r.Prospect.Remarks).ToArray();
+        Assert.Equal(new[] { "6 MFPs" }, Remarks(new Activities.ProspectFilter()));
+        Assert.Equal(new[] { "Dropped", "Renewal", "6 MFPs" }, Remarks(new Activities.ProspectFilter(Status: "all")));
+        Assert.Equal(new[] { "Renewal" }, Remarks(new Activities.ProspectFilter(Status: "closed")));
+        Assert.Equal(new[] { "Dropped" }, Remarks(new Activities.ProspectFilter(Status: "cancelled")));
+        Assert.Equal(new[] { "Dropped", "Renewal" }, Remarks(new Activities.ProspectFilter(Q: "lim tr", Status: "all")));
+        Assert.Equal(new[] { "6 MFPs" }, Remarks(new Activities.ProspectFilter(Q: "mfp", Status: "all")));
+        Assert.Equal(new[] { "Renewal" }, Remarks(new Activities.ProspectFilter(Stage: "Close", Status: "all")));
+        Assert.Equal(new[] { "6 MFPs" }, Remarks(new Activities.ProspectFilter(Type: "R2R", Status: "all")));
+        Assert.Equal(new[] { "6 MFPs" }, Remarks(new Activities.ProspectFilter(Status: "all", From: new DateTime(2026, 11, 1), To: new DateTime(2026, 11, 15))));
+        Assert.Empty(Remarks(new Activities.ProspectFilter(Status: "all", To: new DateTime(2026, 11, 14), From: new DateTime(2026, 11, 1))));
+        // Ken sees only his; the row names its company and owner.
+        Assert.Equal(new[] { "Ken's" }, world.D.Activities.ProspectList(world.Actor(TestWorld.Ken), new Activities.ProspectFilter()).Rows.Select(r => r.Prospect.Remarks));
+        var answer = Api(world, "prospects", TestWorld.Sam, new() { ["status"] = "all", ["q"] = "mfp" });
+        Assert.Equal(200, answer.Status);
+        var json = world.Json(answer);
+        Assert.Equal(1, (int)json["total"]!);
+        Assert.Equal("Tan", (string?)json["rows"]![0]!["company"]);
+        Assert.Equal("Negotiation", (string?)json["rows"]![0]!["stage"]);
+        Assert.Equal("2026-11-15", (string?)json["rows"]![0]!["estimatedOrder"]);
+    }
+
+    [Fact]
     public void A_companys_prospects_are_only_read()
     {
         using var world = new TestWorld();
