@@ -74,9 +74,9 @@ public class AppPage : Page
     }
 
     private string NoAccessPage() =>
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\n"
         + "  <title>No access · MyCRMRecords</title>\n"
-        + $"  <link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">{Brand.TabIcon}\n</head>\n<body>\n"
+        + $"  <link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">{Brand.TabIcon}{Brand.AppLinks}\n</head>\n<body>\n"
         + TopBar("") + "\n  <div class=\"app-shell\"><main><div class=\"empty\"><h3>Not for your role</h3>"
         + $"<p>{HttpUtility.HtmlEncode(AllowedWho)} Your account is {HttpUtility.HtmlEncode(Login)}; a Sales Admin sets MyCRM roles on the CRM users page.</p>"
         + "<p><a class=\"button secondary small-btn\" href=\"guide.aspx\">Open the user guide</a></p></div></main></div>\n"
@@ -96,11 +96,11 @@ public class AppPage : Page
             .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
         html.Append(Item("./", "file", "Companies"));
+        if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
+        if (IsSalesAdmin) html.Append(Item("people.aspx", "users", "CRM users"));
         // MyOrders' costing sheets and request forms, read only: everyone sees the ones MyOrders' rule lets them.
         html.Append(Item("costingsheets.aspx", "money", "Costing sheets"));
         html.Append(Item("requestforms.aspx", "truck", "Request forms"));
-        if (CanManageTerritories) html.Append(Item("territories.aspx", "matrix", "Territories"));
-        if (IsSalesAdmin) html.Append(Item("people.aspx", "users", "CRM users"));
         if (IsAdmin)
         {
             var adminPages = new[] { "users.aspx", "admin.aspx", "deployment.aspx", "audit.aspx" };
@@ -111,11 +111,23 @@ public class AppPage : Page
                 .Append("</div></details>");
         }
         html.Append("</nav><div class=\"appbar-right\">")
+            // Install app (common.js): on a computer, a QR code to open MyCRMRecords on a phone and install it there.
+            .Append("<button type=\"button\" class=\"install-button\" id=\"install-button\" hidden><span data-icon=\"phone-download\"></span><span class=\"install-label\">Install app</span></button>")
             .Append($"<a class=\"help-button{(current == "guide.aspx" ? " selected" : "")}\" id=\"guide-button\" href=\"guide.aspx{(guideSection.Length > 0 ? "#" + guideSection : "")}\" title=\"User guide\" aria-label=\"User guide\"><span data-icon=\"help\"></span></a>")
             .Append($"<span class=\"avatar\" title=\"{HttpUtility.HtmlAttributeEncode(DisplayName)} ({HttpUtility.HtmlAttributeEncode(Login)})\">{HttpUtility.HtmlEncode(InitialsOf(DisplayName))}</span>")
             .Append($"<span class=\"appbar-name\">{HttpUtility.HtmlEncode(DisplayName)}</span>")
             .Append("<a class=\"sign-out\" href=\"logout.aspx\" title=\"Sign out\" aria-label=\"Sign out\"><span data-icon=\"logout\"></span></a>")
             .Append("</div></header><div class=\"menu-backdrop\" id=\"menu-backdrop\"></div>");
+        // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Orders (the costing sheets and
+        // request forms) and More, which opens the rest of the menu (the links above) as a sheet.
+        string Tab(string href, string icon, string label, bool selected) =>
+            $"<a class=\"tab-item{(selected ? " selected" : "")}\" href=\"{href}\"{(selected ? " aria-current=\"page\"" : "")}><span data-icon=\"{icon}\"></span><span>{label}</span></a>";
+        var onOrders = current == "costingsheets.aspx" || current == "requestforms.aspx";
+        html.Append("<nav class=\"tabbar\" aria-label=\"App menu\">")
+            .Append(Tab("./", "file", "Companies", current == "./"))
+            .Append(Tab("costingsheets.aspx", "money", "Orders", onOrders))
+            .Append($"<button type=\"button\" class=\"tab-item{(current != "./" && !onOrders && current.Length > 0 ? " selected" : "")}\" id=\"more-button\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span><span>More</span></button>")
+            .Append("</nav>");
         if (Person?.Impersonator is { } admin)
             html.Append("<div class=\"impersonation-bar\" role=\"status\"><span>You are signed in as <strong>").Append(HttpUtility.HtmlEncode(DisplayName))
                 .Append("</strong> (").Append(HttpUtility.HtmlEncode(Login)).Append("). Everything you do is recorded as ")
@@ -137,7 +149,7 @@ public class AppPage : Page
         string.Concat(new[] { "common.js" }.Concat(own).Append("guide.js")
             .Select(script => $"<script src=\"{HttpUtility.HtmlAttributeEncode(Assets.Url(script))}\"></script>\n  "));
 
-    protected string Stylesheet() => $"<link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">" + Brand.TabIcon;
+    protected string Stylesheet() => $"<link rel=\"stylesheet\" href=\"{HttpUtility.HtmlAttributeEncode(Assets.Url("app.css"))}\">" + Brand.TabIcon + Brand.AppLinks;
 
     /// <summary>"Jamie Lee" → "JL", "jsmith" → "JS".</summary>
     public static string InitialsOf(string name)

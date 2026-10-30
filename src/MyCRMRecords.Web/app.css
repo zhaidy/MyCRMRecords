@@ -483,3 +483,114 @@ table.data tr:last-child{border-bottom:0}
 .charts>.card{margin:0}
 .charts>.card.chart{display:flex;flex-direction:column}
 .charts>.card.chart>.plot-box{margin-top:auto}
+
+/* ==== Liquid Glass (2026-10-30): the look of every page ====
+   Content (cards, tables, forms) stays solid on a light grey page; only what floats above it is glass: the top bar,
+   buttons, tab and filter capsules, search, menus, dialogs and messages. Glass is see-through but strongly blurred,
+   with a darker rim and a bright top edge. One setting, --glass-opacity, goes from clear (.15) to tinted (.75).
+   On a phone the menu moves to a floating bar at the bottom (AppPage.TopBar: .tabbar), whose More opens the rest of
+   the menu as a sheet. Text is the device's own font (SF Pro on Apple devices, Segoe UI on Windows, Roboto on Android). */
+:root{--bg:#f2f2f7;--card:#fff;--raised:#fff;--surface:#f7f8fb;--surface-2:#eef0f4;--glass:#fff;--control:#fff;--ink:#111114;--ink-2:#5b5f69;--muted:#6b7080;--placeholder:#8a8f9a;--line:rgba(60,60,67,.13);--border:rgba(60,60,67,.18);--border-soft:rgba(60,60,67,.09);--field:rgba(60,60,67,.28);--secondary-border:rgba(0,0,0,.12);--accent:#0a58f0;--accent-dark:#0847c4;--accent-light:rgba(10,88,240,.12);--accent-tint:rgba(10,88,240,.06);--accent-border:rgba(10,88,240,.3);--focus:#0a58f0;--control-solid:#0a58f0;--on-control-solid:#fff;--row-tint:rgba(10,88,240,.04);--teal:#0d9488;--coral:#f2675a;--chart-ok:#0d9488;--chart-over:#f2675a;
+  --glass-rgb:248,248,252;--glass-opacity:.45;--glass-blur:24px;--glass-saturate:180%;--rim:rgba(0,0,0,.12);--spec:rgba(255,255,255,.95);--spec-rim:rgba(255,255,255,.55);--glass-fg:#0b0b0f;--glass-shadow:0 10px 30px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);--scrim:rgba(0,0,0,.22)}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--raised:#2c2c2e;--surface:#232326;--surface-2:#2c2c2e;--glass:#1c1c1e;--control:#2c2c2e;--ink:#f5f5f7;--ink-2:#a1a1aa;--muted:#8e8e96;--placeholder:#7c7c84;--line:rgba(235,235,245,.13);--border:rgba(235,235,245,.18);--border-soft:rgba(235,235,245,.08);--field:rgba(235,235,245,.24);--secondary-border:rgba(255,255,255,.16);--accent:#3d82ff;--accent-dark:#7aa8ff;--accent-light:rgba(61,130,255,.2);--accent-tint:rgba(61,130,255,.1);--accent-border:rgba(61,130,255,.4);--focus:#3d82ff;--control-solid:#3d82ff;--on-control-solid:#fff;--row-tint:rgba(255,255,255,.03);--teal:#2dd4bf;--coral:#ff8a7e;--chart-ok:#2dd4bf;--chart-over:#ff8a7e;
+  --glass-rgb:44,44,48;--rim:rgba(255,255,255,.16);--spec:rgba(255,255,255,.42);--spec-rim:rgba(255,255,255,.18);--glass-fg:#fff;--glass-shadow:0 10px 30px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);--scrim:rgba(0,0,0,.5)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--glass-opacity:.94}}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-weight:400;background:var(--bg)}
+h1{font-size:34px;font-weight:800;letter-spacing:-.025em}
+h2{letter-spacing:-.01em;font-weight:700}
+
+/* The glass material, and its uses */
+.appbar,.nav-menu,.install-button,.tabbar,.search-box,.toolbar select,.tabs,.button.secondary,.button.primary,.button.danger-btn,.icon-button,dialog,.toast,.help-button,.sign-out,body.menu-open .sidebar{background-color:rgba(var(--glass-rgb),var(--glass-opacity));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--rim);box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),var(--glass-shadow);color:var(--glass-fg)}
+.button.primary{background-color:color-mix(in srgb,var(--accent) 86%,transparent);color:#fff;border-color:rgba(0,0,0,.16)}
+.button.primary:hover:not(:disabled){background-color:var(--accent);border-color:rgba(0,0,0,.2)}
+.button.secondary:hover:not(:disabled),.icon-button:hover,.help-button:hover,.sign-out:hover{background-color:rgba(var(--glass-rgb),calc(var(--glass-opacity) + .25));border-color:var(--rim);color:var(--glass-fg)}
+.button.danger-btn{color:var(--red)}
+.button,.icon-button,.install-button,.tab,.tab-item{transition:transform .42s cubic-bezier(.34,1.56,.64,1),background-color .2s,box-shadow .2s,filter .2s}
+.button:hover:not(:disabled),.icon-button:hover,.install-button:hover{transform:scale(1.03)}
+.button:active:not(:disabled),.icon-button:active,.install-button:active,.tab-item:active{transform:scale(1.07)}
+.button{height:44px;padding:0 20px;font-weight:600}
+.button.small-btn{height:36px}
+.icon-button{width:44px;height:44px}
+
+/* Top bar: a floating glass capsule */
+.appbar{position:sticky;top:12px;margin:12px 16px 0;height:60px;gap:16px;padding:0 8px 0 16px;border-radius:30px}
+.sidebar{align-items:center;gap:2px}
+.nav-item{height:44px;padding:0 14px;border-radius:22px;font-weight:500;color:var(--glass-fg)}
+.nav-item:hover{color:var(--accent);background:rgba(var(--glass-rgb),.4)}
+.nav-item.selected{color:var(--accent);font-weight:700;background:rgba(var(--glass-rgb),.65);box-shadow:inset 0 0 0 1px var(--spec-rim)}
+.nav-item.selected:after{display:none}
+.nav-menu{top:calc(100% + 10px);border-radius:24px;padding:8px}
+.nav-menu .nav-item{border-radius:16px}
+.nav-menu .nav-item.selected{background:var(--accent-light)}
+.appbar-right{gap:8px}
+.help-button,.sign-out{padding:0;width:44px;height:44px;align-items:center;justify-content:center}
+.avatar{width:44px;height:44px;background:var(--accent-light)}
+.install-button{display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 16px;border-radius:22px;font-weight:600;font-size:14.5px;white-space:nowrap;cursor:pointer}
+.install-button svg{width:18px;height:18px}
+.impersonation-bar{margin:10px 16px 0;border-radius:18px;border:1px solid var(--yellow-border)}
+.warning-bar{border-color:var(--error-border)}
+main{padding-top:28px}
+
+/* Content: solid cards, no border */
+.card,.table-wrap,.empty{border:0;border-radius:24px;box-shadow:none;background:var(--card)}
+.data th{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--card)}
+.data td{border-bottom-color:var(--line)}
+.notice{border-radius:16px}
+.status,.pill{font-weight:700}
+.fact-label{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--ink-2)}
+.field{font-weight:600}
+.field input,.field select,.field textarea,.cell-input{border:1px solid var(--line);border-radius:12px;background-color:var(--surface)}
+.field select,select.cell-input{background:var(--surface) var(--select-arrow) no-repeat right 12px center}
+
+/* Filters: glass capsules; a group of tabs is one capsule whose chosen tab is a solid accent pill */
+.search-box{border-radius:24px;height:48px}
+.toolbar select{border-radius:24px;min-height:48px;background-image:var(--select-arrow);background-repeat:no-repeat;background-position:right 14px center}
+.tabs{display:inline-flex;padding:4px;gap:2px;border-radius:24px;max-width:100%}
+.tab{border:0;background:transparent;border-radius:20px;height:40px;padding:0 14px;color:var(--glass-fg);font-weight:500}
+.tab:hover{color:var(--accent);background:rgba(var(--glass-rgb),.4)}
+.tab[aria-selected=true]{background:var(--accent);color:#fff;font-weight:700;border:0}
+.tab[aria-selected=true] .count{background:rgba(255,255,255,.25);color:#fff}
+
+/* Dialogs, menus and messages */
+dialog{border-radius:32px;box-shadow:inset 0 1px 0 var(--spec),inset 0 0 0 1px var(--spec-rim),0 30px 80px rgba(0,0,0,.25)}
+dialog::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+dialog .field input,dialog .field select,dialog .field textarea{background-color:var(--card)}
+.toast{border-radius:24px;font-weight:600}
+.toast.error{background-color:color-mix(in srgb,var(--red) 88%,transparent);color:#fff}
+
+/* Install app: the QR code (common.js) is black on white whatever the theme, so phones can read it */
+.install-modal{width:min(560px,calc(100vw - 30px))}
+.install-qr-row{display:flex;gap:20px;align-items:center;margin-top:8px}
+.install-qr{flex:none;width:200px;height:200px;border-radius:18px;overflow:hidden;background:#fff;display:grid;place-items:center}
+svg.qr{width:200px;height:200px;stroke:none}
+svg.qr rect{fill:#fff}
+svg.qr path{fill:#000;stroke:none}
+.install-steps{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.install-steps [data-icon]{vertical-align:-3px;color:var(--accent)}
+
+/* The phone's bottom bar: hidden on wider screens */
+.tabbar{display:none}
+@media(max-width:900px){
+.appbar{top:8px;margin:8px 12px 0;height:56px;border-radius:28px;padding:0 6px 0 14px}
+.menu-button{display:none}
+.install-label{display:none}
+.install-button{width:44px;padding:0;justify-content:center}
+main{padding:20px 16px calc(120px + env(safe-area-inset-bottom))}
+h1{font-size:30px}
+.impersonation-bar{margin:8px 12px 0}
+.tabbar{display:flex;position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));height:64px;padding:4px;border-radius:32px;gap:0;z-index:35;isolation:isolate}
+.tabbar:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;background:radial-gradient(120% 90% at 50% -10%,rgba(255,255,255,.55),rgba(255,255,255,0) 55%)}
+.tab-item{flex:1 1 0;min-width:0;height:54px;border:0;border-radius:27px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:var(--glass-fg);font:inherit;font-size:10.5px;font-weight:600;cursor:pointer}
+.tab-item svg{width:24px;height:24px}
+.tab-item.selected{color:var(--accent);font-weight:700;background:rgba(var(--glass-rgb),.55);box-shadow:inset 0 0 0 1px var(--spec-rim)}
+/* A blurred top bar would hold the sheet inside it (backdrop-filter makes fixed children relative to it): while the
+   sheet is open the bar is a plain see-through colour. */
+body.menu-open .appbar{-webkit-backdrop-filter:none;backdrop-filter:none;background-color:rgba(var(--glass-rgb),.92)}
+body.menu-open .sidebar{inset:auto 8px calc(8px + env(safe-area-inset-bottom)) 8px;width:auto;max-height:78vh;overflow:auto;padding:14px 12px 18px;border-radius:34px;z-index:42}
+body.menu-open .sidebar:before{content:"";display:block;align-self:center;width:38px;height:5px;margin:0 0 8px;border-radius:3px;background:var(--rim);flex:none}
+body.menu-open .nav-item{height:52px;border-radius:16px;font-size:16px}
+body.menu-open .menu-backdrop{background:var(--scrim);z-index:40}
+.toast{bottom:calc(96px + env(safe-area-inset-bottom))}
+}
+@media(max-width:560px){.install-qr-row{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.button,.icon-button,.install-button,.tab,.tab-item{transition:none}.button:hover:not(:disabled),.icon-button:hover,.install-button:hover,.button:active:not(:disabled),.icon-button:active,.install-button:active,.tab-item:active{transform:none}}

@@ -43,6 +43,9 @@
     excel: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 12l4 5m0-5-4 5"/>',
     zip: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M11 5h1M11 8h1M11 11h1M10.5 14h2v3h-2z"/>',
     money: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+    'phone-download': '<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7m-3-3 3 3 3-3"/>',
+    share: '<path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/>',
+    'plus-square': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.file}</svg>`;
   // On a phone a table of rows is shown as a card per row (app.css): each cell is labelled with its column's heading.
@@ -60,6 +63,11 @@
   const menuButton = $('#menu-button');
   const setMenu = open => { document.body.classList.toggle('menu-open', open); menuButton?.setAttribute('aria-expanded', open); };
   menuButton?.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+  // On a phone, More in the bottom bar opens the same menu, as a sheet from the bottom (app.css).
+  const moreButton = $('#more-button');
+  moreButton?.addEventListener('click', () => { const open = !document.body.classList.contains('menu-open'); setMenu(open); moreButton.setAttribute('aria-expanded', open); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') moreButton?.setAttribute('aria-expanded', 'false'); });
+  $('#menu-backdrop')?.addEventListener('click', () => moreButton?.setAttribute('aria-expanded', 'false'));
   $('#menu-backdrop')?.addEventListener('click', () => setMenu(false));
   const closeNavGroups = target => $$('.nav-group[open]').forEach(group => { if (!group.contains(target)) group.open = false; });
   document.addEventListener('click', event => closeNavGroups(event.target));
@@ -184,6 +192,69 @@
 
   /** A coloured tag. */
   const tag = (label, color) => label ? `<span class="tag" style="--tag:${esc(color || '#7a8299')}">${esc(label)}</span>` : '';
+
+  /* Install app: MyCRMRecords installs as an app (manifest.json, sw.js). On a phone the button installs it (Android and
+     computers ask the browser; an iPhone shows the steps, as Safari has no button for it). On a computer it shows a QR
+     code of MyCRMRecords' address to open on a phone and install there, and installs on the computer too when the
+     browser can. Hidden once MyCRMRecords runs as the installed app. */
+  const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const onPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || matchMedia('(max-width: 900px)').matches;
+  const isIos = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const appAddress = () => new URL('./', location.href).href;
+  let installPrompt = null;
+  const installButton = $('#install-button');
+  if (installButton && !installed()) installButton.hidden = false;
+  addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
+  addEventListener('appinstalled', () => { installPrompt = null; if (installButton) installButton.hidden = true; toast('MyCRMRecords is installed.'); });
+  async function installHere() {
+    if (!installPrompt) return false;
+    const prompt = installPrompt;
+    installPrompt = null;
+    await prompt.prompt();
+    return true;
+  }
+  function loadQr() {
+    if (window.WHQR) return Promise.resolve(window.WHQR);
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'qrcode.js';
+      script.onload = () => resolve(window.WHQR);
+      script.onerror = reject;
+      document.head.append(script);
+    });
+  }
+  async function showInstall() {
+    if (onPhone() && !isIos() && await installHere()) return;
+    const phone = onPhone();
+    const dialog = document.createElement('dialog');
+    dialog.className = 'install-dialog';
+    dialog.setAttribute('aria-labelledby', 'install-title');
+    const steps = isIos()
+      ? `<ol class="install-steps"><li>Tap <span data-icon="share"></span> <strong>Share</strong> at the bottom of Safari.</li><li>Tap <span data-icon="plus-square"></span> <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li></ol>`
+      : `<ol class="install-steps"><li>Open the browser's menu <strong>⋮</strong>.</li><li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li></ol>`;
+    dialog.innerHTML = `<form method="dialog" class="modal install-modal">
+      <div class="modal-head"><h2 id="install-title">Install MyCRMRecords</h2><button type="button" class="icon-button" value="close" aria-label="Close"><span data-icon="close"></span></button></div>
+      ${phone ? `<p>Add MyCRMRecords to your home screen: it opens like an app, full screen, with the menu at the bottom.</p>${steps}`
+        : `<div class="install-qr-row"><div class="install-qr" aria-label="QR code of MyCRMRecords' address"></div><div>
+          <p><strong>On your phone:</strong> scan the code with the camera, sign in, then install MyCRMRecords from the page that opens (Install app).</p>
+          <p class="small muted">${esc(appAddress())}</p><p class="small muted">On the office network or the VPN.</p></div></div>
+          ${installPrompt ? `<div class="modal-footer"><button type="button" class="button primary" value="here"><span data-icon="download"></span>Install on this computer</button></div>` : ''}`}
+    </form>`;
+    document.body.append(dialog);
+    drawIcons(dialog);
+    const close = () => { dialog.close(); dialog.remove(); };
+    $('button[value=close]', dialog).addEventListener('click', close);
+    dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    $('button[value=here]', dialog)?.addEventListener('click', async () => { close(); await installHere(); });
+    dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
+    dialog.showModal();
+    if (!phone) {
+      try { const qr = await loadQr(); $('.install-qr', dialog).innerHTML = qr.svg(appAddress(), 200); }
+      catch { $('.install-qr', dialog).textContent = 'The QR code could not be drawn.'; }
+    }
+  }
+  installButton?.addEventListener('click', showInstall);
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
   window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, showErrors, param, pager, change, upload};
 })();

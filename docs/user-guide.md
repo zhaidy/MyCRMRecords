@@ -27,6 +27,23 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
   someone else.
 
+## Using MyCRMRecords on a phone
+
+MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a bar at the bottom of the screen:
+**Companies**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
+(Territories, CRM users, Admin…) from the bottom; tap outside it to close it.
+
+To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
+
+- **On a computer**: click **Install app** in the top bar. Scan the QR code with your phone's camera, sign in on the
+  phone, then install it there as below. When your browser can, **Install on this computer** under the code installs
+  MyCRMRecords on the computer too.
+- **On an Android phone**: tap the install button (the phone with an arrow) in the top bar, then **Install**.
+- **On an iPhone**: tap the install button for the steps: in Safari, tap **Share**, then **Add to Home Screen**.
+
+The button is not shown once MyCRMRecords runs as the installed app. The phone needs the office network or the VPN,
+as on a computer; without it, the app says MyCRMRecords can't be reached, with **Try again**.
+
 ## Companies
 
 The companies you may open, by name, 50 at a time; the first page shows straight away.
