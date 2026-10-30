@@ -253,7 +253,8 @@ Project Manager, and opens it.
 
 The project's page shows its status (**Open**, **Ended** or **Closed**), owner and end date, and four tabs:
 
-- **Companies**, with their salesperson. **Add companies** (search and tick) and **Remove** (after asking; a project
+- **Companies**, with their salesperson (a project with more than 300 companies lists the first 300 added, and says
+  how many it has). **Add companies** (search and tick) and **Remove** (after asking; a project
   keeps at least one company) are for the project's owner and Sales Admins.
 - **Members**, with their role and, under **Temporary territory**, the companies their temporary territory gives them. Only the project's owner adds
   and removes members: **Add member**, choose the **Person** and their **Role in this project**; the box says whether
@@ -658,6 +659,10 @@ For administrators. Everything that sends or changes something outside MyCRMReco
     keeps people, roles and the audit log. It does nothing when something would be lost: an import still recorded as
     running, a record that exists only in MyCRMRecords, or a change the last sync never confirmed.
 
+
+**Speed** shows how long MyCRMRecords took to answer each kind of request since the website started (or since **Start
+again**), the slowest first: how many times, how many took longer than the aim of 0.3 seconds, the typical time (half were
+faster), the slow time (9 in 10 were faster) and the slowest. Use it to see which page to make faster.
 ## Deployment
 
 For administrators: the version installed, when, and what changed in it.

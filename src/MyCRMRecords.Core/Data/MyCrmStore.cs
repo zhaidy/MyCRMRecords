@@ -696,6 +696,30 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
     /// <summary>The OutSystems user MyCRM keeps for a login (the first when OutSystems has several), or null: MyCRM numbers a temporary territory by it.</summary>
     public long? UserIdOf(string login) => Use((connection, transaction) => UserId((login ?? "").Trim(), new Reading(this, connection, transaction)));
 
+    /// <summary>
+    /// For each of these projects: how many active companies it has and the first <paramref name="first"/> of them (by
+    /// link), in one query. A project can hold tens of thousands of companies; the Projects list shows only the first.
+    /// </summary>
+    public IReadOnlyDictionary<long, (int Count, IReadOnlyList<long> First)> ProjectCompanies(IReadOnlyCollection<long> projectIds, int first) => Use((connection, transaction) =>
+    {
+        var result = new Dictionary<long, (int Count, IReadOnlyList<long> First)>();
+        if (projectIds.Count == 0) return (IReadOnlyDictionary<long, (int, IReadOnlyList<long>)>)result;
+        var links = Table(connection, MyCrmMap.ProjectCompanies);
+        var firsts = new Dictionary<long, List<long>>();
+        foreach (var row in Sql.Rows(connection, transaction,
+                     "SELECT x.[PROJECTID], x.[COMPANYID], x.[N] FROM (SELECT pc.[PROJECTID], pc.[COMPANYID], " +
+                     "ROW_NUMBER() OVER (PARTITION BY pc.[PROJECTID] ORDER BY pc.[ID]) AS [R], COUNT(*) OVER (PARTITION BY pc.[PROJECTID]) AS [N] " +
+                     $"FROM {links} pc WHERE pc.[ISACTIVE] = 1 AND pc.[PROJECTID] IN ({string.Join(", ", projectIds.Distinct().Select(v => v.ToString(CultureInfo.InvariantCulture)))})) x " +
+                     $"WHERE x.[R] <= {Math.Max(1, first).ToString(CultureInfo.InvariantCulture)} ORDER BY x.[PROJECTID], x.[R]"))
+        {
+            var project = OldValues.Long(row["PROJECTID"]);
+            if (!firsts.TryGetValue(project, out var list)) firsts[project] = list = new List<long>();
+            list.Add(OldValues.Long(row["COMPANYID"]));
+            result[project] = ((int)OldValues.Long(row["N"]), list);
+        }
+        return (IReadOnlyDictionary<long, (int, IReadOnlyList<long>)>)result;
+    });
+
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => Use((connection, transaction) =>
     {

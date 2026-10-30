@@ -1963,3 +1963,6 @@ body,button,input,select,textarea{font-family:"Inter",-apple-system,BlinkMacSyst
 body{font-size:15px;line-height:1.5;letter-spacing:-.006em}
 h1{font-weight:750;letter-spacing:-.022em}
 .data,.num,.data td{font-variant-numeric:tabular-nums}
+
+/* ==== Administrators: Settings › Speed (admin.js) ==== */
+.speed-slow{color:var(--coral);font-weight:700}

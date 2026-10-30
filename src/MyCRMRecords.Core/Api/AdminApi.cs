@@ -31,6 +31,15 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
         {
             switch (route)
             {
+                case "admin/speed" when get:
+                    return ApiResponse.Of(new
+                    {
+                        aimMs = RequestTimes.AimMs, since = RequestTimes.Since,
+                        lines = RequestTimes.Lines().Select(l => new { route = l.Route, count = l.Count, overAim = l.OverAim, averageMs = l.AverageMs, typicalMs = l.TypicalMs, slowMs = l.SlowMs, maxMs = l.MaxMs, last = l.Last }),
+                    });
+                case "admin/speed/clear" when !get:
+                    RequestTimes.Clear(DateTime.Now);
+                    return ApiResponse.Result(OperationResult.Success("The times are cleared."));
                 case "admin/database" when get: return Database();
                 case "admin/database/test" when !get: return TestDatabase(Input.Read<DatabaseInput>(body));
                 case "admin/database" when !get: return SaveDatabase(Input.Read<DatabaseInput>(body), user);
