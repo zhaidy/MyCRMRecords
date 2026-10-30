@@ -1841,6 +1841,116 @@ table.data.files-table .file-name{width:22%}
 .proj-gone{padding:48px 20px}
 .proj-gone-icon{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:28px;background:var(--surface-2);color:var(--ink-2);margin-bottom:6px}
 .proj-gone-icon svg{width:26px;height:26px}
+/* ==== Dialogs, the phone's More, back button and create button (2026-10-30, the design's shared chrome) ====
+   Every dialog has the design's glass head (WH.dialogHead: common.js WH.ask, crm.js CRM.dialog, the pages' dialogs, like
+   the activity panel): a round close (×) on the left, the title in the middle and the accent action on the right (red
+   for what takes something away); no Cancel / Save footer. The fields sit on solid cards. */
+dialog.dlg{width:min(640px,calc(100vw - 24px))}
+dialog.dlg.wide{width:min(900px,calc(100vw - 24px))}
+dialog.dlg-ask{width:min(520px,calc(100vw - 24px))}
+dialog.dlg .act-panel-title h2{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+dialog.dlg .act-panel-head{align-items:center}
+.act-panel-action .button{white-space:nowrap;border-radius:22px;padding:0 18px;font-weight:700}
+.act-panel-action .button[hidden]{display:none}
+.act-panel-head .icon-button{flex:none;width:44px;height:44px;border-radius:22px}
+.dlg-text{margin:0 6px;color:var(--glass-fg)}
+.dlg-card{padding:16px 18px;border-radius:22px;background:var(--card);color:var(--ink)}
+.dlg-card>p{margin:0 0 8px;color:var(--ink)}
+.dlg-card>p:last-child{margin-bottom:0}
+dialog.dlg .act-panel-body>.notice{margin:0}
+dialog.dlg .act-panel-body>.form-grid,dialog.dlg .act-panel-body>.users-group{padding:16px 18px;border-radius:22px;background:var(--card)}
+dialog.dlg .act-panel-body>.form-grid .field input,dialog.dlg .act-panel-body>.form-grid .field select,dialog.dlg .act-panel-body>.form-grid .field textarea,.dlg-card .field textarea,.dlg-card .field input{background-color:var(--surface)}
+dialog.dlg .act-panel-body>p.muted{margin:0 6px;color:var(--glass-fg)}
+dialog.dlg .people-list .person{color:var(--ink)}
+dialog.dlg .rate-facts{background:var(--card)}
+dialog.dlg .rate-head{margin:6px 6px 0}
+.install-modal .install-qr-row{margin:0}
+.install-app{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.install-app>span:last-child{display:flex;flex-direction:column;min-width:0}
+.install-app .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.install-app-icon{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--accent);color:#fff}
+.install-app-icon svg,.install-app-icon .brand-mark{width:30px;height:30px;color:#fff;background:none;box-shadow:none}
+.install-points{margin:12px 0;padding:0 0 12px 20px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line)}
+@media(max-width:600px){
+  dialog.dlg,dialog.dlg.wide,dialog.dlg-ask{width:calc(100vw - 16px)}
+  .act-panel-action .button{padding:0 14px}
+}
+
+/* The phone's More (AppPage.MoreSheet, common.js): over the page, under the bottom bar; a large title, the person,
+   Install the app, the rest of the menu in groups and Sign out. */
+.more-sheet{position:fixed;inset:0;z-index:36;overflow-y:auto;overscroll-behavior:contain;background:var(--bg);color:var(--ink)}
+.more-sheet[hidden]{display:none}
+@media(min-width:901px){.more-sheet{display:none}}
+body.more-open{overflow:hidden}
+body.more-open .tabbar{z-index:38}
+.more-bar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 14px 8px}
+.more-bar:before{content:"";position:absolute;inset:0 0 -24px;z-index:-1;pointer-events:none;background:color-mix(in srgb,var(--bg) 55%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);-webkit-mask-image:linear-gradient(to bottom,#000 70%,transparent);mask-image:linear-gradient(to bottom,#000 70%,transparent);opacity:0;transition:opacity .22s}
+.more-sheet.scrolled .more-bar:before{opacity:1}
+.more-bar .icon-button{border-radius:22px}
+.more-bar-title{flex:1;min-width:0;text-align:center;font-size:17px;font-weight:700;letter-spacing:-.01em;opacity:0;transition:opacity .22s}
+.more-sheet.scrolled .more-bar-title{opacity:1}
+.more-bar-end{flex:none;width:44px}
+.more-in{display:flex;flex-direction:column;gap:20px;max-width:640px;margin:0 auto;padding:4px 16px calc(120px + env(safe-area-inset-bottom))}
+.more-heading h1{margin:0;font-size:32px;line-height:1.12;font-weight:800;letter-spacing:-.025em}
+.more-heading p{margin:4px 0 0;font-size:15px;color:var(--ink-2)}
+.more-card{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--card);min-width:0}
+.more-card[hidden]{display:none}
+.more-avatar{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--accent-light);color:var(--accent);font-size:18px;font-weight:700}
+.more-who{flex:1;min-width:0;display:flex;flex-direction:column}
+.more-who b{font-size:18px;line-height:1.25;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-who>span{font-size:14px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-install .more-who b{font-size:16px}
+.more-install .more-who>span{font-size:13px}
+.more-app-icon{flex:none;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:#fff}
+.more-app-icon .brand-mark{background:none;box-shadow:none;color:#fff;width:26px;height:26px}
+.more-app-icon svg{width:24px;height:24px}
+.more-install .button{flex:none;height:40px;border-radius:20px;padding:0 18px}
+.more-group{display:flex;flex-direction:column;gap:8px}
+.more-group h2{margin:0 0 0 16px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2)}
+.more-list{border-radius:22px;background:var(--card);overflow:hidden}
+.more-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;font-size:16px;color:var(--ink);text-decoration:none;transition:background-color .14s}
+.more-row{position:relative}
+.more-row+.more-row:before{content:"";position:absolute;left:58px;right:0;top:0;height:1px;background:var(--line)}
+.more-row:hover,.more-row.selected{background:var(--surface)}
+.more-tile{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;background:var(--tile,#64748b)}
+.more-tile svg{width:18px;height:18px}
+.more-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-admin{flex:none;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--ink-2) 15%,transparent);color:var(--ink-2)}
+.more-chevron{flex:none;color:var(--ink-2);opacity:.6;display:grid}
+.more-chevron svg{width:14px;height:14px}
+.more-signout .more-row{font-weight:600;color:var(--red)}
+.more-signout .more-tile{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.more-foot{margin:0;text-align:center;font-size:13px;color:var(--ink-2)}
+
+/* The phone's top bar: the round glass back button (the breadcrumb's step back, common.js #appbar-back) in place of the
+   brand, and the page's title in the middle once its large title has scrolled away (body.bar-titled). */
+.appbar-back{display:none}
+@media(max-width:900px){
+  body.has-back .appbar-back{display:grid;place-items:center;flex:none;border-radius:22px;color:var(--glass-fg)}
+  body.has-back .appbar-back svg{width:20px;height:20px;stroke-width:2.3}
+  body.has-back .appbar{padding-left:6px}
+  body.has-back .brand{display:none}
+  body.has-back main .crumbs{display:none}
+  body.has-back #page.in-section .section-back{display:none}
+  .appbar-title{text-align:center;padding:0 4px}
+  body.bar-titled .appbar-title{opacity:1}
+  body.bar-titled:not(.has-back) .brand>span:last-child{display:none}
+}
+
+/* The page's create button (.phone-fab: New territory, New activity, Create project): on a phone a round accent "+"
+   floating beside the bottom bar, which makes room for it (body.has-fab, common.js). */
+@media(max-width:900px){
+  body.has-fab .tabbar{right:calc(14px + 58px + 8px)}
+  body .button.primary.phone-fab{position:fixed;right:14px;bottom:calc(17px + env(safe-area-inset-bottom));z-index:35;width:58px;height:58px;padding:0;border-radius:29px;justify-content:center;font-size:0;gap:0;isolation:isolate}
+  body .button.primary.phone-fab:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;background:radial-gradient(120% 90% at 50% -10%,rgba(255,255,255,.45),rgba(255,255,255,0) 55%)}
+  body .button.primary.phone-fab svg{width:26px;height:26px;stroke-width:2.4}
+  body .button.primary.phone-fab .action-label{display:none}
+  body.more-open .button.primary.phone-fab{display:none}
+}
+.act-panel-body>p.dlg-card{margin:0}
+.act-panel-in.install-modal{width:auto}
+.more-install .more-who>span{white-space:normal}
+@media(max-width:900px){body.more-open.has-fab .tabbar{right:14px}}
 
 /* ==== Text that is easy to read (2026-10-30): the Inter font, served by MyCRMRecords itself (fonts/, no font service
    on the internet; OFL licence in fonts/Inter-LICENSE.txt), a little darker grey text and figures that line up in columns.
