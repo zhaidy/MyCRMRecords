@@ -15,6 +15,12 @@ public sealed class ProjectTerritories(Func<string, long?> userIdOf)
     /// <summary>A project gives access while it is active, not closed and ends today or later.</summary>
     public static bool IsOpen(Project p, DateTime today) => p.IsActive && !p.IsClosed && p.EndDate is { } end && end.Date >= today.Date;
 
+    /// <summary>
+    /// MyCRM's FixTerritory test: a project is over when it is inactive, closed or past its end date. One with no end date
+    /// (the CSST part's projects, made outside MyCRM's Save) is not over.
+    /// </summary>
+    public static bool IsOver(Project p, DateTime today) => !p.IsActive || p.IsClosed || p.EndDate is { } end && end.Date < today.Date;
+
     /// <summary>MyCRM's CheckUserHasPermTerritory: the person owns an active permanent territory with an active link to the company.</summary>
     public static bool OwnsPermanently(IRecordStore s, string login, long companyId)
     {
@@ -732,6 +738,60 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
     /// FixTerritory, every active temporary territory whose member is no longer active, whose project is not open (inactive,
     /// closed or past its end date) or that no member has is made inactive. Every change is recorded (dbo.CrChange).
     /// </summary>
+    /// <summary>
+    /// The temporary territories <c>Projects that have ended</c> made inactive on a day (by its runs' records in
+    /// dbo.CrChange: Territory, ISACTIVE 1 → 0, during a run, by the run), still inactive, that it should have kept.
+    /// </summary>
+    public IReadOnlyList<long> TerritoriesTakenAway(DateTime day)
+    {
+        var runs = own.Find<JobRun>(Query.Where("Job", Data.Jobs.ProjectsEnded).AtLeast("StartedAt", day.Date).Before("StartedAt", day.Date.AddDays(1)));
+        if (runs.Count == 0) return Array.Empty<long>();
+        var changes = own.Find<MyCrmChange>(Query.Where("TableName", MyCrmMap.Territories).And("Column", "ISACTIVE")
+            .AtLeast("ChangedOn", runs.Min(r => r.StartedAt)).Before("ChangedOn", runs.Max(r => r.FinishedAt ?? clock()).AddMinutes(1)));
+        var ids = changes.Where(c => c.Before == "1" && c.After == "0" && runs.Any(r =>
+                c.ChangedOn >= r.StartedAt && c.ChangedOn <= (r.FinishedAt ?? clock()).AddMinutes(1)
+                && (Strings.SameText(c.ChangedBy, r.By) || Strings.SameText(c.ChangedBy, "Scheduled task: Projects that have ended"))))
+            .Select(c => c.RowId).Distinct().ToList();
+        var stillOff = new List<long>();
+        foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
+            stillOff.AddRange(store.Find<TemporaryTerritory>(Query.All().In("Id", chunk)).Where(t => !t.IsActive).Select(t => t.Id));
+        // Only those it should not have switched off: an active member of a project that is not over (MyCRM's rule; a
+        // project with no end date is not over). The others MyCRM's own timer switches off too.
+        var today = clock().Date;
+        var members = new List<ProjectMember>();
+        foreach (var chunk in stillOff.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)(long?)x.v))
+            members.AddRange(store.Find<ProjectMember>(Query.Where("IsActive", true).In("TerritoryId", chunk)));
+        var projects = new Dictionary<long, Project>();
+        foreach (var chunk in members.Select(m => m.ProjectId).Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
+            foreach (var p in store.Find<Project>(Query.All().In("Id", chunk))) projects[p.Id] = p;
+        var wrongly = new HashSet<long>(members.Where(m => m.TerritoryId is not null && projects.TryGetValue(m.ProjectId, out var p) && !ProjectTerritories.IsOver(p, today))
+            .Select(m => m.TerritoryId!.Value));
+        return stillOff.Where(wrongly.Contains).ToList();
+    }
+
+    /// <summary>Makes those temporary territories active again (administrators), each recorded with the value it replaced.</summary>
+    public OperationResult RestoreTerritoriesTakenAway(Actor actor, DateTime day)
+    {
+        if (!actor.IsAdmin) return OperationResult.Failure(ResultCodes.Forbidden, "Only administrators undo a scheduled task.");
+        var ids = TerritoriesTakenAway(day);
+        if (ids.Count == 0) return OperationResult.Success("No temporary territory to switch back on.");
+        using (MyCrmStore.As(actor.ChangedBy + " (undo of Projects that have ended)"))
+            foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 100, x => x.v))
+                store.Batch(s =>
+                {
+                    foreach (var id in chunk)
+                        if (s.Get<TemporaryTerritory>(id) is { IsActive: false } t)
+                        {
+                            t.IsActive = true;
+                            s.Update(t);
+                        }
+                });
+        return OperationResult.Success($"{Plural(ids.Count, "temporary territory", "temporary territories")} switched back on.");
+    }
+
+    /// <summary>The most projects closed or temporary territories taken away in one run before it stops and asks for a look.</summary>
+    public const int SafetyLimit = 50;
+
     public JobOutcome RunDaily(string by)
     {
         var today = clock().Date;
@@ -740,6 +800,11 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         using (MyCrmStore.As(by == "Scheduled" ? "Scheduled task: Projects that have ended" : by))
         {
             var due = store.Find<Project>(Query.Where("IsActive", true).And("IsClosed", false).AtLeast("EndDate", new DateTime(1900, 1, 2)).Before("EndDate", today.AddDays(1)));
+            // A safety stop: MyCRM's timer closes a handful a day. Many more means something is off (a rule, a date):
+            // nothing is changed, and the run says so.
+            if (due.Count > SafetyLimit)
+                return new JobOutcome($"Stopped before changing anything: {Plural(due.Count, "project", "projects")} would be closed, more than {SafetyLimit}. " +
+                    "Check the projects' end dates (or close them in MyCRM), then run it again.", 0, Failed: true);
             foreach (var p in due)
                 store.Batch(s =>
                 {
@@ -760,11 +825,18 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 // By territory once: thousands of active temporary territories (the CSST part's too) against thousands of
                 // members, compared each with each, kept the task busy for minutes.
                 var byTerritory = members.Where(m => m.TerritoryId is not null).GroupBy(m => m.TerritoryId!.Value).ToDictionary(g => g.Key, g => g.ToList());
-                foreach (var t in active)
+                // MyCRM's FixTerritory: a territory goes when no member has it, or its members are inactive or their
+                // projects are over (inactive, closed or past the end date; no end date is not over).
+                var going = active.Where(t =>
                 {
                     var of = byTerritory.TryGetValue(t.Id, out var list) ? list : new List<ProjectMember>();
-                    var keep = of.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && ProjectTerritories.IsOpen(p, today));
-                    if (keep) continue;
+                    return !of.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && !ProjectTerritories.IsOver(p, today));
+                }).ToList();
+                if (going.Count > SafetyLimit)
+                    return new JobOutcome($"{Plural(closed, "project", "projects")} closed. Stopped before taking away temporary territories: " +
+                        $"{going.Count} would be made inactive, more than {SafetyLimit}. Nothing else was changed.", closed, Failed: true);
+                foreach (var t in going)
+                {
                     store.Batch(s =>
                     {
                         t.IsActive = false;

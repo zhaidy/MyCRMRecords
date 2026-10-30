@@ -223,6 +223,7 @@
       ${d.jobs.map(j => `<section class="card" data-job="${esc(j.job)}"><div class="card-heading"><h2>${esc(j.title)}</h2>
           <button type="button" class="button secondary small-btn" data-run-job="${esc(j.job)}"><span data-icon="refresh"></span>Run now</button></div>
         ${j.job === 'customer-numbers' ? '<p class="muted small">MyCRM\'s UpdateCustomerNo: each active company whose BRN has more than 3 characters gets the customer number of Advance\'s customers with that BRN (with " #Multiple" after it when several share it). Needs AdvanceConnector (Connections tab). Switch MyCRM\'s own timer off when this one runs.</p>' : ''}
+        ${j.job === 'projects-ended' ? '<p class="muted small">MyCRM\'s SetInactiveAllProjectThatEnds: closes the projects whose end date has come and takes away temporary territories whose project is over. It stops before changing anything when more than 50 would change. <button type="button" class="text-button" data-restore-territories>Roll back: switch back on the temporary territories it should not have switched off today</button></p>' : ''}
         <div class="form-grid" style="margin-top:10px">
           <label class="check"><input type="checkbox" data-j="enabled"${j.schedule.enabled ? ' checked' : ''}>On</label>
           <label class="field"><span>Daily at (HH:mm)</span><input data-j="dailyAt" type="time" value="${esc(j.schedule.dailyAt || '')}"></label>
@@ -237,6 +238,15 @@
       const schedules = $$('[data-job]', form).map(card => ({job: card.dataset.job, enabled: $('[data-j=enabled]', card).checked,
         dailyAt: $('[data-j=dailyAt]', card).value, everyMinutes: Number($('[data-j=everyMinutes]', card).value || 0), days: $('[data-j=days]', card).value.trim()}));
       await saveSection('jobs', {enabled: $('#jobs-enabled').checked, schedules}, $('#jobs-result'));
+    });
+    $('[data-restore-territories]', form)?.addEventListener('click', async () => {
+      const c = await api('GET', 'admin/jobs/restore-territories');
+      if (!c.result.ok) { toast(c.result.message, true); return; }
+      if (!c.count) { toast('No temporary territory to switch back on: none it switched off today is still off.'); return; }
+      if (!await ask({title: 'Switch them back on?', text: `${c.count} temporary ${c.count === 1 ? 'territory' : 'territories'} that Projects that have ended switched off today, though their project has not ended, will be active again in MyCRM (each recorded in Changes made in MyCRM). Those whose project really ended stay off.`, ok: 'Switch back on'})) return;
+      const r = await api('POST', 'admin/jobs/restore-territories', {});
+      toast(r.result.message, !r.result.ok);
+      show();
     });
     $$('[data-run-job]', form).forEach(button => button.addEventListener('click', async () => {
       button.disabled = true;
