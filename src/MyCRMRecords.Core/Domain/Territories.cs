@@ -79,6 +79,16 @@ public sealed class Territories(IRecordStore store, People people, Func<DateTime
         return result;
     }
 
+    /// <summary>
+    /// The companies with an active link to an active permanent territory: those not in it are MyCRM's "Unassigned
+    /// Companies" (the companies list's "No salesperson").
+    /// </summary>
+    public HashSet<long> AssignedCompanyIds()
+    {
+        var active = new HashSet<long>(store.Find<Territory>(Query.Where("IsActive", true)).Select(t => t.Id));
+        return new HashSet<long>(store.Find<CompanyTerritory>(Query.Where("IsActive", true)).Where(ct => active.Contains(ct.TerritoryId)).Select(ct => ct.CompanyId));
+    }
+
     /// <summary>The company's salesperson's login, or "".</summary>
     public string OwnerOf(long companyId) => Owners([companyId]).TryGetValue(companyId, out var o) ? o.Owner : "";
 

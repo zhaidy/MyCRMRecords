@@ -15,10 +15,18 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
     public const int PageSize = 50;
     public const string Required = "Required Field!";
 
-    public sealed record ListFilter(string? Q = null, string? CustomerType = null, long? GroupNameId = null, string? PostalCode = null, int Skip = 0);
+    /// <summary>
+    /// The list's search and filters. <see cref="Show"/>: "" every company the person opens; <see cref="Mine"/> those of
+    /// the person's (and by their role their team's) permanent territories; <see cref="NoSalesperson"/> those in no
+    /// active permanent territory (MyCRM's "Unassigned Companies").
+    /// </summary>
+    public sealed record ListFilter(string? Q = null, string? CustomerType = null, long? GroupNameId = null, string? PostalCode = null, int Skip = 0, string? Show = null);
 
-    /// <summary>A company of the list: its first address's postal code, salesperson and creator.</summary>
-    public sealed record Row(long Id, string Name, string Brn, string PostalCode, string Owner, string CreatedBy);
+    public const string Mine = "mine";
+    public const string NoSalesperson = "none";
+
+    /// <summary>A company of the list: its first address's postal code, salesperson, territory, customer type and creator.</summary>
+    public sealed record Row(long Id, string Name, string Brn, string PostalCode, string Owner, string CreatedBy, string Territory = "", string CustomerType = "");
 
     public sealed class CompanyInput
     {
@@ -128,7 +136,7 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
 
     /// <summary>
     /// The active companies the person may open, by name, 50 at a time: searched by name or BRN, by customer type, group
-    /// name and postal code (any of its addresses), as MyCRM's company search.
+    /// name and postal code (any of its addresses), as MyCRM's company search; and by <see cref="ListFilter.Show"/>.
     /// </summary>
     public (int Total, IReadOnlyList<Row> Rows) List(Actor actor, ListFilter filter)
     {
@@ -145,10 +153,30 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
                 withPostal.UnionWith(store.Find<CompanyAddressLink>(Query.All().In("AddressId", chunk)).Select(l => l.CompanyId));
             ids = ids is null ? withPostal : new HashSet<long>(ids.Where(withPostal.Contains));
         }
+        var show = (filter.Show ?? "").Trim().ToLowerInvariant();
+        if (show == Mine)
+        {
+            var own = access.OwnCompanyIds(actor);
+            ids = ids is null ? own : new HashSet<long>(ids.Where(own.Contains));
+        }
+        var assigned = show == NoSalesperson ? territories.AssignedCompanyIds() : null;
+        if (assigned is not null && ids is not null)
+        {
+            var withSalesperson = assigned;
+            ids = new HashSet<long>(ids.Where(id => !withSalesperson.Contains(id)));
+        }
         int total;
         List<Company> page;
         var skip = Math.Max(0, filter.Skip);
-        if (ids is null)
+        if (ids is null && assigned is not null)
+        {
+            // Every active company that matches, less those with a salesperson: the filters run in SQL, the rest here.
+            var withSalesperson = assigned;
+            var found = store.Find<Company>(query.Unpaged()).Where(c => !withSalesperson.Contains(c.Id)).ToList();
+            total = found.Count;
+            page = found.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Skip(skip).Take(PageSize).ToList();
+        }
+        else if (ids is null)
         {
             total = store.Count<Company>(query.Unpaged());
             page = store.Find<Company>(query.Sort("Name").Page(skip, PageSize));
@@ -173,8 +201,12 @@ public sealed class Companies(IRecordStore store, Access access, Territories ter
     {
         var owners = territories.Owners(page.Select(c => c.Id));
         var postal = PostalCodes(page.Select(c => c.Id));
-        return page.Select(c => new Row(c.Id, c.Name.Trim(), c.Brn, postal.TryGetValue(c.Id, out var p) ? p : "",
-            owners.TryGetValue(c.Id, out var o) ? o.Owner : "", c.CreatedBy)).ToList();
+        return page.Select(c =>
+        {
+            var owned = owners.TryGetValue(c.Id, out var o);
+            return new Row(c.Id, c.Name.Trim(), c.Brn, postal.TryGetValue(c.Id, out var p) ? p : "", owned ? o.Owner : "", c.CreatedBy,
+                owned ? Territories.Title(o.Territory) : "", CompanyGroups.List.Label(c.CompanyGroup));
+        }).ToList();
     }
 
     /// <summary>MyCRM's GetPostalCodeByCompanyId: the postal code of each company's first address, active or not.</summary>

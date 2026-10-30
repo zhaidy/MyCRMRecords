@@ -83,6 +83,21 @@ public sealed class Access(IRecordStore store, Func<ITemporaryTerritories?> temp
         return ids;
     }
 
+    /// <summary>
+    /// The companies list's "Mine": the active companies of the active permanent territories of the people in the
+    /// person's list (<see cref="UserList"/>: their own and, by their role, their team's), whatever the person opens.
+    /// MyCRM's temporary (project) territories do not count.
+    /// </summary>
+    public HashSet<long> OwnCompanyIds(Actor actor)
+    {
+        var people = UserList(actor.Login, actor.CrmRole);
+        var territories = store.Find<Territory>(Query.Where("IsActive", true).In("Owner", people.Cast<object>())).Select(t => (object)t.Id).ToList();
+        var ids = new HashSet<long>();
+        if (territories.Count > 0)
+            ids.UnionWith(store.Find<CompanyTerritory>(Query.Where("IsActive", true).In("TerritoryId", territories)).Select(ct => ct.CompanyId));
+        return ids;
+    }
+
     /// <summary>MyCRM's UserCanAccessCompany: whether the person may open the company.</summary>
     public bool CanOpen(Actor actor, Company company)
     {

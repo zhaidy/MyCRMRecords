@@ -238,6 +238,16 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     of every department; the search needs no minimum of three characters and does not look in serial numbers or tags;
     the list is always newest first; a zip holds at most 50 files.
 
+20. **The company list shows a salesperson, territory and customer type, and can show "Mine" or "No salesperson"**
+    (2026-10-30). MyCRM's CompanyList_Table showed Company, Postal Code, BRN and Created By, and showed no list before
+    Search; MyCRMRecords shows the first page at once, one line per company, and adds the salesperson and territory
+    (MyCRM's GetCompanyOwner) and the customer type. Those who open every company also choose **Mine** (the active
+    companies of the active permanent territories of the people in their `Session.UserList`: their own, and by their
+    role their team's; MyCRM's project territories don't count) or **No salesperson** (MyCRM's admin panel
+    "Unassigned Companies": active companies with no active link to an active permanent territory, a vacant territory
+    counting as a territory). With No salesperson, those who keep territories tick companies and put them in a
+    territory with the Territories page's own change (rule 9), from the list instead of from a user's territory.
+
 ## 13. Production counts that shaped the design (2026-10-19)
 
 The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):
