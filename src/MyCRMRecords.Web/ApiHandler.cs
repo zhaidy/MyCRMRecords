@@ -230,6 +230,7 @@ public sealed class ApiHandler : IHttpHandler
             case "people": return "Add someone to choose from";
             case "activities" when parts.Length == 2: return Number(1) == 0 ? "Add an activity" : $"Save activity {Number(1)}";
             case "activities" when parts.Length == 3: return $"Delete activity {Number(1)}";
+            case "dormant" when parts.Length == 2: return "Record a decision about a dormant opportunity";
             case "projects" when parts.Length == 2: return Number(1) == 0 ? "Create a project" : $"Save project {Number(1)}";
             case "projects" when parts.Length == 3 && parts[2] == "companies": return $"Add companies to project {Number(1)}";
             case "projects" when parts.Length == 5 && parts[2] == "companies": return $"Remove company {Number(3)} from project {Number(1)}";

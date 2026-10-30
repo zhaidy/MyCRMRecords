@@ -351,6 +351,13 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     - **A deleted project's page** says the project was deleted (with when and by whom, to its owner and Sales Admins)
       instead of "not found".
 
+27. **Dormant opportunities** (decided 2026-10-30; new, MyCRM has no such page). The Dormant page lists, for the person's
+    territories (a manager: their list's, MyCRM's `GetSub`), lost prospects (status Lost or stage CloseLost), open
+    prospects with no activity for 90 days, and companies visited beyond a first call with no prospect. Prospects and
+    activities are only read. What people decide (Followed up, No opportunity with a reason, Snoozed until a day) is kept
+    in MyCRMRecords' own table `dbo.CrDormantDecision`, never in MyCRM. Following up is done in D365, so the page has
+    no link to it and no customer number: only *Copy name*.
+
 ## 13. Production counts that shaped the design (2026-10-19)
 
 The sync starts with the shared engine as it is (every row of the synced tables read at each sync, every 10 minutes):

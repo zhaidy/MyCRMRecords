@@ -722,11 +722,38 @@ public sealed class MyCrmChange : IRecord
     [Len(int.MaxValue)] public string After { get; set; } = "";
 }
 
+/// <summary>
+/// What someone decided about a dormant opportunity on the Dormant page: followed up, no opportunity (with a reason) or
+/// snoozed until a date. MyCRMRecords' own record: MyCRM's prospects and activities are never changed. A new decision marks
+/// the one before it inactive, so nothing is deleted and the pages read only the active one.
+/// </summary>
+[Table("dbo.CrDormantDecision")]
+public sealed class DormantDecision : IRecord
+{
+    public long Id { get; set; }
+    /// <summary><see cref="DormantKinds"/>: RecordId is a prospect's Id or a company's Id.</summary>
+    [Indexed, Len(20)] public string Kind { get; set; } = "";
+    [Indexed] public long RecordId { get; set; }
+    public long CompanyId { get; set; }
+    /// <summary><see cref="DormantDecisions"/>.</summary>
+    [Len(20)] public string Decision { get; set; } = "";
+    /// <summary><see cref="DormantReasons"/> (for No opportunity).</summary>
+    [Len(50)] public string Reason { get; set; } = "";
+    /// <summary>For Snoozed: the first day the opportunity is listed again.</summary>
+    public DateTime? SnoozeUntil { get; set; }
+    public bool IsActive { get; set; } = true;
+    /// <summary>The login of who decided (or on whose behalf).</summary>
+    [Len(256)] public string DecidedBy { get; set; } = "";
+    [Len(256)] public string DecidedByName { get; set; } = "";
+    public DateTime DecidedAt { get; set; }
+}
+
 /// <summary>MyCRMRecords' own tables, in the order the migrations create them (MyCRM's records are kept in MyCRM).</summary>
 public static class Tables
 {
     public static readonly IReadOnlyList<Type> All =
     [
         typeof(EmailMessage), typeof(JobRun), typeof(AppUser), typeof(UserRole), typeof(AuditEntry), typeof(RecordNote), typeof(MyCrmChange),
+        typeof(DormantDecision),
     ];
 }

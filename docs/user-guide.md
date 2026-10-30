@@ -62,7 +62,7 @@ MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a
 **Companies**, **Files**, **Machines**, **Orders** (the costing sheets and request forms) and **More**.
 
 **More** opens a screen with everything else: your name and MyCRM role, **Install the app** (see below), then the
-other pages in groups: **Sales** (Projects, Activities), **Records** (Territories and CRM users, for the roles that keep
+other pages in groups: **Sales** (Projects, Activities, Dormant), **Records** (Territories and CRM users, for the roles that keep
 them), **Machines** (Machine access, for Sales Admins) and **App** (User guide, and for administrators User roles,
 Settings, Deployment and Audit log, marked **Admin**). **Sign out** is at the bottom. The round **×** at the top left,
 **More** again or the phone's Back closes it.
@@ -244,6 +244,34 @@ choose and **Add**:
   **Attendees** (the company's contacts) and **Related Prospects**. The cross on a chip takes it off.
 
 Press **Save**. The Marketing role can read activities but not save them. Reminders and notifications are not kept here.
+
+## Dormant opportunities
+
+**Dormant** (in the menu, or under **Sales** in More on a phone) lists old prospects and visited companies in your territories
+that might still be an opportunity. A salesperson sees the companies of their own territories; a manager sees their
+team's, and can choose **Salesperson** or **Territory**. Following up is done in D365: this page only records what you
+decided.
+
+- **Prospects** are prospects that were lost, and open prospects with no activity for 90 days (a company that has a newer
+  prospect that is open or won is not listed). **Visited, no prospect** are companies visited beyond a first call (a first
+  appointment or further) where no prospect was ever made. The number on each tab is what is still to follow up.
+- Each row has a priority, **High**, **Medium** or **Low**, from the furthest it got (a proposal or negotiation is High),
+  and says **why it's here**, for example "Lost, type NEW, Nov 2024" or "Open and untouched since Sep 2024". The best
+  come first, then the biggest value. The data is old, so the priority is not about how recent the last activity was.
+- Type in the search box (company name or BRN) and choose **Reached** (the furthest activity), **Look back** (All time or
+  the last 1, 2, 3 or 5 years) and, for prospects, **Type**. MyCRMRecords remembers your choices.
+- Click a row to open it: its facts, the **Activity history** and **Your decision**:
+  - **Followed up** when you have been in touch.
+  - Choose a **Reason** and **No opportunity** when there is nothing to follow up (the company closed or moved, bought
+    elsewhere, no budget, other).
+  - Choose a day and **Snooze** to hide it until then; it comes back under **To follow up** after that day.
+- The tabs **To follow up**, **Followed up**, **No opportunity** and **Snoozed** show what was decided, and by whom and
+  when. A new decision replaces the old one; nothing is deleted.
+- **Copy name** copies the company's name, to search for it in D365.
+- **Download Excel (all)** downloads everything in your scope, whatever the search and filters are: a sheet for each
+  list, with the full activity history and the decision, reason, snooze day and who decided.
+
+The Marketing role can read this page but not record decisions.
 
 ## Projects
 

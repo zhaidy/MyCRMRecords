@@ -34,11 +34,36 @@ public static class DataMigrations
         new(MyCrmTablesDirectly, "MyCRM's data stays in MyCRM",
             "MyCRMRecords now reads and writes the CRM users and teams, the companies with their addresses, contacts, phones, emails, relationships and group names, the territories with their companies, and the territory movements in MyCRM's own tables in the OutSystems database, so it keeps no copy and no longer syncs. This keeps what MyCRM has no column for (each territory's name, when and by whom something was made or taken away here, a CRM user's former team, a group name or company address taken away) in dbo.CrRecordNote, by MyCRM's Id; adds dbo.CrChange, where every value MyCRMRecords writes in MyCRM is recorded with the value it replaced; then drops MyCRMRecords' copies (dbo.CrTeam, CrCrmUser, CrCompanyGroupName, CrCompany, CrCompanyCaretake, CrCompanyRelationship, CrAddress, CrCompanyAddressLink, CrContact, CrCompanyContactLink, CrPhone, CrContactEmail, CrTerritory, CrCompanyTerritory, CrTerritoryMovement) and the sync's tables (dbo.CrSyncLink, CrSyncRun, CrSyncChange). People, roles, the audit log, the emails, the task runs and the settings stay. It does nothing while an import is still recorded as running, when a record exists only in MyCRMRecords (it has no MyCRM number), or when the sync wrote something in MyCRM it never confirmed: any of these would be lost. Nothing is changed in MyCRM. Afterwards, an administrator ticks Let MyCRMRecords change MyCRM's data (MyCRM tab).",
             MyCrmTablesDirectlySql),
+        new(DormantDecisions, "Dormant opportunities: decisions",
+            "Adds dbo.CrDormantDecision, where the Dormant page keeps what people decided about an old lost or abandoned opportunity (followed up, no opportunity with a reason, or snoozed until a date), with who decided and when. It is MyCRMRecords' own table: nothing is changed in MyCRM, and nothing is lost if it is empty.",
+            DormantDecisionsSql),
     ];
 
     public static DataMigration? Find(string id) => All.FirstOrDefault(m => m.Id == id);
 
     public const string MyCrmTablesDirectly = "2026-10-19-mycrm-tables-directly";
+
+    public const string DormantDecisions = "2026-10-30-dormant-decisions";
+
+    /// <summary>The table of the Dormant page's decisions (a new table: no data to carry over).</summary>
+    private const string DormantDecisionsSql = """
+        CREATE TABLE dbo.CrDormantDecision (
+            [Id] bigint IDENTITY(1,1) NOT NULL,
+            [Kind] nvarchar(20) NOT NULL,
+            [RecordId] bigint NOT NULL,
+            [CompanyId] bigint NOT NULL,
+            [Decision] nvarchar(20) NOT NULL,
+            [Reason] nvarchar(50) NOT NULL,
+            [SnoozeUntil] datetime2(3) NULL,
+            [IsActive] bit NOT NULL,
+            [DecidedBy] nvarchar(256) NOT NULL,
+            [DecidedByName] nvarchar(256) NOT NULL,
+            [DecidedAt] datetime2(3) NOT NULL,
+            CONSTRAINT PK_CrDormantDecision PRIMARY KEY ([Id])
+        );
+        CREATE INDEX IX_CrDormantDecision_Kind ON dbo.CrDormantDecision ([Kind]);
+        CREATE INDEX IX_CrDormantDecision_RecordId ON dbo.CrDormantDecision ([RecordId]);
+        """;
 
     /// <summary>
     /// The copy of MyCRM's data and the sync's tables dropped, what MyCRM has no column for kept as notes by MyCRM's Id,

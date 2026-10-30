@@ -108,6 +108,26 @@ public sealed class SqlServerTests
         Assert.Throws<InvalidOperationException>(() => storage.RunMigration(database.Settings, DataMigrations.All[0], "Test"));
     }
 
+    [Fact]
+    public void Dormant_decisions_are_kept_in_their_own_table_and_found_by_the_record_decided()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var database = new TestDatabase();
+        using var world = new TestWorld();
+        var storage = Storage(world.Folder);
+        Assert.Contains(DataMigrations.DormantDecisions, storage.RunPendingMigrations(database.Settings, "Test"));
+        var store = storage.SqlServer(database.Settings);
+        var decided = new DateTime(2026, 10, 17, 9, 30, 0);
+        // A decision replaced by another stays, inactive; the record is found by its kind and Id.
+        store.Insert(new DormantDecision { Kind = DormantKinds.Prospect, RecordId = 77, CompanyId = 5, Decision = DormantDecisions.Snoozed, SnoozeUntil = new DateTime(2026, 12, 1), IsActive = false, DecidedBy = @"RSP\sam", DecidedByName = "Sam Sales", DecidedAt = decided });
+        store.Insert(new DormantDecision { Kind = DormantKinds.Prospect, RecordId = 77, CompanyId = 5, Decision = DormantDecisions.NoOpportunity, Reason = "NoBudget", IsActive = true, DecidedBy = @"RSP\sam", DecidedByName = "Sam Sales", DecidedAt = decided });
+        store.Insert(new DormantDecision { Kind = DormantKinds.Company, RecordId = 77, CompanyId = 77, Decision = DormantDecisions.FollowedUp, IsActive = true, DecidedBy = @"RSP\sam", DecidedByName = "Sam Sales", DecidedAt = decided });
+        var current = store.Find<DormantDecision>(Query.Where("Kind", DormantKinds.Prospect).And("RecordId", 77L).And("IsActive", true)).Single();
+        Assert.Equal(("NoOpportunity", "NoBudget", (DateTime?)null), (current.Decision, current.Reason, current.SnoozeUntil));
+        Assert.Equal(2, store.Find<DormantDecision>(Query.Where("Kind", DormantKinds.Prospect).And("RecordId", 77L)).Count);
+        Assert.Equal(new DateTime(2026, 12, 1), store.Find<DormantDecision>(Query.Where("IsActive", false)).Single().SnoozeUntil);
+    }
+
     /// <summary>MyCRM's tables in the OutSystems database, as MyCRMRecords reads and writes them (writing switched on).</summary>
     private static MyCrmStore MyCrm(TestWorld world, TestDatabase outSystems, bool writes = true)
     {
