@@ -216,12 +216,13 @@
     const answer = await api('GET', 'orders/people');
     if (!answer.result.ok) { toast(answer.result.message, true); return; }
     const dialog = document.createElement('dialog');
-    dialog.innerHTML = `<form method="dialog" class="modal"><h2>Sign in as someone else</h2>
-      <p class="muted">MyCRMRecords shows what that person sees until you choose Return in the bar at the top. Signing in as them is recorded.</p>
+    dialog.className = 'act-panel dlg';
+    dialog.innerHTML = `<form method="dialog" class="act-panel-in">${window.WH.dialogHead('Sign in as someone else', {closeLabel: 'Cancel'})}
+      <div class="act-panel-body"><p class="dlg-text">MyCRMRecords shows what that person sees until you choose Return in the bar at the top. Signing in as them is recorded.</p>
       <label class="field"><span>Find</span><input id="act-q" type="search" placeholder="Name, login, email or MyCRM role" autocomplete="off"></label>
-      <div class="people-list" id="act-people" style="max-height:320px;overflow:auto;margin-top:10px"></div>
-      <div class="modal-footer"><button type="button" class="button secondary" value="cancel">Cancel</button></div></form>`;
+      <div class="people-list dlg-card" id="act-people" style="max-height:320px;overflow:auto;padding:0"></div></div></form>`;
     document.body.append(dialog);
+    drawIcons(dialog);
     const list = $('#act-people', dialog);
     const draw = () => {
       const q = $('#act-q', dialog).value.trim().toLowerCase();

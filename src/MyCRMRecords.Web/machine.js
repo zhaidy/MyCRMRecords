@@ -124,14 +124,18 @@
     const money = v => '$' + Number(v).toLocaleString('en-SG', {minimumFractionDigits: 2, maximumFractionDigits: 4});
     const name = t => /^b/i.test(t) ? 'Black & white' : /^c/i.test(t) ? 'Colour' : t;
     const dialog = document.createElement('dialog');
-    dialog.innerHTML = `<div class="modal last-contract"><div class="modal-head"><div><h2>Last contract · ${esc(d.machine.serial)}</h2>
-        <p class="muted small">${esc([c.contractNo, c.start || c.end ? `${date(c.start)} – ${date(c.end)}` : ''].filter(Boolean).join(' · '))}</p></div></div>
+    dialog.className = 'act-panel dlg';
+    dialog.innerHTML = `<div class="act-panel-in last-contract">${window.WH.dialogHead('Last contract · ' + d.machine.serial,
+        {sub: [c.contractNo, c.start || c.end ? `${date(c.start)} – ${date(c.end)}` : ''].filter(Boolean).join(' · '), action: '<button type="button" class="button primary" value="done">Done</button>'})}
+      <div class="act-panel-body">
       ${c.rates.map(r => `<h3 class="rate-head">${esc(name(r.meterType))} <span class="muted small">${esc(r.meterType)}</span></h3>
         <div class="facts rate-facts">${fact('Min bill', esc(money(r.minBill)))}${fact('Min copies', esc(number(r.minCopies)))}${fact('Min rate', esc(money(r.minRate)))}${fact('Thereafter', esc(money(r.thereafter)))}</div>`).join('')}
-      <div class="modal-footer"><button type="button" class="button primary" value="done">Done</button></div></div>`;
+      </div></div>`;
     document.body.append(dialog);
+    drawIcons(dialog);
     const close = () => { dialog.close(); dialog.remove(); };
     $('button[value=done]', dialog).addEventListener('click', close);
+    $('button[value=cancel]', dialog).addEventListener('click', close);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     dialog.showModal();
   }

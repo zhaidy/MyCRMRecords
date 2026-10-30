@@ -39,7 +39,7 @@
   function renderList() {
     if (!$('#rows')) {
       page.innerHTML = `<div class="page-heading terr-heading"><div class="terr-title"><h1>Territories</h1><p id="count">&nbsp;</p></div>
-          <div class="heading-actions"><button type="button" class="button primary" id="new-territory" title="New territory"><span data-icon="plus"></span><span class="action-label">New territory</span></button></div></div>
+          <div class="heading-actions"><button type="button" class="button primary phone-fab" id="new-territory" title="New territory"><span data-icon="plus"></span><span class="action-label">New territory</span></button></div></div>
         <div class="terr-filter-row" role="search" aria-label="Filter territories">
           <label class="search-box"><span data-icon="search"></span><input id="q" type="search" placeholder="Territory, number or salesperson" value="${esc(q)}" aria-label="Territory, number or salesperson"></label>
           <div class="tabs terr-segments" role="group" aria-label="Show">${shows.map(([value, label]) =>

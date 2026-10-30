@@ -93,6 +93,8 @@ public class AppPage : Page
         var html = new StringBuilder();
         html.Append("<header class=\"appbar\">")
             .Append("<button class=\"icon-button menu-button\" id=\"menu-button\" aria-label=\"Menu\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span></button>")
+            // On a phone, the step back of the page's breadcrumb (common.js fills it in from WH.crumbs' .crumb-back).
+            .Append("<a class=\"icon-button appbar-back\" id=\"appbar-back\" href=\"./\" hidden><span data-icon=\"chevron-left\"></span></a>")
             .Append("<a class=\"brand\" href=\"./\" aria-label=\"MyCRMRecords home\">" + Brand.Mark + "<span>MyCRMRecords</span></a>")
             .Append("<nav class=\"sidebar\" id=\"sidebar\" aria-label=\"Main\">");
         html.Append(Item("./", "file", "Companies"));
@@ -127,7 +129,7 @@ public class AppPage : Page
             .Append("<a class=\"avatar-menu-item\" href=\"logout.aspx\"><span data-icon=\"logout\"></span>Sign out</a></span></span>")
             .Append("</div></header><div class=\"menu-backdrop\" id=\"menu-backdrop\"></div>");
         // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Files, Machines, Orders (the costing
-        // sheets and request forms) and More, which opens the rest of the menu (the links above) as a sheet.
+        // sheets and request forms) and More, which opens the rest of the menu over the page (MoreSheet).
         string Tab(string href, string icon, string label, bool selected) =>
             $"<a class=\"tab-item{(selected ? " selected" : "")}\" href=\"{href}\"{(selected ? " aria-current=\"page\"" : "")}><span data-icon=\"{icon}\"></span><span>{label}</span></a>";
         var onOrders = current == "costingsheets.aspx" || current == "requestforms.aspx";
@@ -136,8 +138,9 @@ public class AppPage : Page
             .Append(Tab("files.aspx", "folder", "Files", current == "files.aspx"))
             .Append(Tab("machines.aspx", "printer", "Machines", current == "machines.aspx"))
             .Append(Tab("costingsheets.aspx", "money", "Orders", onOrders))
-            .Append($"<button type=\"button\" class=\"tab-item{(current != "./" && current != "files.aspx" && current != "machines.aspx" && !onOrders && current.Length > 0 ? " selected" : "")}\" id=\"more-button\" aria-controls=\"sidebar\" aria-expanded=\"false\"><span data-icon=\"menu\"></span><span>More</span></button>")
-            .Append("</nav>");
+            .Append($"<button type=\"button\" class=\"tab-item{(current != "./" && current != "files.aspx" && current != "machines.aspx" && !onOrders && current.Length > 0 ? " selected" : "")}\" id=\"more-button\" aria-controls=\"more-sheet\" aria-expanded=\"false\"><span data-icon=\"menu\"></span><span>More</span></button>")
+            .Append("</nav>")
+            .Append(MoreSheet(current));
         if (Person?.Impersonator is { } admin)
             html.Append("<div class=\"impersonation-bar\" role=\"status\"><span>You are signed in as <strong>").Append(HttpUtility.HtmlEncode(DisplayName))
                 .Append("</strong> (").Append(HttpUtility.HtmlEncode(Login)).Append("). Everything you do is recorded as ")
@@ -149,6 +152,66 @@ public class AppPage : Page
         if (SignedIn && current != "guide.aspx" && !Services.App.CanWrite)
             html.Append("<div class=\"impersonation-bar warning-bar\" role=\"status\"><span>").Append(HttpUtility.HtmlEncode(ReadOnlyNotice)).Append("</span></div>");
         return html.ToString();
+    }
+
+    /// <summary>
+    /// The phone's More (the design's PhoneMore), opened by More in the bottom bar over the page (common.js): the person,
+    /// Install the app, the rest of the menu in groups (only the pages the person's roles allow, as the menu above) and
+    /// Sign out.
+    /// </summary>
+    private string MoreSheet(string current)
+    {
+        string Row(string page, string icon, string tint, string label, bool admin = false) =>
+            $"<a class=\"more-row{(current == page ? " selected" : "")}\" href=\"{page}\"{(current == page ? " aria-current=\"page\"" : "")}><span class=\"more-tile\" style=\"--tile:{tint}\" data-icon=\"{icon}\"></span>"
+            + $"<span class=\"more-label\">{HttpUtility.HtmlEncode(label)}</span>{(admin ? "<span class=\"more-admin\">Admin</span>" : "")}<span class=\"more-chevron\" data-icon=\"chevron-right\"></span></a>";
+        string Group(string title, IEnumerable<string> rows)
+        {
+            var list = rows.ToList();
+            return list.Count == 0 ? "" : $"<section class=\"more-group\" aria-label=\"{title}\"><h2>{title}</h2><div class=\"more-list\">{string.Concat(list)}</div></section>";
+        }
+        var records = new List<string>();
+        if (CanManageTerritories) records.Add(Row("territories.aspx", "matrix", "#0891b2", "Territories"));
+        if (IsSalesAdmin) records.Add(Row("people.aspx", "users", "#0a58f0", "CRM users"));
+        var machines = new List<string>();
+        if (IsSalesAdmin) machines.Add(Row("machineaccess.aspx", "shield", "#e59a0b", "Machine access"));
+        var app = new List<string> { Row("guide.aspx", "help", "#64748b", "User guide") };
+        if (IsAdmin)
+            app.AddRange(new[]
+            {
+                Row("users.aspx", "key", "#64748b", "User roles", true), Row("admin.aspx", "database", "#64748b", "Settings", true),
+                Row("deployment.aspx", "history", "#64748b", "Deployment", true), Row("audit.aspx", "audit", "#64748b", "Audit log", true),
+            });
+        var html = new StringBuilder();
+        html.Append("<div class=\"more-sheet\" id=\"more-sheet\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"more-title\" hidden>")
+            .Append("<div class=\"more-bar\"><button type=\"button\" class=\"icon-button\" id=\"more-close\" aria-label=\"Close More\"><span data-icon=\"close\"></span></button><span class=\"more-bar-title\" aria-hidden=\"true\">More</span><span class=\"more-bar-end\" aria-hidden=\"true\"></span></div>")
+            .Append("<div class=\"more-in\"><div class=\"more-heading\"><h1 id=\"more-title\">More</h1><p>Everything else in MyCRMRecords</p></div>")
+            .Append("<section class=\"more-card more-profile\" aria-label=\"Your profile\"><span class=\"more-avatar\" aria-hidden=\"true\">").Append(HttpUtility.HtmlEncode(InitialsOf(DisplayName))).Append("</span>")
+            .Append("<span class=\"more-who\"><b>").Append(HttpUtility.HtmlEncode(DisplayName)).Append("</b><span>").Append(HttpUtility.HtmlEncode(RoleLine)).Append("</span></span></section>")
+            // Install the app (common.js shows it, and says Installed once MyCRMRecords runs as the installed app).
+            .Append("<section class=\"more-card more-install\" id=\"more-install\" aria-label=\"Install the app\" hidden><span class=\"more-app-icon\" aria-hidden=\"true\">").Append(Brand.Mark).Append("</span>")
+            .Append("<span class=\"more-who\"><b data-install-title>Install the app</b><span data-install-text>Add MyCRMRecords to your home screen.</span></span>")
+            .Append("<button type=\"button\" class=\"button primary small-btn\" id=\"more-install-button\" aria-haspopup=\"dialog\">Install</button></section>")
+            .Append(Group("Sales", new[] { Row("projects.aspx", "briefcase", "#0d9488", "Projects"), Row("activities.aspx", "calendar", "#f2675a", "Activities") }))
+            .Append(Group("Records", records))
+            .Append(Group("Machines", machines))
+            .Append(Group("App", app))
+            .Append("<div class=\"more-list more-signout\"><a class=\"more-row\" href=\"logout.aspx\"><span class=\"more-tile\" data-icon=\"logout\"></span><span class=\"more-label\">")
+            .Append(Person?.Impersonator is { } signedInAs ? "Return to " + HttpUtility.HtmlEncode(signedInAs.DisplayName) : "Sign out").Append("</span></a></div>")
+            .Append("<p class=\"more-foot\">MyCRMRecords</p></div></div>");
+        return html.ToString();
+    }
+
+    /// <summary>The person's MyCRM role ("Sales Admin") and, for administrators, Administrator; their login when neither.</summary>
+    protected string RoleLine
+    {
+        get
+        {
+            var parts = new List<string>();
+            var role = Actor?.CrmRole ?? "";
+            if (role.Length > 0) parts.Add(System.Text.RegularExpressions.Regex.Replace(role, "(?<=[a-z])(?=[A-Z])", " "));
+            if (IsAdmin) parts.Add("Administrator");
+            return parts.Count == 0 ? Login : string.Join(" · ", parts);
+        }
     }
 
     public const string ReadOnlyNotice =

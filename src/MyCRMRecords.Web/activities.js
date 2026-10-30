@@ -58,7 +58,7 @@
       <div class="page-heading companies-heading"><div class="companies-title"><h1>Activities</h1><p id="count"></p></div>
         <div class="heading-actions">
           <span class="action-capsule"><a class="capsule-button" id="download" href="#"><span data-icon="download"></span><span class="action-label">Download Excel</span></a></span>
-          ${answer.canCreate === false ? '' : '<button type="button" class="button primary" id="new"><span data-icon="plus"></span><span class="action-label">New activity</span></button>'}</div></div>
+          ${answer.canCreate === false ? '' : '<button type="button" class="button primary phone-fab" id="new" title="New activity"><span data-icon="plus"></span><span class="action-label">New activity</span></button>'}</div></div>
       <div class="companies-filters act-filters" role="search">
         <div class="companies-filter-row">
           <label class="search-box"><span data-icon="search"></span><span class="sr-only">Search activities</span>

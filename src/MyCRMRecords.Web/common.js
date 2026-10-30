@@ -50,6 +50,8 @@
     briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
     'plus-square': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+    'chevron-left': '<path d="M15 5l-7 7 7 7"/>',
+    'chevron-right': '<path d="M9 6l6 6-6 6"/>',
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.file}</svg>`;
   // On a phone a table of rows is shown as a card per row (app.css): each cell is labelled with its column's heading.
@@ -67,11 +69,37 @@
   const menuButton = $('#menu-button');
   const setMenu = open => { document.body.classList.toggle('menu-open', open); menuButton?.setAttribute('aria-expanded', open); };
   menuButton?.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
-  // On a phone, More in the bottom bar opens the same menu, as a sheet from the bottom (app.css).
-  const moreButton = $('#more-button');
-  moreButton?.addEventListener('click', () => { const open = !document.body.classList.contains('menu-open'); setMenu(open); moreButton.setAttribute('aria-expanded', open); });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') moreButton?.setAttribute('aria-expanded', 'false'); });
-  $('#menu-backdrop')?.addEventListener('click', () => moreButton?.setAttribute('aria-expanded', 'false'));
+  /* On a phone, More in the bottom bar opens the More screen over the page (AppPage.MoreSheet): the person, Install the
+     app, the rest of the menu and Sign out. The ×, More again, Escape or the phone's Back close it. */
+  const moreButton = $('#more-button'), moreSheet = $('#more-sheet');
+  const moreOpen = () => !!moreSheet && !moreSheet.hidden;
+  function setMore(open, {fromHistory = false} = {}) {
+    if (!moreSheet || open === moreOpen()) return;
+    moreSheet.hidden = !open;
+    document.body.classList.toggle('more-open', open);
+    // The sheet covers the page: what is under it cannot be reached with Tab (the bottom bar can).
+    [...document.body.children].forEach(el => { if (el !== moreSheet && !el.classList.contains('tabbar') && el.tagName !== 'SCRIPT' && el.tagName !== 'DIALOG') el.inert = open; });
+    moreButton?.setAttribute('aria-expanded', open);
+    if (open) {
+      moreSheet.scrollTop = 0;
+      moreSheet.classList.remove('scrolled');
+      try { history.pushState({whMore: true}, ''); } catch { /* no history: the × still closes it */ }
+      $('#more-close', moreSheet)?.focus();
+    } else {
+      if (!fromHistory && history.state && history.state.whMore) history.back();
+      moreButton?.focus();
+    }
+  }
+  moreButton?.addEventListener('click', () => setMore(!moreOpen()));
+  $('#more-close')?.addEventListener('click', () => setMore(false));
+  addEventListener('popstate', () => { if (moreOpen()) setMore(false, {fromHistory: true}); });
+  moreSheet?.addEventListener('scroll', () => moreSheet.classList.toggle('scrolled', moreSheet.scrollTop > 36), {passive: true});
+  document.addEventListener('keydown', event => {
+    if (!moreOpen()) return;
+    if (event.key === 'Escape') { event.preventDefault(); setMore(false); }
+  });
+  // Grown wider than a phone (a tablet turned), the menu is in the top bar again.
+  matchMedia('(min-width: 901px)').addEventListener?.('change', event => { if (event.matches) setMore(false); });
   $('#menu-backdrop')?.addEventListener('click', () => setMenu(false));
   const closeNavGroups = target => $$('.nav-group[open]').forEach(group => { if (!group.contains(target)) group.open = false; });
   document.addEventListener('click', event => closeNavGroups(event.target));
@@ -119,22 +147,35 @@
   const dateInput = value => (/^(\d{4}-\d{2}-\d{2})/.exec(value || '') || [])[1] || '';
   const statusBadge = (description, kind, big = false) => `<span class="status ${esc(kind || '')}${big ? ' big' : ''}">${esc(description)}</span>`;
 
+  /**
+   * A dialog's glass head (the design's): a round close (×) on the left, the title in the middle and the action (an
+   * accent button, red for what takes something away) on the right. Used by WH.ask, CRM.dialog and the pages' dialogs.
+   */
+  const dialogHead = (title, {sub = '', action = '', closeLabel = 'Close', id = ''} = {}) =>
+    `<div class="act-panel-head"><button type="button" class="icon-button dlg-close" value="cancel" data-close aria-label="${esc(closeLabel)}"><span data-icon="close"></span></button>
+      <div class="act-panel-title"><h2${id ? ` id="${esc(id)}"` : ''}>${esc(title)}</h2>${sub ? `<span class="muted small" data-sub>${esc(sub)}</span>` : ''}</div>
+      <div class="act-panel-action">${action}</div></div>`;
+
   /** A dialog asking to confirm; resolves true or false. With a field, resolves with its text (or null). */
+  let asked = 0;
   function ask({title, text = '', ok = 'OK', danger = false, field = null, required = false, value = ''}) {
     return new Promise(resolve => {
-      const dialog = document.createElement('dialog');
-      dialog.innerHTML = `<form method="dialog" class="modal"><h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}
-        ${field ? `<label class="field"><span class="${required ? 'required' : ''}">${esc(field)}</span><textarea rows="3" maxlength="1000">${esc(value)}</textarea><span class="field-error"></span></label>` : ''}
-        <div class="modal-footer"><button type="button" class="button secondary" value="cancel">Cancel</button>
-        <button type="submit" class="button ${danger ? 'danger-btn' : 'primary'}" value="ok">${esc(ok)}</button></div></form>`;
+      const dialog = document.createElement('dialog'), titleId = 'ask-title-' + (++asked);
+      dialog.className = 'act-panel dlg dlg-ask';
+      dialog.setAttribute('aria-labelledby', titleId);
+      dialog.innerHTML = `<form method="dialog" class="act-panel-in" novalidate>${dialogHead(title, {id: titleId, closeLabel: 'Cancel',
+          action: `<button type="submit" class="button ${danger ? 'danger-btn solid' : 'primary'}" value="ok">${esc(ok)}</button>`})}
+        <div class="act-panel-body">${text ? `<p class="dlg-card">${esc(text)}</p>` : ''}
+        ${field ? `<div class="dlg-card"><label class="field"><span class="${required ? 'required' : ''}">${esc(field)}</span><textarea rows="3" maxlength="1000">${esc(value)}</textarea><span class="field-error"></span></label></div>` : ''}</div></form>`;
       document.body.append(dialog);
+      drawIcons(dialog);
       const input = $('textarea', dialog);
       const finish = answer => { dialog.close(); dialog.remove(); resolve(answer); };
       $('button[value=cancel]', dialog).addEventListener('click', () => finish(field ? null : false));
       dialog.addEventListener('cancel', event => { event.preventDefault(); finish(field ? null : false); });
       $('form', dialog).addEventListener('submit', event => {
         event.preventDefault();
-        if (field && required && !input.value.trim()) { $('.field-error', dialog).textContent = 'Please fill this in.'; input.focus(); return; }
+        if (field && required && !input.value.trim()) { $('.field-error', dialog).textContent = 'Please fill this in.'; input.closest('.field').classList.add('invalid'); input.focus(); return; }
         finish(field ? input.value.trim() : true);
       });
       dialog.showModal();
@@ -241,27 +282,30 @@
       document.head.append(script);
     });
   }
+  /** The brand mark of the top bar (an svg), for the install card. */
+  const Brand = () => { const mark = $('.brand svg'); return mark ? mark.outerHTML : icon('phone-download'); };
   async function showInstall() {
     if (onPhone() && !isIos() && await installHere()) return;
     const phone = onPhone();
     const dialog = document.createElement('dialog');
-    dialog.className = 'install-dialog';
+    dialog.className = 'install-dialog act-panel dlg';
     dialog.setAttribute('aria-labelledby', 'install-title');
     const steps = isIos()
       ? `<ol class="install-steps"><li>Tap <span data-icon="share"></span> <strong>Share</strong> at the bottom of Safari.</li><li>Tap <span data-icon="plus-square"></span> <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li></ol>`
       : `<ol class="install-steps"><li>Open the browser's menu <strong>⋮</strong>.</li><li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li></ol>`;
-    dialog.innerHTML = `<form method="dialog" class="modal install-modal">
-      <div class="modal-head"><h2 id="install-title">Install MyCRMRecords</h2><button type="button" class="icon-button" value="close" aria-label="Close"><span data-icon="close"></span></button></div>
-      ${phone ? `<p>Add MyCRMRecords to your home screen: it opens like an app, full screen, with the menu at the bottom.</p>${steps}`
-        : `<div class="install-qr-row"><div class="install-qr" aria-label="QR code of MyCRMRecords' address"></div><div>
+    dialog.innerHTML = `<form method="dialog" class="act-panel-in install-modal">
+      ${dialogHead('Install MyCRMRecords', {id: 'install-title', action: installPrompt && !phone ? '<button type="button" class="button primary" value="here">Install on this computer</button>' : ''})}
+      <div class="act-panel-body">
+      ${phone ? `<div class="dlg-card install-card"><div class="install-app"><span class="install-app-icon">${Brand()}</span><span><b>MyCRMRecords</b><span class="small muted">${esc(appAddress())}</span></span></div>
+          <ul class="install-points"><li>An icon on your home screen</li><li>Opens full screen, without the browser bar</li><li>Same sign-in and data as the website</li></ul>${steps}</div>`
+        : `<div class="dlg-card install-qr-row"><div class="install-qr" aria-label="QR code of MyCRMRecords' address"></div><div>
           <p><strong>On your phone:</strong> scan the code with the camera, sign in, then install MyCRMRecords from the page that opens (Install app).</p>
-          <p class="small muted">${esc(appAddress())}</p><p class="small muted">On the office network or the VPN.</p></div></div>
-          ${installPrompt ? `<div class="modal-footer"><button type="button" class="button primary" value="here"><span data-icon="download"></span>Install on this computer</button></div>` : ''}`}
-    </form>`;
+          <p class="small muted">${esc(appAddress())}</p><p class="small muted">On the office network or the VPN.</p></div></div>`}
+    </div></form>`;
     document.body.append(dialog);
     drawIcons(dialog);
     const close = () => { dialog.close(); dialog.remove(); };
-    $('button[value=close]', dialog).addEventListener('click', close);
+    $('button[value=cancel]', dialog).addEventListener('click', close);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     $('button[value=here]', dialog)?.addEventListener('click', async () => { close(); await installHere(); });
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
@@ -272,6 +316,18 @@
     }
   }
   installButton?.addEventListener('click', showInstall);
+  const moreInstall = $('#more-install');
+  if (moreInstall) {
+    moreInstall.hidden = false;
+    const showInstalled = () => {
+      $('[data-install-title]', moreInstall).textContent = 'Installed';
+      $('[data-install-text]', moreInstall).textContent = 'MyCRMRecords is on your home screen.';
+      $('#more-install-button', moreInstall).hidden = true;
+    };
+    if (installed()) showInstalled();
+    addEventListener('appinstalled', showInstalled);
+    $('#more-install-button', moreInstall).addEventListener('click', showInstall);
+  }
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
   /* Breadcrumb: the way the person came to this page, in this browser tab (sessionStorage; only page names and
@@ -332,13 +388,47 @@
       if (y > lastY + 4 && y > 90) body.classList.add('bar-compact');
       else if (y < lastY - 4 || y < 30) body.classList.remove('bar-compact');
       body.classList.toggle('bar-scrolled', y > 8);
+      // On a phone the page's title shows in the bar once its large title has scrolled away.
+      body.classList.toggle('bar-titled', y > 60);
       lastY = y;
-      if (body.classList.contains('bar-compact') && !title.textContent) title.textContent = ($('main h1') || {}).textContent || '';
+      if ((body.classList.contains('bar-compact') || body.classList.contains('bar-titled')) && !title.textContent) title.textContent = pageTitle();
+    };
+    const pageTitle = () => {
+      const h1 = $$('main h1').find(h => h.getClientRects().length);
+      return h1 ? h1.textContent.trim() : '';
     };
     addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, {passive: true});
-    // The title can change when the page draws its record: read it again each time the bar folds.
-    new MutationObserver(() => { title.textContent = ''; if (document.body.classList.contains('bar-compact')) update(); })
-      .observe(document.querySelector('main') || document.body, {childList: true, subtree: false});
+    /* What the page draws after loading: its title (read again), the breadcrumb's step back (on a phone, the round back
+       button at the left of the bar, AppPage: #appbar-back) and a create button that floats beside the bottom bar on a
+       phone (.phone-fab: body.has-fab makes room for it). */
+    const back = $('#appbar-back', bar);
+    let syncing = false;
+    const sync = () => {
+      syncing = false;
+      title.textContent = '';
+      const body = document.body;
+      if (body.classList.contains('bar-compact') || body.classList.contains('bar-titled')) title.textContent = pageTitle();
+      // A page showing one of its sections on its own (a company's, .in-section) goes back to the page first.
+      const section = $('main .in-section .section-back');
+      const crumb = section || $('main .crumb-back');
+      if (back) {
+        back.hidden = !crumb;
+        body.classList.toggle('has-back', !!crumb);
+        if (crumb) {
+          back.href = section ? '#' : crumb.getAttribute('href');
+          back.setAttribute('aria-label', section ? 'Back to ' + section.textContent.trim() : crumb.getAttribute('aria-label') || 'Back');
+        }
+      }
+      body.classList.toggle('has-fab', $$('main .phone-fab').some(b => !b.hidden && b.getClientRects().length > 0));
+    };
+    back?.addEventListener('click', event => {
+      const section = $('main .in-section .section-back');
+      if (section) { event.preventDefault(); section.click(); }
+    });
+    const schedule = () => { if (!syncing) { syncing = true; requestAnimationFrame(sync); } };
+    const main = document.querySelector('main');
+    if (main) new MutationObserver(schedule).observe(main, {childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden']});
+    schedule();
     // The person's menu: name, login and Sign out behind the avatar.
     const avatar = $('#avatar-button', bar), card = $('#avatar-menu', bar);
     if (avatar && card) {
@@ -349,6 +439,6 @@
     }
   })();
 
-  window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, showErrors, param, pager, change, upload,
+  window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, dialogHead, showErrors, param, pager, change, upload,
     coverageTag, coverageText, machineUrl, crumbs};
 })();

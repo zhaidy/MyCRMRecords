@@ -339,7 +339,7 @@
     if (!answer.result.ok) { toast(answer.result.message, true); return; }
     const el = dialog(t.name, `<p class="muted">Users assigned to this team.</p>${answer.members.length ? `<ul class="put-companies users-members-list">${answer.members.map(m => `<li><b>${esc(m.name)}</b><span class="users-role">${esc(m.role)}</span></li>`).join('')}</ul>` : '<p class="muted">Nobody.</p>'}`);
     $('[data-submit]', el).hidden = true;
-    $('button[value=cancel]', el).textContent = 'Close';
+    $('button[value=cancel]', el).setAttribute('aria-label', 'Close');
   }
 
   page.addEventListener('click', event => {

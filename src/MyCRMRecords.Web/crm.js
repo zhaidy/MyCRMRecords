@@ -2,7 +2,7 @@
   'use strict';
   // Shared by the Companies list and a company's page (window.CRM): the company form (MyCRM's CompanyDetail, Sales
   // Admins) with its group names, kept in the same dialog (add, rename, remove), and the dialog helpers of the CRM pages.
-  const {$, $$, esc, api, toast, ask, showErrors, drawIcons, date} = window.WH;
+  const {$, $$, esc, api, toast, ask, showErrors, drawIcons, date, dialogHead} = window.WH;
 
   /** Options of a list ({code, label, active}): the active ones, and the current one even when no longer used. */
   function options(list, current, blank = '-') {
@@ -10,17 +10,28 @@
     return `<option value="">${esc(blank)}</option>${shown.map(c => `<option value="${esc(c.code)}"${c.code === current ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}`;
   }
 
-  /** A dialog with its form; resolves the dialog element (already open). Close with dialog.close(). */
-  function dialog(title, body, {wide = false, footer = ''} = {}) {
+  /**
+   * A dialog with its form (the design's glass dialog): a round close (×) on the left, the title in the middle and the
+   * action on the right ([data-submit]: "Save" unless the page names it; `danger` makes it red), the form below, a
+   * refused change's message ([data-notice]) and `footer` (e.g. a Delete button) under it. Returns the dialog element
+   * (already open). Close with dialog.close(); Escape and the × close it too.
+   */
+  function dialog(title, body, {wide = false, footer = '', action = 'Save', danger = false} = {}) {
     const el = document.createElement('dialog');
-    el.innerHTML = `<form class="modal" novalidate style="${wide ? 'width:min(860px,calc(100vw - 32px))' : 'width:min(620px,calc(100vw - 32px))'}"><h2>${esc(title)}</h2>${body}
-      <div class="notice error" data-notice hidden></div>
-      <div class="modal-footer">${footer}<span class="grow"></span><button type="button" class="button secondary" value="cancel">Cancel</button><button type="submit" class="button primary" data-submit>Save</button></div></form>`;
+    el.className = 'act-panel dlg' + (wide ? ' wide' : '');
+    el.innerHTML = `<form class="act-panel-in" novalidate>${dialogHead(title, {closeLabel: 'Cancel',
+        action: `<button type="submit" class="button ${danger ? 'danger-btn solid' : 'primary'}" data-submit>${esc(action)}</button>`})}
+      <div class="act-panel-body">${body}
+      <div class="notice error" data-notice hidden></div></div>
+      ${footer ? `<div class="act-panel-foot">${footer}</div>` : ''}</form>`;
     document.body.append(el);
     $('button[value=cancel]', el).addEventListener('click', () => el.close());
     el.addEventListener('close', () => el.remove());
     drawIcons(el);
     el.showModal();
+    // As before the close button came first: the first field has the focus.
+    const first = $('.act-panel-body input:not([type=hidden]):not([disabled]),.act-panel-body select:not([disabled]),.act-panel-body textarea:not([disabled])', el);
+    if (first) first.focus();
     return el;
   }
 
@@ -29,6 +40,7 @@
     const notice = $('[data-notice]', el);
     notice.hidden = false;
     notice.textContent = answer.result.message;
+    if (notice.scrollIntoView) notice.scrollIntoView({block: 'nearest'});
     showErrors(el, answer.result.errors || []);
   }
 
