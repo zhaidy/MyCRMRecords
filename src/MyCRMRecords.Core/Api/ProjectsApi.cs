@@ -143,7 +143,7 @@ public sealed class ProjectsApi(CrmApp w)
         kind = r.Kind, id = r.RecordId, companyId = r.CompanyId, company = r.Company, brn = r.Brn, territory = r.Territory, territoryId = r.TerritoryId,
         owner = r.Owner, ownerLogin = r.OwnerLogin, priority = r.Priority, why = r.Why, furthest = r.Furthest, status = r.Status, type = r.ProspectType,
         value = r.Value, closedOn = Date(r.ClosedOn), lastActivity = Date(r.LastActivity), activities = r.Activities, state = r.State, reason = r.Reason,
-        reasonLabel = DormantReasons.List.Label(r.Reason), snoozeUntil = Date(r.SnoozeUntil), decidedBy = r.DecidedBy, decidedAt = Date(r.DecidedAt),
+        snoozeUntil = Date(r.SnoozeUntil), decidedBy = r.DecidedBy, decidedAt = Date(r.DecidedAt),
         history = r.History.Select(h => new { date = Date(h.Date), label = h.Label }),
     };
 
@@ -156,7 +156,6 @@ public sealed class ProjectsApi(CrmApp w)
             team = w.Dormant.Team(actor).Select(p => new { login = p.Login, name = p.Name }),
             territories = w.Dormant.TerritoryChoices(actor, filter.Owner).Select(t => new { id = t.Id, name = t.Name }),
             types = ProspectTypes.List.All.Select(c => new { code = c.Code, label = c.Label }),
-            reasons = DormantReasons.List.All.Select(c => new { code = c.Code, label = c.Label }),
             me = actor.Login, canDecide = Activities.MaySave(actor), today = Date(w.Clock().Date), stalledDays = Dormant.StalledDays,
         });
     }

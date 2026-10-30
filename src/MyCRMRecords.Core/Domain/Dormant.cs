@@ -22,14 +22,6 @@ public static class DormantDecisions
         new Choice(FollowedUp, "Followed up"), new Choice(NoOpportunity, "No opportunity"), new Choice(Snoozed, "Snoozed"));
 }
 
-/// <summary>Why a dormant opportunity is no opportunity.</summary>
-public static class DormantReasons
-{
-    public static readonly ChoiceList List = new("DormantReason",
-        new Choice("ClosedOrMoved", "Company closed or moved"), new Choice("BoughtElsewhere", "Bought elsewhere"),
-        new Choice("NoBudget", "No budget"), new Choice("Other", "Other"));
-}
-
 /// <summary>
 /// Dormant opportunities: old prospects that were lost or left open, and companies visited with no prospect made, in the
 /// territories of the person (or of their team, by MyCRM's GetSub), worth a second look. MyCRM's prospects and activities
@@ -39,6 +31,7 @@ public static class DormantReasons
 public sealed class Dormant(IRecordStore store, Access access, People people, Func<DateTime> clock)
 {
     public const int PageSize = 100;
+    public const int MaxReason = 500;
     /// <summary>An open prospect with no activity for this many days is dormant (a lost one always is).</summary>
     public const int StalledDays = 90;
     public const string Prospects = "prospects";
@@ -389,7 +382,8 @@ public sealed class Dormant(IRecordStore store, Access access, People people, Fu
         var errors = new List<FieldError>();
         var reason = (input.Reason ?? "").Trim();
         DateTime? until = null;
-        if (decision == DormantDecisions.NoOpportunity && !DormantReasons.List.IsKnown(reason)) errors.Add(new FieldError("reason", "Choose a reason."));
+        if (decision == DormantDecisions.NoOpportunity && reason.Length == 0) errors.Add(new FieldError("reason", "Say why there is no opportunity."));
+        else if (reason.Length > MaxReason) errors.Add(new FieldError("reason", "Keep the reason to " + MaxReason + " characters."));
         if (decision != DormantDecisions.NoOpportunity) reason = "";
         if (decision == DormantDecisions.Snoozed)
         {

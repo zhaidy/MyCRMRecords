@@ -53,7 +53,7 @@ public static class DataMigrations
             [RecordId] bigint NOT NULL,
             [CompanyId] bigint NOT NULL,
             [Decision] nvarchar(20) NOT NULL,
-            [Reason] nvarchar(50) NOT NULL,
+            [Reason] nvarchar(500) NOT NULL,
             [SnoozeUntil] datetime2(3) NULL,
             [IsActive] bit NOT NULL,
             [DecidedBy] nvarchar(256) NOT NULL,

@@ -154,10 +154,11 @@ public sealed class DormantTests
         Assert.Contains(world.D.Dormant.Decide(sam, Input(DormantDecisions.Snoozed, until: "2026-10-17")).Errors, e => e.Field == "snoozeUntil");
         Assert.Contains(world.D.Dormant.Decide(sam, Input(DormantDecisions.Snoozed)).Errors, e => e.Field == "snoozeUntil");
         Assert.Empty(world.Store.Find<DormantDecision>());
-        Assert.True(world.D.Dormant.Decide(sam, Input(DormantDecisions.NoOpportunity, "NoBudget")).Ok);
+        Assert.True(world.D.Dormant.Decide(sam, Input(DormantDecisions.NoOpportunity, "  Bought a competitor's machine  ")).Ok);
         var tab = world.D.Dormant.List(sam, Filter(decision: "noopportunity"));
         Assert.Equal(new[] { "Lost Co" }, Names(tab));
-        Assert.Equal(("No budget", "Sam Sales"), (DormantReasons.List.Label(tab.Rows[0].Reason), tab.Rows[0].DecidedBy));
+        Assert.Equal(("Bought a competitor's machine", "Sam Sales"), (tab.Rows[0].Reason, tab.Rows[0].DecidedBy));
+        Assert.Contains(world.D.Dormant.Decide(sam, Input(DormantDecisions.NoOpportunity, new string('x', Dormant.MaxReason + 1))).Errors, e => e.Field == "reason");
         Assert.Equal(new[] { "Stale Co" }, Names(world.D.Dormant.List(sam, Filter())));
         // Snooze it: hidden until the day, back after.
         Assert.True(world.D.Dormant.Decide(sam, Input(DormantDecisions.Snoozed, until: "2026-12-01")).Ok);
@@ -209,10 +210,10 @@ public sealed class DormantTests
         Assert.Equal(2, (int)list["counts"]!["prospectsToFollowUp"]!);
         Assert.True((bool)list["canDecide"]!);
         Assert.False((bool)JObject.Parse(api.Handle("GET", "dormant", "", new Dictionary<string, string>(), TestWorld.Mark).Json)["canDecide"]!);
-        var body = MyCRMRecords.Json.Serialize(new { kind = "Prospect", recordId = s.LostProspect.Id, decision = "NoOpportunity", reason = "Other" });
+        var body = MyCRMRecords.Json.Serialize(new { kind = "Prospect", recordId = s.LostProspect.Id, decision = "NoOpportunity", reason = "Closed down" });
         Assert.Equal(200, api.Handle("POST", "dormant/decision", body, new Dictionary<string, string>(), TestWorld.Sam).Status);
         Assert.Equal(400, api.Handle("POST", "dormant/decision", MyCRMRecords.Json.Serialize(new { kind = "Prospect", recordId = s.LostProspect.Id, decision = "NoOpportunity" }), new Dictionary<string, string>(), TestWorld.Sam).Status);
         var done = JObject.Parse(api.Handle("GET", "dormant", "", new Dictionary<string, string> { ["decision"] = "noopportunity" }, TestWorld.Sam).Json);
-        Assert.Equal("Other", (string)done["rows"]![0]!["reason"]!);
+        Assert.Equal("Closed down", (string)done["rows"]![0]!["reason"]!);
     }
 }

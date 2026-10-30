@@ -737,8 +737,8 @@ public sealed class DormantDecision : IRecord
     public long CompanyId { get; set; }
     /// <summary><see cref="DormantDecisions"/>.</summary>
     [Len(20)] public string Decision { get; set; } = "";
-    /// <summary><see cref="DormantReasons"/> (for No opportunity).</summary>
-    [Len(50)] public string Reason { get; set; } = "";
+    /// <summary>Why there is no opportunity (free text, for No opportunity).</summary>
+    [Len(500)] public string Reason { get; set; } = "";
     /// <summary>For Snoozed: the first day the opportunity is listed again.</summary>
     public DateTime? SnoozeUntil { get; set; }
     public bool IsActive { get; set; } = true;

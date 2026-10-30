@@ -142,7 +142,7 @@ public sealed class FilesApi(CrmApp w)
             var tail = new[]
             {
                 new Xlsx.ColumnSpec("Last activity", 12, "date"), new Xlsx.ColumnSpec("Activities", 10, "number"), new Xlsx.ColumnSpec("Activity history", 60),
-                new Xlsx.ColumnSpec("Decision", 16), new Xlsx.ColumnSpec("Reason", 24), new Xlsx.ColumnSpec("Snoozed until", 12, "date"),
+                new Xlsx.ColumnSpec("Decision", 16), new Xlsx.ColumnSpec("Reason", 40), new Xlsx.ColumnSpec("Snoozed until", 12, "date"),
                 new Xlsx.ColumnSpec("Decided by", 24), new Xlsx.ColumnSpec("Decided on", 12, "date"),
             };
             var prospectColumns = common.Concat(new[]
@@ -155,12 +155,12 @@ public sealed class FilesApi(CrmApp w)
                 new Xlsx.Sheet("Prospects", prospectColumns, prospects.Select(r => new object?[]
                 {
                     r.Company, r.Brn, r.Territory, r.Owner, r.Priority, r.Why, r.Furthest, r.Status, r.ProspectType, r.Value, D(r.ClosedOn),
-                    D(r.LastActivity), r.Activities, History(r), State(r), DormantReasons.List.Label(r.Reason), D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
+                    D(r.LastActivity), r.Activities, History(r), State(r), r.Reason, D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
                 })),
                 new Xlsx.Sheet("Visited, no prospect", visitedColumns, visited.Select(r => new object?[]
                 {
                     r.Company, r.Brn, r.Territory, r.Owner, r.Priority, r.Why, r.Furthest,
-                    D(r.LastActivity), r.Activities, History(r), State(r), DormantReasons.List.Label(r.Reason), D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
+                    D(r.LastActivity), r.Activities, History(r), State(r), r.Reason, D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
                 })),
             ]));
         }

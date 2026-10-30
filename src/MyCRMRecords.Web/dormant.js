@@ -123,7 +123,7 @@
 
   function stateTag(r) {
     if (r.state === 'FollowedUp') return `<span class="status ok">Followed up</span><span class="sub">${esc(who(r))}</span>`;
-    if (r.state === 'NoOpportunity') return `<span class="status off">No opportunity</span><span class="sub">${esc(r.reasonLabel)}${r.decidedBy ? ' · ' + esc(who(r)) : ''}</span>`;
+    if (r.state === 'NoOpportunity') return `<span class="status off">No opportunity</span><span class="sub">${esc(r.reason)}${r.decidedBy ? ' · ' + esc(who(r)) : ''}</span>`;
     if (r.state === 'Snoozed') return `<span class="status waiting">Snoozed</span><span class="sub">Until ${esc(date(r.snoozeUntil))}</span>`;
     return '<span class="status pending">To follow up</span>';
   }
@@ -140,7 +140,7 @@
       </div><div>
         <div class="fact-label">Your decision</div>
         ${canDecide ? `<div class="dormant-row"><button type="button" class="button ok-btn small-btn" data-decide="FollowedUp">Followed up</button></div>
-        <div class="dormant-row"><label class="field">Reason<select id="reason-${where}" data-field="reason">${data.reasons.map(x => `<option value="${esc(x.code)}"${x.code === r.reason ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select><span class="field-error"></span></label>
+        <div class="dormant-row"><label class="field">Reason<input type="text" id="reason-${where}" data-field="reason" maxlength="500" placeholder="Why is there no opportunity?" value="${esc(r.reason)}"><span class="field-error"></span></label>
           <button type="button" class="button secondary small-btn" data-decide="NoOpportunity">No opportunity</button></div>
         <div class="dormant-row"><label class="field">Snooze until<input type="date" id="snooze-${where}" data-field="snoozeUntil" min="${esc(data.today)}" value="${esc(r.snoozeUntil || '')}"><span class="field-error"></span></label>
           <button type="button" class="button secondary small-btn" data-decide="Snoozed">Snooze</button></div>`
@@ -166,7 +166,7 @@
     if (!r) return;
     const body = {kind: r.kind, recordId: r.id, decision};
     const where = $('#reason-t')?.offsetParent ? 't' : 'c';
-    if (decision === 'NoOpportunity') body.reason = $('#reason-' + where).value;
+    if (decision === 'NoOpportunity') body.reason = $('#reason-' + where).value.trim();
     if (decision === 'Snoozed') body.snoozeUntil = $('#snooze-' + where).value;
     const answer = await change('dormant/decision', body);
     if (!answer.result.ok) { window.WH.showErrors($('#reason-' + where).closest('.dormant-detail'), answer.result.errors); return; }

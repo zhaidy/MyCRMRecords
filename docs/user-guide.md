@@ -275,8 +275,8 @@ decided.
   the last 1, 2, 3 or 5 years) and, for prospects, **Type**. MyCRMRecords remembers your choices.
 - Click a row to open it: its facts, the **Activity history** and **Your decision**:
   - **Followed up** when you have been in touch.
-  - Choose a **Reason** and **No opportunity** when there is nothing to follow up (the company closed or moved, bought
-    elsewhere, no budget, other).
+  - Type a **Reason** (up to 500 characters, for example "company closed" or "bought elsewhere") and press **No
+    opportunity** when there is nothing to follow up.
   - Choose a day and **Snooze** to hide it until then; it comes back under **To follow up** after that day.
 - The tabs **To follow up**, **Followed up**, **No opportunity** and **Snoozed** show what was decided, and by whom and
   when. A new decision replaces the old one; nothing is deleted.
