@@ -31,6 +31,18 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
   someone else.
 
+## Finding your way around
+
+The menu is in the top bar. When you scroll down a page the menu folds to the page you are on and the bar shows the
+page's title; scroll up a little and the whole menu comes back. Click your initials at the right of the bar to see who
+you are signed in as, and **Sign out**.
+
+Above the title of a record's page (a company, a costing sheet, a request form, a territory, a machine, a project) is the
+way you came, for example **Costing sheets › Costing Sheet # 23052 › TRUE COLOURS PRINT HOUSE PTE. LTD.**: click any
+step to go back to it (a company opens again on the tab you were on). Choosing a page in the menu starts the way again;
+a page you open from a link or a bookmark shows its usual list instead (**Companies › …**). On a phone only the step
+back is shown.
+
 ## Using MyCRMRecords on a phone
 
 MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a bar at the bottom of the screen:
@@ -403,8 +415,7 @@ and **Costing sheets** / **Request forms** at the top switches between the two l
 ## A costing sheet
 
 A costing sheet's page shows what MyOrders' costing sheet summary showed, read only. Under the number and status are
-the reference, the company (click it to open the company; **Back to** the company goes there too, **All costing
-sheets** to the list) and the salesman. Then the key details: contact, customer number and type, billing address,
+the reference, the company (click it to open the company) and the salesman. Then the key details: contact, customer number and type, billing address,
 request form, the specialists (a yellow tag while their part was still pending), the dates, who it was transferred
 from, the event tag, and the flags (ZBA, contract extension, fixed term, vital pricing, GMA pricing; those that apply
 in blue).
@@ -479,8 +490,7 @@ specialist, and PP specialists and their managers those whose PP specialist is i
 ## A request form
 
 A request form's page shows what MyOrders' request form summary showed, read only. Under the number are its type and
-status, the reference, the company (click it to open the company; **Back to** the company goes there too, **All
-request forms** to the list) and the salesman. Then the key details: contact and their phone numbers, customer number
+status, the reference, the company (click it to open the company) and the salesman. Then the key details: contact and their phone numbers, customer number
 and type, billing address, its costing sheet (click it to open the costing sheet), the specialists (a yellow tag while
 their part was still pending), the dates, the event tag and the delivery declaration.
 
