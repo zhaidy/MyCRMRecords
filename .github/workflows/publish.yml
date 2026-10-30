@@ -44,7 +44,7 @@ jobs:
         # waits until it answers.
         if: env.TESTED != 'true'
         shell: powershell
-        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { Start-Process SqlLocalDB -ArgumentList 'start', 'MSSQLLocalDB' -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
+        run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { $instance = (($env:GITHUB_REPOSITORY -split '/')[-1] -replace '[^A-Za-z0-9]', '') + 'CI'; if (-not ((SqlLocalDB info) -contains $instance)) { SqlLocalDB create $instance | Out-Null }; Start-Process SqlLocalDB -ArgumentList 'start', $instance -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
       - uses: actions/checkout@v4
         with:
           # The full history, for the change log on the Deployment admin page.
