@@ -782,6 +782,44 @@ public sealed class MyCrmStore : IRecordStore, ITemporaryTerritories
         return (IReadOnlyDictionary<long, (int, IReadOnlyList<long>)>)result;
     });
 
+    /// <summary>
+    /// The Activities page's activities in SQL: the active ones these people (by login) own or take part in, with a visit
+    /// date from <paramref name="from"/> and before <paramref name="before"/>, in the page's order (soonest first or newest
+    /// first), the page asked for and how many there are. Reading every participation of a team (all its history) took
+    /// seconds; this reads the page.
+    /// </summary>
+    public (int Total, IReadOnlyList<long> Ids) ActivityIds(IReadOnlyCollection<string> logins, DateTime? from, DateTime? before, bool soonest, int skip, int take) =>
+        Use((connection, transaction) =>
+        {
+            var people = People(connection, transaction);
+            var users = logins.SelectMany(l => people.IdsOf.TryGetValue(l, out var i) ? i : (IEnumerable<long>)Array.Empty<long>()).Distinct().ToList();
+            if (users.Count == 0) return (0, (IReadOnlyList<long>)Array.Empty<long>());
+            var list = string.Join(", ", users.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+            // The activities they own, and those they take part in: two searches MyCRM's indexes answer (owner; participant
+            // by person, then activity by Id), joined with UNION. One "owner OR participant" condition made SQL Server read
+            // every activity MyCRM has.
+            var dates = $"{(from is null ? "" : " AND a.[VISITDATE] >= @from")}{(before is null ? "" : " AND a.[VISITDATE] < @before")}";
+            var table = Table(connection, MyCrmMap.Activities);
+            var mine = $"SELECT a.[ID] FROM {table} a WHERE a.[ISACTIVE] = 1 AND a.[OWNERID] IN ({list}){dates} " +
+                       $"UNION SELECT a.[ID] FROM {Table(connection, MyCrmMap.ActivityParticipants)} p JOIN {table} a ON a.[ID] = p.[COMPANYEVENTID] " +
+                       $"WHERE p.[ISACTIVE] = 1 AND p.[USERID] IN ({list}) AND a.[ISACTIVE] = 1{dates}";
+            var parameters = new List<(string, object?)>();
+            if (from is { } f) parameters.Add(("@from", f));
+            if (before is { } b) parameters.Add(("@before", b));
+            var order = soonest
+                ? "CASE WHEN a.[VISITDATE] IS NULL THEN 1 ELSE 0 END, a.[VISITDATE], a.[STARTTIME], a.[ID]"
+                : "CASE WHEN a.[VISITDATE] IS NULL THEN 1 ELSE 0 END, a.[VISITDATE] DESC, a.[STARTTIME], a.[ID] DESC";
+            // The page and the count in one statement.
+            var rows = Sql.Rows(connection, transaction,
+                $"WITH m AS ({mine}) SELECT a.[ID], COUNT(*) OVER () AS [N] FROM {table} a JOIN m ON m.[ID] = a.[ID] ORDER BY {order} " +
+                $"OFFSET {Math.Max(0, skip).ToString(CultureInfo.InvariantCulture)} ROWS FETCH NEXT {Math.Max(1, take).ToString(CultureInfo.InvariantCulture)} ROWS ONLY", parameters.ToArray());
+            if (rows.Count > 0)
+                return (Convert.ToInt32(rows[0]["N"], CultureInfo.InvariantCulture), (IReadOnlyList<long>)rows.Select(r => OldValues.Long(r["ID"])).ToList());
+            // Past the last page (or none): the count alone.
+            var total = skip == 0 ? 0 : Convert.ToInt32(Sql.Rows(connection, transaction, $"SELECT COUNT(*) AS [N] FROM ({mine}) m", parameters.ToArray())[0]["N"], CultureInfo.InvariantCulture);
+            return (total, (IReadOnlyList<long>)Array.Empty<long>());
+        });
+
     /// <summary>MyCRM's Ids of the active companies of the active temporary territories of these people (by login).</summary>
     public IReadOnlyCollection<long> CompanyIds(IReadOnlyCollection<string> logins) => Use((connection, transaction) =>
     {
