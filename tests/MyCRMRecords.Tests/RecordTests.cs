@@ -161,6 +161,22 @@ public sealed class RecordTests
     }
 
     [Fact]
+    public void The_Files_page_has_no_way_to_change_MyFiles()
+    {
+        // MyFiles' files are only read: IMyFilesData has no method that writes, and its SQL and the rules have no statement that could.
+        Assert.Equal(new[] { "Bytes", "Get", "Search", "get_Available" },
+            typeof(IMyFilesData).GetMethods().Select(m => m.Name).OrderBy(n => n, StringComparer.Ordinal));
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Core"))) root = root.Parent;
+        Assert.NotNull(root);
+        var core = Path.Combine(root!.FullName, "src", "MyCRMRecords.Core");
+        var source = string.Concat(new[] { "Data/MyFilesData.cs", "Domain/MyFiles.cs", "Api/MyFilesApi.cs" }
+            .Select(f => File.ReadAllText(Path.Combine(core, f.Replace('/', Path.DirectorySeparatorChar)))));
+        foreach (var word in new[] { "INSERT ", "UPDATE ", "DELETE ", "MERGE ", "BeginWrite", "Execute(", "MyCrmStore", ".Insert(", ".Update(", "Batch(" })
+            Assert.DoesNotContain(word, source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Every_property_of_MyCRMs_records_has_a_place_in_MyCRM_of_its_own()
     {
         foreach (var e in MyCrmMap.All)

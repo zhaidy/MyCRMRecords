@@ -102,7 +102,7 @@
         <td class="file-name"><button type="button" class="link-button" data-preview="${r.id}" title="${esc(r.fileName)}">${esc(r.fileName || 'File ' + r.id)}</button></td>
         <td class="file-type-col">${tag(r)}</td>
         <td title="${esc(r.company)}">${r.companyId ? `<a href="company.aspx?id=${r.companyId}">${esc(r.company)}</a>` : esc(r.company) || '<span class="muted">No company</span>'}</td>
-        <td title="${esc([numbers(r), r.brn ? 'BRN ' + r.brn : ''].filter(Boolean).join(' · '))}">${esc(number(r) || (r.brn ? 'BRN ' + r.brn : ''))}</td>
+        <td title="${esc([numbers(r), r.brn ? 'BRN ' + r.brn : ''].filter(Boolean).join(' · '))}">${esc(r.numbers.length ? r.numbers[0].number : (r.brn ? 'BRN ' + r.brn : ''))}</td>
         <td class="file-date">${esc(date(r.uploadedAt))}</td>
         <td class="num file-size">${esc(size(r.size))}</td>
         <td class="file-open"><span class="row-first"><button type="button" class="icon-button small" data-preview="${r.id}" title="Show ${esc(r.fileName)}" aria-label="Show ${esc(r.fileName)}"><span data-icon="eye"></span></button>

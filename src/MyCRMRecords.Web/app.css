@@ -315,9 +315,9 @@ h1{font-size:25px}
 .help-button svg{width:20px;height:20px}
 .help-button:hover{background:var(--surface-2);color:var(--accent)}
 .help-button.selected,.help-button[aria-expanded=true]{background:var(--accent-light);color:var(--accent)}
-/* Room for it in the top bar: below 1400px wide the menu drops its icons and Reset sample data its words (as they already
+/* Room for it in the top bar: below 1560px wide (1400px before the Files page joined the menu) the menu drops its icons and Reset sample data its words (as they already
    did below 1150px), and the brand its name while the whole menu is in the bar */
-@media(min-width:1151px) and (max-width:1400px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
+@media(min-width:1151px) and (max-width:1560px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
 @media(min-width:901px) and (max-width:1150px){.brand>span:last-child{display:none}.appbar{gap:12px}.sidebar>.nav-item svg,.nav-group>.nav-item svg{display:none}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 8px;font-size:14px}}
 @media(min-width:901px) and (max-width:1000px){.appbar-name{display:none}}
 .guide-main{max-width:1240px}
@@ -632,10 +632,10 @@ table.data.files-table{table-layout:fixed}
 .files-table td{padding-top:8px;padding-bottom:8px}
 .files-table .tick{width:42px;padding-right:0}
 .files-table .tick input{accent-color:var(--accent);width:16px;height:16px;margin:0;vertical-align:middle}
-.files-table .file-name{width:30%}
-.files-table .file-type-col{width:120px}
-.files-table .file-date{width:112px}
-.files-table .file-size{width:84px}
+.files-table .file-name{width:27%}
+.files-table .file-type-col{width:132px}
+.files-table .file-date{width:120px}
+.files-table .file-size{width:80px}
 .files-table .file-open{width:96px;text-align:right}
 .files-table .file-open .row-first{justify-content:flex-end;flex-wrap:nowrap}
 .files-table tr.open td{background:var(--accent-tint)}

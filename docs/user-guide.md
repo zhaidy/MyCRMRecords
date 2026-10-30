@@ -5,7 +5,7 @@ parent and subsidiary companies, and who sells to them, in named **territories**
 profile of each person (their MyCRM role and teams). It replaces the Users, Territory and Company part of MyCRM; the
 rest of MyCRM (activities, prospects, projects, MIF, CSST…) stays in MyCRM and keeps working with the same companies.
 It also keeps MyOrders' **costing sheets** and **request forms** readable, read only (see
-[Costing sheets](#costing-sheets)). Sign in with your Windows (RSP) username and password.
+[Costing sheets](#costing-sheets)), and shows MyFile's **files** (see [Files](#files)). Sign in with your Windows (RSP) username and password.
 
 MyCRMRecords and MyCRM share the same data: what you save here is in MyCRM at once, and the other way round. Until an
 administrator lets MyCRMRecords change MyCRM's data, MyCRMRecords only shows it: a bar at the top of every page says so,
@@ -24,13 +24,14 @@ Who does what (your MyCRM role is set on the **CRM users** page):
 - **Sales Admins** (MyCRM role Admin or SalesAdmin) add companies and change their details, keep the **CRM users**
   and teams, and the **Territories**. **MD** keeps the territories too.
 - **Everyone** sees the costing sheets and request forms MyOrders let them see; see [Costing sheets](#costing-sheets).
+- **Everyone** sees MyFile's files of the companies they may open, and the files of no company; see [Files](#files).
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
   someone else.
 
 ## Using MyCRMRecords on a phone
 
 MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a bar at the bottom of the screen:
-**Companies**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
+**Companies**, **Files**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
 (Territories, CRM users, Admin…) from the bottom; tap outside it to close it.
 
 To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
@@ -60,7 +61,7 @@ The companies you may open, by name, 50 at a time; the first page shows straight
 
 ## A company
 
-The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Costing sheets**,
+The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Files**, **Costing sheets**,
 **Request forms** and **Relationships & history** (with how many there are). Clicking a tab shows it in place; the
 page remembers the tab, so coming back from a costing sheet opens the same one. On a phone the tabs are a list under
 the company's details: tap one to open it on the whole screen, and the company's name at the top to go back.
@@ -100,6 +101,10 @@ the bin in the list) deletes the contact, after asking.
   **Remove** takes a relationship away (after asking); both companies stay.
 - **Territory Movement History** (not shown to Sales and Telemarketers): every change of the company's salesperson,
   newest first, with their teams, who made it and when.
+
+**Files**: the company's newest ten files from MyFile (the PDFs uploaded in MyFile: costing sheets, request forms,
+FSAs, leasing papers, DOs…), with their type, number, upload date and size; click a file's name to open its PDF.
+**See all** opens the [Files](#files) page with only this company's files.
 
 **Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
 you may see; click a number to open it. **See all** opens the list of all of them.
@@ -151,6 +156,31 @@ For Sales Admins. A person's MyCRM role and teams decide what they see and do, h
 - **Teams**: **New team** and **Edit** set a team's **Name**, **Short Name** and **Active**; the **Active** box in the
   list switches a team on or off at once. Teams are never deleted. **People** shows who is in a team.
 - A change to someone's role or teams counts in MyCRMRecords at once; in MyCRM, from their next sign-in.
+
+## Files
+
+The PDFs kept in MyFile (MyFile's own app is where they are uploaded), newest first, 50 at a time. They are only shown
+here: nothing is uploaded, changed or deleted on this page.
+
+You see the files of the companies you may open (see [Companies](#companies)) and the files of no company. The roles
+that open every company see every file.
+
+- Type in **Search files** to find a file by its name, one of its numbers (invoice, DO, contract, service, reference,
+  PPS, RMA, PSD or MSD reference), or its company's name or BRN.
+- Choose a type: **All**, **Costing sheet**, **Request form**, **FSA**, **Leasing**, **DO** or **Others**; and when it
+  was uploaded: **Uploaded: any time**, **Last 30 days**, **Last 12 months** or **This year**. The search and filters
+  are kept for next time.
+- Each row shows the file's name, type, company (click it to open the company), its first number (or the BRN), when it
+  was uploaded and its size. Point at the number to see all of them.
+- On a computer, click a file's name (or the eye) to show its PDF beside the list, with its numbers, company and who
+  uploaded it; **Open full size** opens it in a new tab and **Download** saves it. The arrow in the row downloads it too.
+- Tick files (or the box at the top for the whole page) and press **Download as zip** to save them in one zip file, at
+  most 50 at a time; **Clear** unticks them. A zip is refused if one of the files is of a company you may not open.
+- On a phone each file is a card: tap it to open its PDF on the whole screen.
+- From a company's **Files** tab, **See all** opens this page with only that company's files; **Show every company**
+  goes back to all of them.
+
+Downloaded files are recorded in the audit log (showing a PDF in the page is not).
 
 ## Costing sheets
 
@@ -319,8 +349,9 @@ For administrators. Everything that sends or changes something outside MyCRMReco
 - **Database**: where MyCRMRecords keeps its data. **Test connection** checks a SQL Server database; **Save and
   switch** moves to it.
 - **Data migrations**: changes to the database, each run with **Run migration**.
-- **Connections**: the OutSystems database (MyCRM's tables and its users, and MyOrders' for the costing sheets and
-  request forms, only read) and AdvanceConnector (Advance's customers,
+- **Connections**: the OutSystems database (MyCRM's tables and its users, MyOrders' for the costing sheets and
+  request forms, and MyFiles' for the Files page, only read; their module names are under **Names in those
+  databases**) and AdvanceConnector (Advance's customers,
   for the customer numbers). **Test** saves the tab and checks every table and column MyCRMRecords reads.
 - **Email**: the mail server. **Send emails** switches emails on; **Send a test email** checks it. **Emails** lists
   every email, sent or not, and why not. MyCRM's Users, Territory and Company screens send no emails.
