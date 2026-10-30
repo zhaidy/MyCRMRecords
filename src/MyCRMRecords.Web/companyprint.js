@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   // companyprint.aspx?id=: a company's summary on one A4 page, to print or save as PDF from the browser (the company
-  // page's Print summary). Only what the company page shows: its details and salesperson, addresses, primary contacts
+  // page's Print summary). Only what the company page shows: its details, salesperson and caretakers, addresses, primary contacts
   // and the machines whose contract or warranty is running (Advance, by BRN). Printing records nothing.
   const {$, esc, api, date, number, param} = window.WH;
   const id = Number(param('id') || 0);
@@ -33,8 +33,10 @@
           ${row('A/C Type', t(c.compAccountTypeLabel))}${row('Customer Code', t(c.customerNo))}${row('Customer Type', t(c.companyGroupLabel))}
           ${row('Company Group', t(c.groupName))}${row('Industry', t(c.industry))}${row('No of Employees', number(c.noOfEmployees))}
           ${row('Website', t(c.website))}${row('Sales Remarks', t(c.salesRemarks))}</dl></section>
-        <section><h2 class="pr-h">Salesperson</h2><dl>
+        <section><h2 class="pr-h">Salesperson and caretakers</h2><dl>
           ${row('Salesperson', owner ? `<b>${t(owner.name || 'Vacant')}</b>, ${t(owner.territory)}` : 'No salesperson')}
+          ${owner && owner.team ? row('Manager', t(owner.team)) : ''}
+          ${answer.caretakers.map(k => row('Caretaker', `<b>${t(k.name)}</b>, ${t(k.role)}<br><span class="grey">${t(k.project)}${k.endDate ? ', until ' + esc(date(k.endDate)) : ''}</span>`)).join('')}
           ${row('Caretake Remarks', answer.caretakes.map(t).join('\n'))}</dl></section>
       </div>
       <section><h2 class="pr-h">Addresses</h2>${addresses.length ? `<table class="pr-t"><colgroup><col style="width:80px"><col></colgroup><tbody>

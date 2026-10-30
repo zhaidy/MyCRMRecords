@@ -343,4 +343,29 @@ public sealed class MachinesTests
         Assert.Equal("X:ABC", TempAccessRules.Mark("ABC", 0));
         Assert.Equal("X:AB", TempAccessRules.Mark("ABC", 4));
     }
+
+    [Fact]
+    public void A_company_shows_the_machines_it_sold_as_a_dealer_and_its_invoice_emails_from_Advance()
+    {
+        var s = World();
+        using var world = s.World;
+        world.Machines.Machine("6100D0001", "T1000ABC", "TAN PTE LTD", "MTR", contractNo: "CT-D", serialStat: "SALDLR", custNo: "C1");
+        world.Machines.Machine("6100D0002", "T1000ABC", "TAN PTE LTD", "CMA", serialStat: "SALDLR", custNo: "C1");
+        world.Machines.Machine("6100D0003", "L2000XYZ", "LIM PTE LTD", "MTR", serialStat: "SALDLR", custNo: "C2");
+        var q = new Dictionary<string, string> { ["company"] = s.Tan.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+        var sold = JObject.Parse(Call(world, TestWorld.Sam, "machines/dealer", q).Json)["rows"]!;
+        Assert.Equal(new[] { "6100D0001" }, sold.Select(r => (string)r["serial"]!).ToArray());
+        Assert.Equal(403, Call(world, TestWorld.Ken, "machines/dealer", q).Status);
+        // The Invoice / SOA emails: Advance's customers mapped to the company, each email once.
+        world.Machines.Add("CustomerMapping", new { Company_ID = s.Tan.Id, Cust_No = "C1" });
+        world.Machines.Add("CustomerMapping", new { Company_ID = s.Lim.Id, Cust_No = "C2" });
+        world.Machines.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "MPS", ContractNo = "CT-1", EmailAddress = "ap@tan.example", CCEmail = "" });
+        world.Machines.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "MPS", ContractNo = "CT-1", EmailAddress = "ap@tan.example ", CCEmail = null as string });
+        world.Machines.Add("Email_Master", new { Cust_No = "C1", Contract_Type = "Rental", ContractNo = "CT-4", EmailAddress = "finance@tan.example", CCEmail = "boss@tan.example" });
+        world.Machines.Add("Email_Master", new { Cust_No = "C2", Contract_Type = "MPS", ContractNo = "CT-L", EmailAddress = "lim@lim.example", CCEmail = "" });
+        var emails = JObject.Parse(Call(world, TestWorld.Sam, "machines/invoiceemails", q).Json)["rows"]!;
+        Assert.Equal(new[] { "ap@tan.example", "finance@tan.example" }, emails.Select(r => (string)r["email"]!).ToArray());
+        Assert.Equal("boss@tan.example", (string)emails[1]!["ccEmail"]!);
+        Assert.Equal(403, Call(world, TestWorld.Ken, "machines/invoiceemails", q).Status);
+    }
 }

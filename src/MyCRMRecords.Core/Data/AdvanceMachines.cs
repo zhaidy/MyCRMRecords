@@ -228,7 +228,20 @@ public interface IAdvanceMachines
     IReadOnlyList<TonerOrder> Toner(string serial, string contractNo, DateTime from);
     /// <summary>A machine's last contract's rates (daily_TM), or null when Advance has none.</summary>
     LastContract? LastContract(string serial, string item);
+    /// <summary>
+    /// The machines a dealer sold (MyCRM's DealerSoldMachines): daily_mif's rows of the BRN with serial-stat SALDLR and
+    /// mif-type MTR, by serial number.
+    /// </summary>
+    IReadOnlyList<MachineRow> DealerSold(string brn, DateTime today);
+    /// <summary>
+    /// A MyCRM company's Invoice / SOA emails (MyCRM's MyCustomerEmails): CustomerMapping's rows of the company (Company_ID)
+    /// joined to Email_Master by customer number, each once, by contract type, contract and email.
+    /// </summary>
+    IReadOnlyList<CustomerEmail> CustomerEmails(long companyId);
 }
+
+/// <summary>Where Advance e-mails a customer's invoices and statements of account for a contract (Email_Master).</summary>
+public sealed record CustomerEmail(string ContractType, string ContractNo, string Email, string CcEmail);
 
 /// <summary>The tables and columns read in AdvanceConnector for the machines, by MyMachines' names (the connection test checks each).</summary>
 public static class AdvanceMachineColumns
@@ -236,7 +249,7 @@ public static class AdvanceMachineColumns
     public static readonly string[] DailyMif =
     [
         "serial_no", "item_no", "description", "prod_group", "model", "cust_no", "name", "BRN", "trans_date", "mif_type", "contract_no", "contract_typ",
-        "cntrct_start", "cntrct_end", "sell_start", "sell_end", "service_ref", "invoice_ref", "contract_ref",
+        "cntrct_start", "cntrct_end", "sell_start", "sell_end", "service_ref", "invoice_ref", "contract_ref", "serial_stat",
     ];
     public static readonly string[] Serial = ["Item_no", "Serial_no", "Serial_stat", "Trans_date", "Install_date", "Location", "Primary_con", "Primary_phon"];
     public static readonly string[] Customer = ["Cust_no", "Name", "Address", "City", "Zip_code", "Telephone", "Contact"];
@@ -247,13 +260,17 @@ public static class AdvanceMachineColumns
         "Complete_dt", "Complete_tm", "Invoice_no", "Invoice_date",
     ];
     public static readonly string[] SMeterHistory = ["Service_No", "Serial_No", "Meter_Type", "Meter_Reading"];
+    /// <summary>MyCRM's CustomerMapping: a MyCRM company's customer number in Advance.</summary>
+    public static readonly string[] CustomerMapping = ["Company_ID", "Cust_No"];
+    /// <summary>MyCRM's Email_Master: the Invoice / SOA emails of a customer, per contract.</summary>
+    public static readonly string[] EmailMaster = ["Cust_No", "Contract_Type", "ContractNo", "EmailAddress", "CCEmail"];
     public static readonly string[] DailyTm = ["trans_date", "item_no", "serial_no", "Contract_no", "Cntrct_start", "Cntrct_end", "Meter_Type", "Min_Bill", "MinCopies", "MinRate", "Therafter"];
 
     /// <summary>Each table (its name as set) with the columns read from it.</summary>
     public static IReadOnlyList<(string Table, string[] Columns)> Checked(AdvanceTables t) =>
     [
         (t.DailyMif, DailyMif), (t.Serial, Serial), (t.Customer, Customer), (t.MeterCard, MeterCard), (t.Service, Service),
-        (t.SMeterHistory, SMeterHistory), (t.DailyTm, DailyTm),
+        (t.SMeterHistory, SMeterHistory), (t.DailyTm, DailyTm), (t.CustomerMapping, CustomerMapping), (t.EmailMaster, EmailMaster),
     ];
 
     /// <summary>MyMachines' grouping of Service-type: EM (breakdowns), PM (preventive maintenance), else Others.</summary>
@@ -576,6 +593,36 @@ public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<Connect
             .ToList();
         return new LastContract(contract, latest.Date("Start"), latest.Date("End"), rates);
     }
+
+    public IReadOnlyList<MachineRow> DealerSold(string brn, DateTime today) => databases.Use(ExternalNames.AdvanceConnector, connection =>
+    {
+        var m = ExternalTable.Of(connection, Tables.DailyMif);
+        var s = ExternalTable.Of(connection, Tables.Serial);
+        return (IReadOnlyList<MachineRow>)Sql.Rows(connection, null,
+                $"SELECT TOP 200 {Select(m)} FROM {m} m{Finance(m, s)} WHERE m.{m["BRN"]} = @brn AND m.{m["serial_stat"]} = N'SALDLR' AND m.{m["mif_type"]} = N'MTR' " +
+                $"ORDER BY m.{m["serial_no"]}, m.{m["item_no"]}",
+                ("@brn", brn.Trim()))
+            .Select(r => Row(r, today)).ToList();
+    });
+
+    public IReadOnlyList<CustomerEmail> CustomerEmails(long companyId) => databases.Use(ExternalNames.AdvanceConnector, connection =>
+    {
+        var cm = ExternalTable.Of(connection, Tables.CustomerMapping);
+        var e = ExternalTable.Of(connection, Tables.EmailMaster);
+        return CustomerEmailsOf(Sql.Rows(connection, null,
+            $"SELECT DISTINCT TOP 500 em.{e["Contract_Type"]} AS [ContractType], em.{e["ContractNo"]} AS [ContractNo], em.{e["EmailAddress"]} AS [Email], em.{e["CCEmail"]} AS [CcEmail] " +
+            $"FROM {cm} cm INNER JOIN {e} em ON em.{e["Cust_No"]} = cm.{cm["Cust_No"]} WHERE cm.{cm["Company_ID"]} = @company",
+            ("@company", companyId)));
+    });
+
+    /// <summary>The emails from their rows (the SQL's, or the fake's with the same names): trimmed, each once, by contract type, contract and email.</summary>
+    public static IReadOnlyList<CustomerEmail> CustomerEmailsOf(IEnumerable<IReadOnlyDictionary<string, object?>> rows) =>
+        rows.Select(r => new CustomerEmail(r.Text("ContractType"), r.Text("ContractNo"), r.Text("Email"), r.Text("CcEmail")))
+            .Where(x => x.Email.Length > 0 || x.CcEmail.Length > 0)
+            .GroupBy(x => (x.ContractType.ToUpperInvariant(), x.ContractNo.ToUpperInvariant(), x.Email.ToUpperInvariant(), x.CcEmail.ToUpperInvariant())).Select(g => g.First())
+            .OrderBy(x => x.ContractType, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.ContractNo, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Email, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.CcEmail, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     /// <summary>A machine row (the SQL's, or the fake's with the same names) as the pages show it.</summary>
     public static MachineRow Row(IReadOnlyDictionary<string, object?> r, DateTime today)

@@ -237,6 +237,10 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
         var (parent, siblings, subsidiaries) = w.Companies.Relationships(c.Id);
         string CompanyName(long companyId) => w.Store.Get<Company>(companyId)?.Name.Trim() ?? "#" + companyId.ToString(CultureInfo.InvariantCulture);
         var teams = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // The related companies' territories, shown beside their names.
+        var related = (parent is null ? Array.Empty<long>() : new[] { parent.CompanyId }).Concat(siblings.Select(r => r.RelatedCompanyId)).Concat(subsidiaries.Select(r => r.RelatedCompanyId));
+        var relatedOwners = w.Territories.Owners(related.Distinct().ToList());
+        string TerritoryOf(long companyId) => relatedOwners.TryGetValue(companyId, out var t) ? Territories.Title(t.Territory) : "";
         return ApiResponse.Of(new
         {
             company = new
@@ -250,7 +254,12 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
                 customerType = CustomerTypes.List.Label(c.CustomerType), c.CustomerNo, c.CreditTerms, c.SalesRemarks, c.AdvanceCustomerType,
                 advanceCustomerTypeLabel = AdvanceCustomerTypes.List.Label(c.AdvanceCustomerType),
             },
-            owner = owner is { } ow ? new { login = ow.Owner, name = Name(ow.Owner), territoryId = ow.Territory.Id, territory = Territories.Title(ow.Territory) } : null,
+            owner = owner is { } ow ? new { login = ow.Owner, name = Name(ow.Owner), territoryId = ow.Territory.Id, territory = Territories.Title(ow.Territory), team = TeamOf(ow.Owner, teams) } : null,
+            caretakers = w.Projects.Caretakers(c.Id, owner is { } own ? own.Owner : "").Select(x => new
+            {
+                login = x.Member.User, name = Name(x.Member.User), role = ProjectRoles.List.Label(x.Member.Role), projectId = x.Project.Id, project = x.Project.ProjectName,
+                endDate = Date(x.Project.EndDate),
+            }),
             billingAddresses = addresses.Where(a => a.AddressType == AddressTypes.Billing).Select(Companies.AddressText),
             addresses = addresses.Select(a => new
             {
@@ -260,14 +269,16 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
             contacts = w.Companies.Contacts(c.Id).Select(v => new
             {
                 v.Contact.Id, name = Companies.ContactName(v.Contact), v.IsDefault, v.Contact.Department, v.Contact.Designation, v.Contact.IsEqList, v.Contact.IsLinkedIn,
+                v.Contact.Salutation, v.Contact.FirstName, v.Contact.MiddleName, v.Contact.LastName, createdAt = v.Contact.CreatedAt, createdBy = Name(v.Contact.CreatedBy),
+                updatedAt = v.Contact.UpdatedAt, updatedBy = Name(v.Contact.UpdatedBy),
                 phones = v.Phones.Select(p => new { typeLabel = PhoneTypes.List.Label(p.PhoneType), number = p.Number }),
                 emails = v.Emails.Select(e => new { address = e.Address, consent = e.ConsentToMarketingInfo }),
             }),
             relationships = new
             {
-                parent = parent is null ? null : new { relationshipId = parent.Id, id = parent.CompanyId, name = CompanyName(parent.CompanyId) },
-                siblings = siblings.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId) }),
-                subsidiaries = subsidiaries.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId) }),
+                parent = parent is null ? null : new { relationshipId = parent.Id, id = parent.CompanyId, name = CompanyName(parent.CompanyId), territory = TerritoryOf(parent.CompanyId) },
+                siblings = siblings.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId), territory = TerritoryOf(r.RelatedCompanyId) }),
+                subsidiaries = subsidiaries.Select(r => new { relationshipId = r.Id, id = r.RelatedCompanyId, name = CompanyName(r.RelatedCompanyId), territory = TerritoryOf(r.RelatedCompanyId) }),
             },
             movements = actor.SeesMovements
                 ? w.Territories.Movements(c.Id).Select(m => (object)new
