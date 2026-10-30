@@ -270,6 +270,12 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts
       from `Meter_Bill_History`, `MIF_TDV`, `MIF_Summary` and `Rev_Summary`, its "Wrong BRNs"/"Missing BRNs" lists and
       the PDF download.
+22. **A company's Overview adds a summary print and its copies per month** (2026-10-30): MyCRM's CompanyDetails had
+    neither. **Print summary** (`companyprint.aspx`) prints what the company page reads (details, salesperson and
+    caretake remarks, addresses, primary contacts, machines with a contract or warranty running), nothing more.
+    **Copies per month** adds up `meter_card` (Advance) by month over the last 12 months for every machine of the
+    company's BRN, each machine's invoices as its own page reads them (of its contract when it has one, the most copies
+    of each meter type per invoice): one read-only query (`IAdvanceMachines.MonthlyCopies`).
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

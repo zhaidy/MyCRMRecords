@@ -1,0 +1,36 @@
+/* companyprint.aspx: a company's summary on one A4 page, to print or save as PDF (company.js: Print summary). */
+:root{color-scheme:light}
+body{margin:0;background:#e9ebf0;color:#16191f;font:12px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",Roboto,Arial,sans-serif}
+.print-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#18213d;color:#fff;font:14px system-ui,sans-serif}
+.print-bar a{color:#c3caff;font-weight:700;text-decoration:none}
+.print-bar .grow{flex:1}
+.print-bar button{font:inherit;font-weight:700;border-radius:999px;border:1px solid #9aa6ff;background:#9aa6ff;color:#10142a;padding:7px 14px;cursor:pointer}
+.loading,.message{font:15px system-ui,sans-serif;padding:40px 16px;text-align:center}
+#doc{padding:16px}
+.sheet{box-sizing:border-box;width:21cm;max-width:100%;min-height:29.7cm;margin:0 auto;padding:40px 44px 30px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);display:flex;flex-direction:column;gap:11px}
+.sheet header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:8px;border-bottom:2px solid #16191f}
+.sheet h1{margin:2px 0 0;font-size:22px;line-height:1.15;font-weight:800;letter-spacing:-.02em}
+.grey{color:#454c58}
+.sheet p{margin:0}
+.printed{flex:none;text-align:right}
+.two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px}
+.pr-h{margin:0 0 4px;padding-bottom:3px;border-bottom:1px solid #16191f;font-size:13px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.pr-h span{font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:#454c58}
+dl{margin:0;display:grid;grid-template-columns:118px minmax(0,1fr);gap:1px 8px}
+dt{color:#454c58}
+dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.pr-t{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+.pr-t th{padding:2px 6px 2px 0;text-align:left;font-weight:600;color:#454c58;border-bottom:1px solid #c4cad4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-t td{padding:2px 6px 2px 0;border-bottom:1px solid #e3e6eb;overflow:hidden;text-overflow:ellipsis;vertical-align:top}
+.pr-tag{display:inline-block;padding:0 4px;border:1px solid #c4cad4;border-radius:3px;line-height:15px;background:#f3f4f6}
+.none{color:#454c58;margin:2px 0 0}
+.sheet footer{margin-top:auto;display:flex;justify-content:space-between;gap:12px;padding-top:6px;border-top:1px solid #c4cad4;color:#454c58}
+@media print{
+  body{background:#fff}
+  .print-bar{display:none}
+  #doc{padding:0}
+  .sheet{width:auto;min-height:0;padding:0;box-shadow:none}
+  .sheet footer{margin-top:16px}
+  @page{size:A4;margin:12mm}
+}
+@media(max-width:700px){.sheet{padding:16px}.two{grid-template-columns:minmax(0,1fr)}}
