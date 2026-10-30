@@ -115,6 +115,19 @@ public sealed class Activities(IRecordStore store, Access access, People people,
         };
     }
 
+    /// <summary>The visit dates of the filter: from (inclusive) and before (exclusive), null for no limit (as <see cref="Dates"/>).</summary>
+    private static (DateTime? From, DateTime? Before) Range(Filter f, DateTime today)
+    {
+        if (f.From is not null || f.To is not null) return (f.From?.Date, f.To?.Date.AddDays(1));
+        return f.When switch
+        {
+            "today" => (today, today.AddDays(1)),
+            "past" => (null, today),
+            "all" => (null, null),
+            _ => (today, null),
+        };
+    }
+
     private Query Dates(Query q, Filter f, DateTime today)
     {
         if (f.From is { } from) q = q.AtLeast("VisitDate", from.Date);
@@ -137,6 +150,19 @@ public sealed class Activities(IRecordStore store, Access access, People people,
     {
         var today = clock().Date;
         var who = PeopleOf(actor, f.Owner);
+        // In MyCRM, without a search or a type: the page is found, ordered and counted in SQL.
+        if (store is RoutedStore { Crm: MyCrmStore crm } && crm.Available && (f.Q ?? "").Trim().Length == 0 && (f.Type ?? "").Trim().Length == 0)
+        {
+            var (from, before) = Range(f, today);
+            var soonest = f.From is not null || f.When is "upcoming" or "today" or "" or null;
+            var (total, pageIds) = f.From is not null || all
+                ? crm.ActivityIds(who, from, before, soonest, 0, MaxRows)
+                : crm.ActivityIds(who, from, before, soonest, Math.Max(0, f.Skip), PageSize);
+            var byId = new Dictionary<long, Activity>();
+            foreach (var chunk in Chunks(pageIds)) foreach (var a in store.Find<Activity>(Query.Where("IsActive", true).In("Id", chunk))) byId[a.Id] = a;
+            var page = pageIds.Where(byId.ContainsKey).Select(i => byId[i]).ToList();
+            return (total, Rows(page, f with { Skip = 0 }, today, all: true).Rows);
+        }
         var ids = new HashSet<long>();
         foreach (var chunk in Chunks(who))
             foreach (var p in store.Find<ActivityParticipant>(Query.Where("IsActive", true).In("User", chunk)))
