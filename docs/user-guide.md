@@ -714,10 +714,11 @@ For administrators. Everything that sends or changes something outside MyCRMReco
   customer number of Advance's customers with its BRN (with " #Multiple" after it when several share the BRN).
   **Projects that have ended** (MyCRM's SetInactiveAllProjectThatEnds, daily at 05:30) closes the open projects whose
   end date has come and takes away the temporary territories of members whose project is over (inactive, closed or
-  past its end date; a project with no end date is not over). If a run would close more than 50 projects or take away
+  past its end date; a project with no end date is not over). A temporary territory no project member has (the CSST
+  part's) is never taken away. If a run would close more than 50 projects or take away
   more than 50 temporary territories, it stops before changing anything and says why. **Roll back: switch back on the
   temporary territories it should not have switched off today** turns on again, after asking, those it switched off
-  today whose member is still in a project that is not over (each recorded in **Changes made in MyCRM**).
+  today, except those of members whose project is over (each recorded in **Changes made in MyCRM**).
   **Run now** runs a task at once. Switch MyCRM's own timer off when this one runs.
 - **MyCRM**: MyCRMRecords reads and writes the CRM users and teams, the companies with their addresses, contacts,
   phones, emails, relationships and group names, the permanent territories with their companies, the territory

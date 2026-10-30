@@ -762,18 +762,19 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         var stillOff = new List<long>();
         foreach (var chunk in ids.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
             stillOff.AddRange(store.Find<TemporaryTerritory>(Query.All().In("Id", chunk)).Where(t => !t.IsActive).Select(t => t.Id));
-        // Only those it should not have switched off: an active member of a project that is not over (MyCRM's rule; a
-        // project with no end date is not over). The others MyCRM's own timer switches off too.
+        // All of them but those it was right to switch off: the territories of members whose project is over (closed,
+        // inactive or past its end date). One with no project member (the CSST part's) or in a project not over goes back.
         var today = clock().Date;
         var members = new List<ProjectMember>();
         foreach (var chunk in stillOff.Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)(long?)x.v))
-            members.AddRange(store.Find<ProjectMember>(Query.Where("IsActive", true).In("TerritoryId", chunk)));
+            members.AddRange(store.Find<ProjectMember>(Query.All().In("TerritoryId", chunk)));
         var projects = new Dictionary<long, Project>();
         foreach (var chunk in members.Select(m => m.ProjectId).Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
             foreach (var p in store.Find<Project>(Query.All().In("Id", chunk))) projects[p.Id] = p;
-        var wrongly = new HashSet<long>(members.Where(m => m.TerritoryId is not null && projects.TryGetValue(m.ProjectId, out var p) && !ProjectTerritories.IsOver(p, today))
-            .Select(m => m.TerritoryId!.Value));
-        return stillOff.Where(wrongly.Contains).ToList();
+        var rightlyOff = new HashSet<long>(members.Where(m => m.TerritoryId is not null).GroupBy(m => m.TerritoryId!.Value)
+            .Where(g => !g.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && !ProjectTerritories.IsOver(p, today)))
+            .Select(g => g.Key));
+        return stillOff.Where(id => !rightlyOff.Contains(id)).ToList();
     }
 
     /// <summary>Makes those temporary territories active again (administrators), each recorded with the value it replaced.</summary>
@@ -834,9 +835,11 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 var byTerritory = members.Where(m => m.TerritoryId is not null).GroupBy(m => m.TerritoryId!.Value).ToDictionary(g => g.Key, g => g.ToList());
                 // MyCRM's FixTerritory: a territory goes when no member has it, or its members are inactive or their
                 // projects are over (inactive, closed or past the end date; no end date is not over).
+                // Only a project's territories: one no project member has is the CSST part's (or another part's), which
+                // MyCRM's timer leaves alone (30,957 of them were switched off on 30 Oct 2026 and switched back on).
                 var going = active.Where(t =>
                 {
-                    var of = byTerritory.TryGetValue(t.Id, out var list) ? list : new List<ProjectMember>();
+                    if (!byTerritory.TryGetValue(t.Id, out var of) || of.Count == 0) return false;
                     return !of.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && !ProjectTerritories.IsOver(p, today));
                 }).ToList();
                 if (going.Count > SafetyLimit)

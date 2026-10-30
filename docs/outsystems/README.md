@@ -302,7 +302,7 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       activity links inactive and takes the temporary territories away; the activities and their participants stay.
     - **The daily task *Projects that have ended*** (MyCRM's `SetInactiveAllProjectThatEnds` with `FixTerritory`,
       05:30, off until an administrator turns it on): open projects whose end date has come are closed, then every active
-      temporary territory whose member is inactive, whose project is not open, or that no member has, is made
+      temporary territory of a project member who is inactive or whose project is over (inactive, closed or past its end date; no end date is not over) is made
       inactive. A project with no end date is left alone (MyCRM's Save never allowed one).
     - **Who sees what**: the Projects list keeps MyCRM's rule (projects with an active member in the person's list)
       and adds the projects they own; Sales Admins see every project. The activity list shows the activities owned or
