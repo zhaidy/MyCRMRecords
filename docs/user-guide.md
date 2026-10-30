@@ -5,7 +5,7 @@ parent and subsidiary companies, and who sells to them, in named **territories**
 profile of each person (their MyCRM role and teams). It replaces the Users, Territory and Company part of MyCRM; the
 rest of MyCRM (activities, prospects, projects, MIF, CSST…) stays in MyCRM and keeps working with the same companies.
 It also keeps MyOrders' **costing sheets** and **request forms** readable, read only (see
-[Costing sheets](#costing-sheets)), and shows MyFile's **files** (see [Files](#files)). Sign in with your Windows (RSP) username and password.
+[Costing sheets](#costing-sheets)), shows MyFile's **files** (see [Files](#files)) and Advance's **machines** (see [Machines](#machines)). Sign in with your Windows (RSP) username and password.
 
 MyCRMRecords and MyCRM share the same data: what you save here is in MyCRM at once, and the other way round. Until an
 administrator lets MyCRMRecords change MyCRM's data, MyCRMRecords only shows it: a bar at the top of every page says so,
@@ -25,13 +25,16 @@ Who does what (your MyCRM role is set on the **CRM users** page):
   and teams, and the **Territories**. **MD** keeps the territories too.
 - **Everyone** sees the costing sheets and request forms MyOrders let them see; see [Costing sheets](#costing-sheets).
 - **Everyone** sees MyFile's files of the companies they may open, and the files of no company; see [Files](#files).
+- **Everyone** sees Advance's machines of the companies they may open, and of the companies they were given temporary
+  access to; see [Machines](#machines). **Sales Admins** give and remove the temporary access
+  ([Machine access](#machine-access)).
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
   someone else.
 
 ## Using MyCRMRecords on a phone
 
 MyCRMRecords works on a phone as well as on a computer. On a phone the menu is a bar at the bottom of the screen:
-**Companies**, **Files**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
+**Companies**, **Files**, **Machines**, **Orders** (the costing sheets and request forms) and **More**, which opens the rest of the menu
 (Territories, CRM users, Admin…) from the bottom; tap outside it to close it.
 
 To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
@@ -74,7 +77,7 @@ the title says how many there are.
 
 ## A company
 
-The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Files**, **Costing sheets**,
+The company's page has everything about it, in tabs under its name: **Overview**, **Contacts**, **Files**, **Machines**, **Costing sheets**,
 **Request forms** and **Relationships & history** (with how many there are). Clicking a tab shows it in place; the
 page remembers the tab, so coming back from a costing sheet opens the same one. On a phone the tabs are a list under
 the company's details: tap one to open it on the whole screen, and the company's name at the top to go back.
@@ -118,6 +121,13 @@ the bin in the list) deletes the contact, after asking.
 **Files**: the company's newest ten files from MyFile (the PDFs uploaded in MyFile: costing sheets, request forms,
 FSAs, leasing papers, DOs…), with their type, number, upload date and size; click a file's name to open its PDF.
 **See all** opens the [Files](#files) page with only this company's files.
+
+**Machines**: the company's machines in Advance (found by its BRN), as MyCRM's Machines tab showed them. **Active**
+(the first) lists those whose contract or warranty ends after today; **All** adds those on time and materials, those
+whose contract or warranty has ended and those with none. Each row shows the **Serial** (click it to open the
+machine), **Model**, **Status** (Contract, Warranty, T&M, Expired or No contract), **Contract** number and type,
+**Contract start** and **end**, **Warranty start** and **end** (dates already past are grey) and **Finance type**
+(Internal lease, External lease, Outright or Dealer). On a phone each machine is a card. See [Machines](#machines).
 
 **Costing sheets** and **Request forms**: the company's newest costing sheets and request forms from MyOrders, of those
 you may see; click a number to open it. **See all** opens the list of all of them.
@@ -194,6 +204,58 @@ that open every company see every file.
   goes back to all of them.
 
 Downloaded files are recorded in the audit log (showing a PDF in the page is not).
+
+## Machines
+
+Advance's machines in the field (through AdvanceConnector), 50 at a time, by customer. They are only shown here:
+nothing is changed in Advance.
+
+You see the machines of the companies you may open (see [Companies](#companies)): a machine belongs to the company with
+its BRN. You also see the machines of the companies a Sales Admin gave you **temporary access** to (see
+[Machine access](#machine-access)). The roles that open every company see every machine, once they search for one.
+
+- Type in the search box at least 3 characters of a serial number, model, company name or BRN.
+- Choose a coverage: **All**, **Contract** (a contract running today), **Warranty** (a warranty running today),
+  **T&M** (time and materials), **Expired** (its contract or warranty has ended) or **No contract**; and a **Finance
+  type**: Internal lease, External lease, Outright, Dealer or none. The search and filters are kept for next time.
+- Each row shows the serial number (click it to open the machine), model, company (click it to open the company's
+  Machines tab), **Access via** (your territory's name, **Project**, **Temporary**, or **All companies**), its
+  coverage with the contract number and when it ends, and its finance type.
+- **Machine access** (Sales Admins) opens the [Machine access](#machine-access) page.
+- On a phone each machine is a card: tap it to open the machine.
+
+## A machine
+
+A machine's page: its serial number and coverage, its model, company and how you see it.
+
+- The facts: when it was installed, its contract (number, type and dates), finance type, warranty, contact, location,
+  address, BRN and Advance's customer number. For a machine on time and materials, its last service and invoice.
+- **Copies per month**: the black and white (teal) and colour (coral) copies billed each month, from Advance's meter
+  cards; choose **6 months** or **12 months**. Point at a month to see its numbers.
+- **Service history**: the service calls done in the last 12 months, newest first, with the service type (and EM, PM
+  or Others), the technician's code, the black and white and colour meter readings, and when they were entered and
+  completed.
+- **Toner supply**: the toner orders of the last 12 months, with their invoice.
+- **Meter readings**: each invoice of the last 12 months with its black and white and colour copies.
+- **Last contract** (a machine on time and materials that had one): its last contract's dates and, per meter type, the
+  minimum bill, minimum copies, minimum rate and the rate thereafter.
+
+## Machine access
+
+For Sales Admins (open it with **Machine access** on the [Machines](#machines) page). It lists the people with
+**temporary access**: they see a company's machines without the company being in their territories. The card at the
+top says who can see a company's machines: 1 **Territory**, 2 **Project**, 3 **Temporary access**.
+
+The temporary access is MyMachines' own: what is given here is given in MyMachines too, and the other way round. Until
+an administrator ticks **Let MyCRMRecords change MyMachines' temporary access** (Settings, MyCRM tab) the page only
+lists it and says so.
+
+- **Give temporary access**: choose the **User**, type at least 2 characters of the **Company** name or BRN and choose
+  it, then press **Give access**. The person sees the machines with the company's BRN (or Advance's customer name)
+  from then on. A company without a BRN cannot be chosen; someone who already has access to a company is not given it
+  twice.
+- The list shows each person with their company, BRN and when it was given. The cross removes it (after asking); it is
+  kept in MyMachines, marked as removed, not deleted.
 
 ## Costing sheets
 
@@ -363,9 +425,9 @@ For administrators. Everything that sends or changes something outside MyCRMReco
   switch** moves to it.
 - **Data migrations**: changes to the database, each run with **Run migration**.
 - **Connections**: the OutSystems database (MyCRM's tables and its users, MyOrders' for the costing sheets and
-  request forms, and MyFiles' for the Files page, only read; their module names are under **Names in those
-  databases**) and AdvanceConnector (Advance's customers,
-  for the customer numbers). **Test** saves the tab and checks every table and column MyCRMRecords reads.
+  request forms, and MyFiles' for the Files page, only read; MyMachines' temporary access; their module names are under
+  **Names in those databases**) and AdvanceConnector (Advance's customers, for the customer numbers, and Advance's
+  machines for the Machines pages; the tables' names are under **Names in those databases** too). **Test** saves the tab and checks every table and column MyCRMRecords reads.
 - **Email**: the mail server. **Send emails** switches emails on; **Send a test email** checks it. **Emails** lists
   every email, sent or not, and why not. MyCRM's Users, Territory and Company screens send no emails.
 - **Scheduled tasks**: **Run the scheduled tasks** switches them on, and each task has its own **On**, time and days.
@@ -380,6 +442,10 @@ For administrators. Everything that sends or changes something outside MyCRMReco
     MyCRMRecords only reads. It adds and changes rows of MyCRM's tables and never deletes one: what is taken away is
     made inactive there (a company's address link or a group name, which MyCRM cannot mark, is kept and marked here).
     The OutSystems database's login needs to be allowed to add and change rows (INSERT and UPDATE) in MyCRM's tables.
+  - **Let MyCRMRecords change MyMachines' temporary access**: tick it and press **Save** to let Sales Admins give and
+    remove temporary access to machines on the [Machine access](#machine-access) page. Until then the page only lists
+    it. Giving adds a row to MyMachines' TempAccess; removing marks the row ("X:" before its customer name and BRN) and
+    never deletes it. Every value written is listed under **Changes made in MyCRM** (table MyMachines.TempAccess).
   - **Changes made in MyCRM** lists every value MyCRMRecords wrote in MyCRM's tables, newest first, with the value it
     replaced and who made the change, so anything can be put back. The search box finds a table, column, value or
     person.

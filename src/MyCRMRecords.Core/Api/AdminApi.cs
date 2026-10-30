@@ -72,7 +72,7 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
                     return ApiResponse.Of(new
                     {
                         writesEnabled = w.Settings().MyCrm.WritesEnabled, configured = w.Databases.IsConfigured(ExternalNames.OutSystems),
-                        changes = w.Own.Count<MyCrmChange>(),
+                        changes = w.Own.Count<MyCrmChange>(), machineWritesEnabled = w.Settings().MyMachines.WritesEnabled,
                     });
                 case "admin/mycrm" when !get:
                 {
@@ -88,6 +88,22 @@ public sealed class AdminApi(CrmApp w, DatabaseStorage storage, bool demoTools)
                     return ApiResponse.Ok(input.WritesEnabled
                         ? "Saved: MyCRMRecords changes MyCRM's data from now on, and lists every value it writes there."
                         : "Saved: MyCRMRecords only reads MyCRM's data.");
+                }
+                case "admin/mymachines" when !get:
+                {
+                    // MyMachines' temporary access (the Machine access page): added and marked only when this is on.
+                    var input = Input.Read<MyCrmInput>(body);
+                    if (input.WritesEnabled && !w.Databases.IsConfigured(ExternalNames.OutSystems))
+                        return ApiResponse.Fail(400, ResultCodes.Validation, "Set up the OutSystems database on the Connections tab first: MyMachines keeps its temporary access there.");
+                    w.SettingsFile.Change(x =>
+                    {
+                        x.MyMachines.WritesEnabled = input.WritesEnabled;
+                        x.ChangedBy = user.ChangedBy;
+                        x.ChangedAt = DateTimeOffset.Now;
+                    });
+                    return ApiResponse.Ok(input.WritesEnabled
+                        ? "Saved: Sales Admins give and remove temporary access to machines in MyMachines from now on, and every value written is listed below."
+                        : "Saved: MyCRMRecords only reads MyMachines' temporary access.");
                 }
                 case "admin/mycrm/changes" when get:
                 {

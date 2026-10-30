@@ -89,7 +89,8 @@ public sealed class ExternalTableTests
         // AdvanceConnector's Customer_Supp is found under MyCRM's names ([Business reg] for Business_reg, [Cust-no] for Cust_no).
         var adv = databases.Test(ExternalNames.AdvanceConnector);
         Assert.All(adv, l => Assert.True(l.Ok, l.Line));
-        Assert.Equal(2, adv.Count);
+        // Connected, Customer_Supp, and the machines' seven tables.
+        Assert.Equal(2 + AdvanceMachineColumns.Checked(settings.Connections.AdvanceTables).Count, adv.Count);
         // A wrong table name shows.
         settings.Connections.AdvanceTables.CustomerSupp = "dbo.NoSuchTable";
         Assert.Contains(databases.Test(ExternalNames.AdvanceConnector), l => !l.Ok && l.Line.Contains("NoSuchTable"));

@@ -26,6 +26,7 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     download: '<path d="M12 3v12m-5-5 5 5 5-5M4 19h16"/>',
     upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/>',
+    shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
     printer: '<path d="M7 9V3h10v6M7 18H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/>',
     search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
     check: '<path d="m5 12 5 5L20 7"/>',
@@ -194,6 +195,20 @@
   /** A coloured tag. */
   const tag = (label, color) => label ? `<span class="tag" style="--tag:${esc(color || '#7a8299')}">${esc(label)}</span>` : '';
 
+  /** A machine's coverage (machines.js, machine.js, company.js): its tag, and what it says in a few words. */
+  const coverageColors = {Contract: '#0a58f0', Warranty: '#0d9488', TM: '#7c3aed', Expired: '#d9443a', None: '#8e8e96'};
+  const coverageTag = m => `<span class="tag coverage" style="--tag:${coverageColors[m.coverage] || '#8e8e96'}">${esc(m.coverageName || m.coverage)}</span>`;
+  function coverageText(m) {
+    switch (m.coverage) {
+      case 'Contract': return [m.contractNo, m.contractEnd ? 'ends ' + date(m.contractEnd) : ''].filter(Boolean).join(' · ');
+      case 'Warranty': return m.warrantyEnd ? 'Ends ' + date(m.warrantyEnd) : '';
+      case 'TM': return m.lastInvoice ? 'Last invoice ' + m.lastInvoice : m.lastService ? 'Last service ' + m.lastService : '';
+      case 'Expired': return [m.contractNo, (m.contractEnd || m.warrantyEnd) ? 'ended ' + date(m.contractEnd || m.warrantyEnd) : ''].filter(Boolean).join(' · ');
+      default: return '';
+    }
+  }
+  const machineUrl = m => 'machine.aspx?' + new URLSearchParams(m.item ? {serial: m.serial, item: m.item} : {serial: m.serial});
+
   /* Install app: MyCRMRecords installs as an app (manifest.json, sw.js). On a phone the button installs it (Android and
      computers ask the browser; an iPhone shows the steps, as Safari has no button for it). On a computer it shows a QR
      code of MyCRMRecords' address to open on a phone and install there, and installs on the computer too when the
@@ -257,5 +272,6 @@
   installButton?.addEventListener('click', showInstall);
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
-  window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, showErrors, param, pager, change, upload};
+  window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, showErrors, param, pager, change, upload,
+    coverageTag, coverageText, machineUrl};
 })();
