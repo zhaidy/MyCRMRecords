@@ -27,6 +27,38 @@
   const fact = (label, value, cls = '') => `<div class="${cls}"><div class="fact-label">${esc(label)}</div><div>${value || '<span class="muted">-</span>'}</div></div>`;
   const by = person => person && person.name ? ` by ${esc(person.name)}` : '';
 
+  /**
+   * The page's sections, as tabs that switch in place (the chosen one is kept in the address, #contacts, so coming back
+   * from a costing sheet opens the same tab). On a phone the tabs are a list under the company's details, each opening
+   * its section on the whole screen with a way back (app.css: .section-list, .section-back).
+   */
+  const tabIds = ['overview', 'contacts', 'costing', 'requests', 'relations'];
+  let tab = tabIds.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+  let orderCounts = {costing: '', requests: ''};
+  function sections() {
+    return [
+      {id: 'overview', label: 'Overview', count: '', color: '#0a58f0'},
+      {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0'},
+      {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b'},
+      {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b'},
+      {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488'}
+    ];
+  }
+  function showTab(next) {
+    tab = tabIds.includes(next) ? next : 'overview';
+    $$('.company-tabs .tab', page).forEach(b => { b.setAttribute('aria-selected', String(b.dataset.tab === tab)); b.tabIndex = b.dataset.tab === tab ? 0 : -1; });
+    $$('.tab-panel', page).forEach(panel => { panel.hidden = panel.id !== 'panel-' + tab; });
+    page.classList.toggle('in-section', tab !== 'overview');
+    history.replaceState(null, '', tab === 'overview' ? location.pathname + location.search : '#' + tab);
+  }
+  function setCount(id, count) {
+    orderCounts[id] = count;
+    const label = $(`#tab-${id}`, page);
+    if (label && !$('.count', label)) label.insertAdjacentHTML('beforeend', ` <span class="count">${count}</span>`);
+    const row = $(`.section-row[data-tab="${id}"] .section-count`, page);
+    if (row) row.textContent = count;
+  }
+
   function render() {
     const c = d.company, can = d.can;
     document.title = c.name + ' · MyCRMRecords';
@@ -37,7 +69,9 @@
           <h1>${esc(c.name)} ${c.isActive ? '' : '<span class="pill warn">Inactive</span>'}</h1>
           <p>${c.brn ? 'BRN ' + esc(c.brn) : 'No BRN'}${c.customerNo ? ' · Customer code ' + esc(c.customerNo) : ''}</p></div>
         <div class="heading-actions">${can.edit ? '<button class="button primary" id="edit"><span data-icon="edit"></span>Edit company</button>' : ''}</div></div>
-      <div class="stack">
+      <div class="tabs company-tabs" role="tablist" aria-label="Company sections">${sections().map(s => `<button type="button" class="tab" role="tab" id="tab-${s.id}" aria-controls="panel-${s.id}" data-tab="${s.id}">${esc(s.label)}${s.count !== '' ? ` <span class="count">${s.count}</span>` : ''}</button>`).join('')}</div>
+      <button type="button" class="section-back" id="section-back"><span data-icon="arrow-left"></span>${esc(c.name)}</button>
+      <div class="stack tab-panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
         <section class="card"><h2>Company</h2><div class="facts">
           ${fact('BRN', esc(c.brn))}${fact('A/C Type', esc(c.compAccountTypeLabel))}${fact('Customer Code', esc(c.customerNo))}${fact('Salesperson', owner)}
           ${fact('Customer Type', esc(c.companyGroupLabel))}${fact('Company Group', esc(c.groupName))}${fact('Advance Customer Type', esc(c.advanceCustomerTypeLabel))}${fact('Industry', esc(c.industry))}
@@ -46,14 +80,13 @@
           <div><div class="fact-label">No of Employees</div><div id="employees"></div></div>
           ${fact('Billing Address', d.billingAddresses.map(a => `<div>${esc(a)}</div>`).join(''), 'half')}
         </div></section>
+        <nav class="section-list" aria-label="Company sections">${sections().filter(s => s.id !== 'overview').map(s => `<button type="button" class="section-row" data-tab="${s.id}">
+          <span class="section-dot" style="--dot:${s.color}" aria-hidden="true">${esc(s.label.charAt(0))}</span><span class="section-name">${esc(s.label)}</span>
+          <span class="section-count">${s.count}</span><span data-icon="arrow-right" class="section-chevron"></span></button>`).join('')}</nav>
         <section class="card"><h2>Sales Remarks</h2>
           <label class="field"><span class="sr-only">Sales Remarks</span><textarea id="sales-remarks" rows="3" maxlength="50000" data-field="salesRemarks">${esc(c.salesRemarks)}</textarea><span class="field-error"></span></label>
           <div class="action-buttons" style="margin-top:8px"><button type="button" class="button secondary small-btn" id="save-remarks"><span data-icon="check"></span>Save</button></div></section>
         <section class="card" id="addresses"></section>
-        <section class="card" id="contacts"></section>
-        <section class="card" id="relationships"></section>
-        <section class="card" id="orders"></section>
-        ${d.movements ? `<section class="card"><h2>Territory Movement History</h2>${movements()}</section>` : ''}
         <section class="card"><details><summary class="text-button">More Company Details</summary><div class="facts" style="margin-top:12px">
           ${fact('Remarks', `<span style="white-space:pre-wrap">${esc(c.remarks)}</span>`, 'wide')}
           ${fact('Caretake Remarks', d.caretakes.map(r => `<div style="white-space:pre-wrap">${esc(r)}</div>`).join(''), 'wide')}
@@ -61,13 +94,19 @@
           ${fact('MIF Potential', c.mifPotential ? number(c.mifPotential) : '')}${fact('Revenue', c.revenue ? number(c.revenue) : '')}${fact('Comp Ownership', esc(c.compOwnershipLabel))}${fact('Is Caretake', c.isCaretake ? 'Yes' : 'No')}
           ${fact('Is Created By MSD', c.isCreatedByMsd ? 'Yes' : 'No')}${fact('Customer Type (BDG)', esc(c.customerType))}${fact('Credit Terms', esc(c.creditTerms))}${fact('Old CRM Id', c.crmCompanyId ? String(c.crmCompanyId) : '')}
         </div></details></section>
-      </div>`;
+      </div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts"><section class="card" id="contacts"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-costing" aria-labelledby="tab-costing"><section class="card" id="costing"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-requests" aria-labelledby="tab-requests"><section class="card" id="requests"></section></div>
+      <div class="stack tab-panel" role="tabpanel" id="panel-relations" aria-labelledby="tab-relations"><section class="card" id="relationships"></section>
+        ${d.movements ? `<section class="card"><h2>Territory Movement History</h2>${movements()}</section>` : ''}</div>`;
     employees(false);
     addresses();
     contacts();
     relationships();
     orders(c);
     drawIcons(page);
+    showTab(tab);
     $('#edit')?.addEventListener('click', async () => { if (await companyForm(lists, c)) load(); });
     $('#save-remarks').addEventListener('click', async () => {
       const answer = await api('POST', `companies/${id}/remarks`, {salesRemarks: $('#sales-remarks').value});
@@ -77,37 +116,36 @@
   }
 
   /**
-   * The company's costing sheets and request forms from MyOrders (read only): the newest of those the person may see,
-   * each opening its page, and a link to the whole list of this company's.
+   * The company's costing sheets and request forms from MyOrders (read only), each on its tab: the newest of those the
+   * person may see, each opening its page, and a link to the whole list of this company's.
    */
   async function orders(c) {
-    const box = $('#orders');
-    box.innerHTML = '<h2>Costing Sheets and Request Forms</h2><p class="muted small">Loading…</p>';
+    const costing = $('#costing'), requests = $('#requests');
+    costing.innerHTML = '<h2>Costing sheets</h2><p class="muted small">Loading…</p>';
+    requests.innerHTML = '<h2>Request forms</h2><p class="muted small">Loading…</p>';
     const listOf = kind => api('GET', `${kind}?` + new URLSearchParams({company: String(id)}));
     const [sheets, forms] = await Promise.all([listOf('costingsheets'), listOf('requestforms')]);
-    if (!sheets.result.ok && !forms.result.ok) {
-      box.innerHTML = `<h2>Costing Sheets and Request Forms</h2><p class="muted">${esc(sheets.result.message)}</p>`;
-      return;
-    }
     const all = (href, total, what) => total > 5
       ? `<p class="small" style="margin:8px 0 0"><a href="${href}?${new URLSearchParams({company: String(id), name: c.name})}">See all ${total} ${what}</a></p>` : '';
     const none = what => `<p class="muted small" style="margin:6px 0 0">No ${what} of this company that you may see.</p>`;
+    const note = '<p class="muted small">From MyOrders, read only: the newest of those you may see.</p>';
     const sheetRows = sheets.result.ok ? sheets.rows.slice(0, 5) : [];
     const formRows = forms.result.ok ? forms.rows.slice(0, 5) : [];
-    box.innerHTML = `<h2>Costing Sheets and Request Forms</h2>
-      <p class="muted small">From MyOrders, read only: the newest of those you may see.</p>
-      <h3 style="margin:12px 0 0">Costing sheets</h3>
+    costing.innerHTML = `<h2>Costing sheets</h2>${note}
       ${!sheets.result.ok ? `<p class="muted small">${esc(sheets.result.message)}</p>` : sheetRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Costing sheet</th><th>Salesman</th><th>Created</th><th class="num">Achieved Price</th></tr></thead><tbody>
         ${sheetRows.map(r => `<tr><td><a href="costingsheet.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.status)}</span></td>
           <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td>
           <td class="num nowrap">${Number(r.totalAchievedPrice || 0).toLocaleString('en-SG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>`).join('')}
-        </tbody></table></div>${all('costingsheets.aspx', sheets.total, 'costing sheets')}` : none('costing sheets')}
-      <h3 style="margin:16px 0 0">Request forms</h3>
+        </tbody></table></div>${all('costingsheets.aspx', sheets.total, 'costing sheets')}` : none('costing sheets')}`;
+    requests.innerHTML = `<h2>Request forms</h2>${note}
       ${!forms.result.ok ? `<p class="muted small">${esc(forms.result.message)}</p>` : formRows.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Request form</th><th>Salesman</th><th>Created</th></tr></thead><tbody>
         ${formRows.map(r => `<tr><td><a href="requestform.aspx?id=${r.id}" class="nowrap"><b># ${r.id}</b></a><span class="sub">${esc(r.type)} · ${esc(r.status)}</span></td>
           <td>${esc(r.salesman)}</td><td class="nowrap">${esc(date(r.createdAt))}</td></tr>`).join('')}
         </tbody></table></div>${all('requestforms.aspx', forms.total, 'request forms')}` : none('request forms')}`;
-    drawIcons(box);
+    if (sheets.result.ok) setCount('costing', sheets.total);
+    if (forms.result.ok) setCount('requests', forms.total);
+    drawIcons(costing);
+    drawIcons(requests);
   }
 
   /** The number of employees, shown with Edit, or an input with Save and Cancel (MyCRM's NoOfEmployees block). */
@@ -310,6 +348,9 @@
   }
 
   page.addEventListener('click', async event => {
+    const tabButton = event.target.closest('[data-tab]');
+    if (tabButton) { showTab(tabButton.dataset.tab); if (tabButton.classList.contains('section-row')) scrollTo(0, 0); return; }
+    if (event.target.closest('#section-back')) { showTab('overview'); scrollTo(0, 0); return; }
     const address = event.target.closest('[data-address]');
     if (address) { addressDialog(Number(address.dataset.address)); return; }
     const removeAddress = event.target.closest('[data-delete-address]');
@@ -346,6 +387,15 @@
     const answer = await api('POST', `companies/${id}/addresses/${type.dataset.addressType}/type`, {addressType: type.value});
     toast(answer.result.message, !answer.result.ok);
     if (answer.result.ok) load();
+  });
+
+  page.addEventListener('keydown', event => {
+    const current = event.target.closest('.company-tabs .tab');
+    if (!current || (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft')) return;
+    const tabs = $$('.company-tabs .tab', page);
+    const next = tabs[(tabs.indexOf(current) + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    showTab(next.dataset.tab);
+    next.focus();
   });
 
   if (!id) { $('#loading').hidden = true; page.hidden = false; page.innerHTML = '<div class="empty"><h3>No company chosen.</h3><p><a class="button secondary" href="./">Back to the companies</a></p></div>'; }
