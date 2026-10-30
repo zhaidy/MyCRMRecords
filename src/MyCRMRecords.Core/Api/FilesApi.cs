@@ -43,6 +43,8 @@ public sealed class FilesApi(CrmApp w)
     public const string MyFilesZip = "files/zip";
     /// <summary>activities?&lt;the Activities page's filters&gt;: MyCRM's Download (CompanyActivity.xls), every activity shown.</summary>
     public const string ActivitiesList = "activities";
+    /// <summary>dormant: the Dormant opportunities page's Download Excel (all): everything in the person's scope, whatever the filters.</summary>
+    public const string DormantList = "dormant";
     /// <summary>usage?company=&amp;months=N (or from=yyyy-MM&amp;to=yyyy-MM): a company's Usage &amp; history page as an Excel workbook.</summary>
     public const string Usage = "usage";
 
@@ -113,6 +115,61 @@ public sealed class FilesApi(CrmApp w)
         }
     }
 
+    /// <summary>
+    /// Everything the Dormant opportunities page can show for the person (their territories, or their team's), whatever filter
+    /// the page has: both lists on their own sheets with every column, the activity history and the decision made.
+    /// </summary>
+    private FileAnswer DormantFile(ApiUser user)
+    {
+        var actor = user.ToActor(w.People);
+        try
+        {
+            var (prospects, visited) = w.Dormant.ForDownload(actor);
+            static DateTime? D(DateTime? d) => d is { } x && x.Year > 1900 ? x : null;
+            static string History(Dormant.Row r) => string.Join("\n", r.History.Select(h => (D(h.Date) is { } d ? d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "no date") + "  " + h.Label));
+            static string State(Dormant.Row r) => r.State switch
+            {
+                DormantDecisions.FollowedUp => "Followed up",
+                DormantDecisions.NoOpportunity => "No opportunity",
+                DormantDecisions.Snoozed => "Snoozed",
+                _ => "To follow up",
+            };
+            var common = new[]
+            {
+                new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 18), new Xlsx.ColumnSpec("Territory", 24), new Xlsx.ColumnSpec("Salesperson", 24),
+                new Xlsx.ColumnSpec("Priority", 10), new Xlsx.ColumnSpec("Why it's here", 40), new Xlsx.ColumnSpec("Furthest activity", 24),
+            };
+            var tail = new[]
+            {
+                new Xlsx.ColumnSpec("Last activity", 12, "date"), new Xlsx.ColumnSpec("Activities", 10, "number"), new Xlsx.ColumnSpec("Activity history", 60),
+                new Xlsx.ColumnSpec("Decision", 16), new Xlsx.ColumnSpec("Reason", 40), new Xlsx.ColumnSpec("Snoozed until", 12, "date"),
+                new Xlsx.ColumnSpec("Decided by", 24), new Xlsx.ColumnSpec("Decided on", 12, "date"),
+            };
+            var prospectColumns = common.Concat(new[]
+            {
+                new Xlsx.ColumnSpec("Status", 18), new Xlsx.ColumnSpec("Type", 18), new Xlsx.ColumnSpec("Value", 14, "number"), new Xlsx.ColumnSpec("Closed on", 12, "date"),
+            }).Concat(tail).ToList();
+            var visitedColumns = common.Concat(tail).ToList();
+            return new FileAnswer(200, "DormantOpportunities.xlsx", FileAnswer.XlsxType, Xlsx.Create(
+            [
+                new Xlsx.Sheet("Prospects", prospectColumns, prospects.Select(r => new object?[]
+                {
+                    r.Company, r.Brn, r.Territory, r.Owner, r.Priority, r.Why, r.Furthest, r.Status, r.ProspectType, r.Value, D(r.ClosedOn),
+                    D(r.LastActivity), r.Activities, History(r), State(r), r.Reason, D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
+                })),
+                new Xlsx.Sheet("Visited, no prospect", visitedColumns, visited.Select(r => new object?[]
+                {
+                    r.Company, r.Brn, r.Territory, r.Owner, r.Priority, r.Why, r.Furthest,
+                    D(r.LastActivity), r.Activities, History(r), State(r), r.Reason, D(r.SnoozeUntil), r.DecidedBy, D(r.DecidedAt),
+                })),
+            ]));
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "MyCRM's tables could not be read: " + ex.Message);
+        }
+    }
+
     private static string Q(IReadOnlyDictionary<string, string> query, string name) => query.TryGetValue(name, out var v) ? v ?? "" : "";
 
     private static long Id(IReadOnlyDictionary<string, string> query, string name) =>
@@ -130,6 +187,7 @@ public sealed class FilesApi(CrmApp w)
                     Xlsx.Create("Sheet1", [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 20)], [new object?[] { "Sample Holdings Pte Ltd", "199912345K" }]));
         }
         if (kind == ActivitiesList) return ActivitiesFile(query, user);
+        if (kind == DormantList) return DormantFile(user);
         if (kind == Usage) return UsageFile(query, user);
         if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");
