@@ -464,6 +464,8 @@ public sealed class SqlServerTests
         foreach (var t in tables) Assert.True(Count(t) >= rows[t], t + " lost rows");
         var changes = world.Store.Find<MyCrmChange>();
         Assert.Contains(changes, c => c.TableName == "Territory" && c.RowId == territory && c.Column == "ISACTIVE" && c.Before == "1" && c.After == "0");
+        // The territory's company links, taken away in one statement, are each recorded too.
+        Assert.Equal(2, changes.Count(c => c.TableName == "CompanyTerritory" && c.Column == "ISACTIVE" && c.Before == "1" && c.After == "0"));
         Assert.Contains(changes, c => c.TableName == "ActivityTypeLink" && c.Column == "COMPANYACTIVITYID" && c.Before == activity.ToString() && c.After == "");
         Assert.Contains(changes, c => c.TableName == "Project" && c.RowId == project && c.Column == "ISCLOSED" && c.After == "1");
         Assert.Contains(d.Projects.History(project), h => h.What == "Closed the project");

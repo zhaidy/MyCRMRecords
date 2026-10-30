@@ -19,7 +19,7 @@ svg{width:18px;height:18px;display:block;stroke:currentColor;stroke-width:2;fill
 [hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
-.brand{display:flex;align-items:center;gap:11px;font-size:20px;font-weight:800;letter-spacing:-.3px;line-height:1.1;color:var(--ink);flex:none}
+.brand{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:800;letter-spacing:-.3px;line-height:1.1;color:var(--ink);flex:none}
 .brand-mark{display:flex;align-items:center;justify-content:center;color:var(--accent);width:32px;height:32px;flex:none}
 .brand-mark svg{width:30px;height:30px}
 .impersonation-bar{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:10px 36px;background:var(--yellow-bg);color:var(--yellow-fg);border-bottom:1px solid var(--yellow-border);font-size:14.5px;font-weight:600}
@@ -33,8 +33,8 @@ svg{width:18px;height:18px;display:block;stroke:currentColor;stroke-width:2;fill
 main{max-width:1500px;margin:auto;padding:30px 36px 60px}
 .page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:22px;flex-wrap:wrap}
 .page-heading p{margin:6px 0 0;color:var(--ink-2)}
-h1{font-size:30px;line-height:1.15;font-weight:800;letter-spacing:-.6px;margin:0}
-h2{font-size:19px;letter-spacing:-.3px;font-weight:800;line-height:1.3;margin:0}
+h1{font-size:26px;line-height:1.15;font-weight:800;letter-spacing:-.6px;margin:0}
+h2{font-size:17px;letter-spacing:-.3px;font-weight:800;line-height:1.3;margin:0}
 h3{font-size:16px;font-weight:800;margin:0}
 .heading-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .loading{padding:48px;text-align:center;color:var(--ink-2);font-size:15px;font-weight:600}
@@ -86,7 +86,7 @@ a.text-button svg,.text-button svg{width:16px;height:16px}
 .notice.info{background:var(--accent-tint);border-color:var(--accent-light);color:var(--accent-dark)}
 .notice+.notice,.notice+.card,.card+.notice{margin-top:12px}
 .empty{text-align:center;padding:48px 20px;background:var(--card);border:1px solid var(--line);color:var(--ink-2);border-radius:18px}
-.empty h3{font-size:18px;font-weight:800;color:var(--ink);margin:0 0 6px}
+.empty h3{font-size:17px;font-weight:800;color:var(--ink);margin:0 0 6px}
 
 /* Search and filters */
 .toolbar{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;margin-bottom:14px}
@@ -167,7 +167,7 @@ pre.xml{font:12.5px/1.5 Consolas,monospace;background:var(--surface-2);border:1p
 .key-box{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .key-box code{font-size:14px;padding:6px 10px;user-select:all;overflow-wrap:anywhere}
 .stock-answer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
-.stock-answer .big-number{font-size:34px;font-weight:800;line-height:1.1}
+.stock-answer .big-number{font-size:28px;font-weight:800;line-height:1.1}
 .check-lines{list-style:none;margin:10px 0 0;padding:0;font-size:14px}
 .check-lines li{padding:3px 0}
 .check-lines li.bad{color:var(--red)}
@@ -184,7 +184,7 @@ pre.xml{font:12.5px/1.5 Consolas,monospace;background:var(--surface-2);border:1p
 .contacts-more{border:0;background:none;padding:0;color:var(--accent);font-weight:700;font-size:12.5px;cursor:pointer}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .tile{border:1px solid var(--border);border-radius:16px;padding:14px 16px;background:var(--card)}
-.tile .big-number{font-size:28px;font-weight:800;line-height:1.15}
+.tile .big-number{font-size:24px;font-weight:800;line-height:1.15}
 .tile .tile-label{font-size:12px;letter-spacing:.7px;color:var(--muted);text-transform:uppercase;font-weight:800}
 .tile .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
@@ -247,7 +247,7 @@ pre.log{font:12.5px/1.5 Consolas,monospace;background:var(--surface-2);border-ra
 .login-main{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px}
 .login-card{width:100%;max-width:420px;border:1px solid var(--border);border-radius:22px;box-shadow:0 10px 40px rgba(20,30,70,.1);padding:32px 30px}
 .login-card .brand{margin-bottom:22px}
-.login-card h2{font-size:28px;letter-spacing:-.6px;margin:0 0 6px}
+.login-card h2{font-size:24px;letter-spacing:-.6px;margin:0 0 6px}
 .login-card p{color:var(--ink-2);margin:0 0 18px}
 .login-card .field{margin-bottom:14px}
 .login-error{border-radius:9px;padding:12px 14px;margin-bottom:18px;font-size:14.5px;font-weight:600;background:var(--error-bg);border:1px solid var(--error-border);color:var(--red)}
@@ -260,7 +260,7 @@ main{padding:20px 16px 50px}
 .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
 .stock-answer{grid-template-columns:minmax(0,1fr)}
 .person{grid-template-columns:minmax(0,1fr)}
-h1{font-size:25px}
+h1{font-size:22px}
 }
 @media(max-width:560px){
 .form-grid,.form-grid.two,.facts{grid-template-columns:minmax(0,1fr)}
@@ -291,8 +291,8 @@ h1{font-size:25px}
 .guide-layout>.guide{padding:28px 36px 36px}
 .guide-section[hidden],.guide-part[hidden]{display:none}
 .guide-section:not([hidden])~.guide-section:not([hidden]){margin-top:34px;padding-top:30px;border-top:1px solid var(--line)}
-.guide h2{font-size:24px;line-height:1.25;letter-spacing:-.3px;margin:0 0 10px;scroll-margin-top:96px}
-.guide h3{font-size:18px;line-height:1.3;margin:26px 0 8px;scroll-margin-top:96px}
+.guide h2{font-size:21px;line-height:1.25;letter-spacing:-.3px;margin:0 0 10px;scroll-margin-top:96px}
+.guide h3{font-size:17px;line-height:1.3;margin:26px 0 8px;scroll-margin-top:96px}
 .guide h4{font-size:16px;margin:20px 0 6px}
 .guide p{margin:0 0 12px}
 .guide ul,.guide ol{margin:0 0 12px;padding-left:24px}
@@ -318,14 +318,14 @@ h1{font-size:25px}
 .guide-panel{position:fixed;top:72px;right:0;bottom:0;z-index:45;width:min(560px,100vw);display:flex;flex-direction:column;gap:10px;background:var(--card);border-left:1px solid var(--border);box-shadow:-14px 0 40px rgba(20,30,70,.16);outline:none}
 .guide-panel[hidden]{display:none}
 .guide-panel-head{display:flex;align-items:center;gap:10px;padding:14px 18px 0}
-.guide-panel-head h2{margin:0 auto 0 0;font-size:20px;letter-spacing:-.3px}
+.guide-panel-head h2{margin:0 auto 0 0;font-size:18px;letter-spacing:-.3px}
 .guide-panel-head .button svg{width:15px;height:15px}
 .guide-panel-head .icon-button{width:38px;height:38px}
 .guide-panel>.search-box{flex:none;margin:0 18px}
 .guide-panel>.guide-search-status{margin:0 20px}
 .guide-panel-body{flex:1;min-height:0;overflow-y:auto;padding:6px 24px 32px;overscroll-behavior:contain}
 .guide-panel .guide{font-size:15px}
-.guide-panel .guide h2{font-size:21px;scroll-margin-top:8px}
+.guide-panel .guide h2{font-size:19px;scroll-margin-top:8px}
 .guide-panel .guide h3{font-size:17px;scroll-margin-top:8px}
 .guide-panel .guide-section:not([hidden])~.guide-section:not([hidden]){margin-top:28px;padding-top:24px}
 @media(max-width:900px){
@@ -341,7 +341,7 @@ h1{font-size:25px}
 .guide-panel{top:58px;width:100vw;border-left:0}
 .guide-panel-body{padding:4px 18px 28px}
 .guide-layout>.guide{padding:18px 16px 24px}
-.guide h2{font-size:22px}
+.guide h2{font-size:20px}
 }
 .file-missing{color:var(--red);font-weight:700}
 .grow{flex:1}
@@ -445,7 +445,7 @@ table.data tr:last-child{border-bottom:0}
   --glass-rgb:44,44,48;--rim:rgba(255,255,255,.16);--spec:rgba(255,255,255,.42);--spec-rim:rgba(255,255,255,.18);--glass-fg:#fff;--glass-shadow:0 10px 30px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);--scrim:rgba(0,0,0,.5)}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--glass-opacity:.94}}
 body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-weight:400;background:var(--bg)}
-h1{font-size:34px;font-weight:800;letter-spacing:-.025em}
+h1{font-size:28px;font-weight:800;letter-spacing:-.025em}
 h2{letter-spacing:-.01em;font-weight:700}
 
 /* The glass material, and its uses */
@@ -529,7 +529,7 @@ svg.qr path{fill:#000;stroke:none}
 .company-heading{align-items:flex-end;flex-wrap:nowrap}
 .company-title{min-width:0;display:flex;flex-direction:column;gap:6px}
 .company-title .crumb{align-self:flex-start}
-.company-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.company-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em}
 .company-heading .company-info{margin:0;font-size:16px;color:var(--ink-2)}
 .company-heading .heading-actions{flex:none;flex-wrap:nowrap}
 .overview{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
@@ -550,7 +550,7 @@ svg.qr path{fill:#000;stroke:none}
 .stat-tile{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 16px;border:0;border-radius:22px;background:var(--card);color:var(--ink);text-align:left;font:inherit;cursor:pointer;transition:background-color .14s}
 .stat-tile:hover{background:var(--surface)}
 .stat-label{font-size:13px;font-weight:700}
-.stat-n{font-size:30px;font-weight:700;line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat-n{font-size:26px;font-weight:700;line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .stat-sub{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .owner-row{display:flex;align-items:center;gap:12px}
 .owner-avatar{flex:none;width:36px;height:36px;border-radius:18px;display:grid;place-items:center;font-weight:700;color:#fff;background:var(--accent)}
@@ -573,7 +573,7 @@ svg.qr path{fill:#000;stroke:none}
 .company-heading{position:relative;display:block;margin-bottom:18px}
 .company-title{gap:4px}
 .company-title .crumb{min-height:44px;display:inline-flex;align-items:center;margin:0}
-.company-title h1{font-size:32px;line-height:1.12}
+.company-title h1{font-size:28px;line-height:1.12}
 .company-heading .company-info{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .company-heading .heading-actions{position:absolute;top:0;right:0}
 .company-heading .action-label{display:none}
@@ -599,7 +599,7 @@ svg.qr path{fill:#000;stroke:none}
 .tabbar{display:none}
 @media(max-width:900px){
 main{padding:20px 16px calc(120px + env(safe-area-inset-bottom))}
-h1{font-size:30px}
+h1{font-size:26px}
 .impersonation-bar{margin:8px 12px 0}
 .tabbar{display:flex;position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));height:64px;padding:4px;border-radius:32px;gap:0;z-index:35;isolation:isolate}
 .tabbar:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;background:radial-gradient(120% 90% at 50% -10%,rgba(255,255,255,.55),rgba(255,255,255,0) 55%)}
@@ -671,7 +671,7 @@ table.data.files-table{table-layout:fixed}
    filters in a bottom sheet behind a round button */
 .companies-heading{align-items:flex-end;flex-wrap:nowrap}
 .companies-title{min-width:0}
-.companies-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.companies-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em}
 .companies-title p b{color:var(--ink);font-weight:600}
 .companies-filter-button{display:none;position:relative;flex:none;width:48px;height:48px;border-radius:24px}
 .filter-dot{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:4px;background:var(--accent)}
@@ -745,7 +745,7 @@ dialog.companies-sheet{margin:auto 8px calc(8px + env(safe-area-inset-bottom));w
 @media(max-width:900px){
 .companies-heading{align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .companies-title{flex:1 0 auto}
-.companies-title h1{font-size:32px}
+.companies-title h1{font-size:28px}
 .companies-title p{font-size:15px}
 .companies-heading .heading-actions{flex-wrap:nowrap;gap:6px}
 .companies-heading .action-label,.companies-ticked{display:none!important}
@@ -772,7 +772,7 @@ dialog.companies-sheet{margin:auto 8px calc(8px + env(safe-area-inset-bottom));w
    cards. On a phone: a card per territory and per company, equal segments, the ticked bar above the tab bar. */
 .terr-heading{align-items:flex-end;flex-wrap:nowrap}
 .terr-title{min-width:0}
-.terr-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.terr-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em;margin:0}
 .terr-title p{font-size:16px}
 .terr-title p b{color:var(--ink);font-weight:600}
 .terr-name{display:flex;align-items:center;gap:14px;min-width:0}
@@ -824,7 +824,7 @@ table.data.terr-table{table-layout:fixed;width:100%}
 .terr-ticked-note{flex:1 1 auto;min-width:0;font-size:14px;font-weight:500;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .terr-ticked .text-button{margin-left:auto}
 .terr-ticked-note+.text-button{margin-left:0}
-.terr-step h2{margin:0 0 4px;font-size:21px}
+.terr-step h2{margin:0 0 4px;font-size:19px}
 .terr-step p{margin:0 0 16px;font-size:15px}
 .terr-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:18px}
 .terr-mode{min-width:0;display:flex;flex-direction:column;gap:14px;padding:18px 20px;border-radius:24px;background:var(--card)}
@@ -851,7 +851,7 @@ table.data.terr-table{table-layout:fixed;width:100%}
 .terr-drop-note a{font-weight:600}
 .terr-results{border-radius:24px;background:var(--card);overflow:hidden}
 .terr-results-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:18px 24px 12px}
-.terr-results-head h2{margin:0;font-size:19px}
+.terr-results-head h2{margin:0;font-size:17px}
 .terr-leaves-note{font-size:14px;font-weight:600;color:var(--amber)}
 .terr-group-head{margin:0;padding:10px 24px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;color:var(--ink-2);background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .terr-results-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 24px 20px}
@@ -884,7 +884,7 @@ table.data.terr-table{table-layout:fixed;width:100%}
 @media(max-width:1100px) and (min-width:901px){.terr-filter-row{flex-wrap:wrap}}
 @media(max-width:900px){
 .terr-heading{align-items:center;gap:10px;margin-bottom:14px;flex-wrap:nowrap}
-.terr-title h1{font-size:32px}
+.terr-title h1{font-size:28px}
 .terr-title p{font-size:15px}
 .terr-note,.terr-wide{display:none!important}
 .terr-heading .action-label{display:none}
@@ -963,7 +963,7 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
 .last-contract{width:min(720px,calc(100vw - 30px))}
 .rate-head{margin:18px 0 8px;font-size:15px}
 .rate-facts{grid-template-columns:repeat(4,minmax(0,1fr));padding:14px 16px;border-radius:16px;background:var(--surface-2)}
-.rule-card h2{font-size:18px}
+.rule-card h2{font-size:17px}
 .rule-steps{list-style:none;counter-reset:step;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 24px}
 .rule-steps li{counter-increment:step;position:relative;padding-left:40px;display:flex;flex-direction:column;gap:2px;font-size:14.5px}
 .rule-steps li::before{content:counter(step);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent-light);color:var(--accent-dark);font-weight:800;font-size:14px}
@@ -996,7 +996,7 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
    Request forms switch, a card per row, the status in a sheet and the other filters in another (.companies-sheet). */
 .orders-heading{align-items:flex-end;flex-wrap:nowrap}
 .orders-title{min-width:0}
-.orders-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.orders-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em;margin:0}
 .orders-title p{font-size:16px}
 .orders-title p b{color:var(--ink);font-weight:600}
 .orders-kinds,.orders-status-button,.orders-filter-button{display:none}
@@ -1056,7 +1056,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
 @media(max-width:1100px) and (min-width:901px){.orders-table .c-ref,.orders-table .c-rep{display:none}}
 @media(max-width:900px){
 .orders-heading{align-items:center;gap:10px;margin-bottom:14px;flex-wrap:nowrap}
-.orders-title h1{font-size:32px}
+.orders-title h1{font-size:28px}
 .orders-title p{font-size:15px}
 .orders-note,.orders-wide{display:none!important}
 .orders-heading .action-label{display:none}
@@ -1092,7 +1092,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
 .cs-crumbs svg{width:15px;height:15px}
 .cs-crumbs>span{color:var(--ink-2)}
 .cs-name{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.cs-name h1{margin:0;font-size:40px;line-height:1.08;letter-spacing:-.03em}
+.cs-name h1{margin:0;font-size:32px;line-height:1.08;letter-spacing:-.03em}
 .cs-title p{font-size:16px}
 .cs-title p a{font-weight:600}
 .cs-title p.cs-readonly{margin-top:2px;font-size:13.5px}
@@ -1110,7 +1110,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
 .cs-main .cs-section{display:none}
 .cs-main .cs-section.on{display:block}
 .cs-main .cs-section-head{display:none}
-.cs-section-head{margin:0 0 10px;font-size:19px}
+.cs-section-head{margin:0 0 10px;font-size:17px}
 .cs-toggle{display:flex;align-items:center;gap:10px;width:100%;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;pointer-events:none}
 .cs-section-title{flex:1;min-width:0}
 .cs-summary,.cs-chevron{display:none}
@@ -1134,7 +1134,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
 @media(max-width:1100px) and (min-width:901px){.cs-layout{grid-template-columns:minmax(0,1fr)}.cs-heading{flex-wrap:wrap}}
 @media(max-width:900px){
 .cs-heading{flex-wrap:wrap;align-items:flex-start;gap:12px;margin-bottom:14px}
-.cs-name h1{font-size:30px}
+.cs-name h1{font-size:26px}
 .cs-title p{font-size:15px}
 .cs-crumbs{font-size:13.5px}
 .cs-heading .heading-actions{width:100%;flex-wrap:nowrap}
@@ -1172,7 +1172,7 @@ table.data.orders-table{table-layout:fixed;width:100%}
    (.companies-sheet), the panel on the whole screen. */
 .users-heading{align-items:flex-end;flex-wrap:nowrap}
 .users-title{min-width:0}
-.users-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.users-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em;margin:0}
 .users-title p{font-size:16px}
 .users-title p b{color:var(--ink);font-weight:600}
 .users-bar{position:sticky;top:84px;z-index:20;display:flex;align-items:center;gap:10px;margin:0 0 18px}
@@ -1238,7 +1238,7 @@ dialog.users-panel{position:fixed;inset:16px 16px 16px auto;margin:0;width:min(4
 .users-panel-form{display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box;padding:16px 18px}
 .users-panel-head{flex:none;display:flex;align-items:flex-start;gap:12px}
 .users-panel-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding-top:1px}
-.users-panel-title h2{margin:0;font-size:18px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.users-panel-title h2{margin:0;font-size:17px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .users-panel-title span{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .users-panel-head .button{flex:none}
 .users-panel-badge{flex:none;align-self:flex-start;height:28px}
@@ -1282,7 +1282,7 @@ dialog.users-panel{position:fixed;inset:16px 16px 16px auto;margin:0;width:min(4
 @media(max-width:1250px) and (min-width:901px){.users-bar{flex-wrap:wrap}.users-table .u-code+.u-code{display:none}}
 @media(max-width:900px){
 .users-heading{align-items:center;gap:10px;margin-bottom:14px}
-.users-title h1{font-size:32px}
+.users-title h1{font-size:28px}
 .users-title p{font-size:15px}
 .users-note,.users-wide{display:none!important}
 .users-heading .action-label{display:none}
@@ -1354,7 +1354,7 @@ table.data.act-table tr[data-open]{cursor:pointer}
 .act-cal{border-radius:24px;background:var(--card);overflow:hidden}
 .act-cal-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px 12px;flex-wrap:wrap}
 .act-cal-nav{display:flex;align-items:center;gap:8px}
-.act-cal-nav h2{margin:0;min-width:170px;text-align:center;font-size:19px}
+.act-cal-nav h2{margin:0;min-width:170px;text-align:center;font-size:17px}
 .act-legend{display:flex;gap:16px;font-size:13px;color:var(--ink-2)}
 .act-legend span{display:inline-flex;align-items:center;gap:6px}
 .act-legend i{width:9px;height:9px;border-radius:5px;background:#8e8e93}
@@ -1377,7 +1377,7 @@ dialog.act-panel.wide{width:min(940px,calc(100vw - 24px))}
 .act-panel-in{display:flex;flex-direction:column;gap:14px;padding:18px 22px;max-height:calc(100vh - 48px);box-sizing:border-box}
 .act-panel-head{flex:none;display:flex;align-items:center;gap:12px}
 .act-panel-title{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}
-.act-panel-title h2{margin:0;max-width:100%;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-panel-title h2{margin:0;max-width:100%;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act-panel-action{flex:none;min-width:44px;display:flex;justify-content:flex-end}
 .act-panel-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
 .act-panel-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
@@ -1554,7 +1554,7 @@ button.avatar:hover,button.avatar[aria-expanded=true]{box-shadow:inset 0 0 0 2px
 .usage-years-head{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:18px 24px 8px;margin:0}
 .usage-years-head p{margin:0}
 .usage-year-cards{display:none}
-.usage-year-card h2{margin:0 0 10px;font-size:20px;font-variant-numeric:tabular-nums}
+.usage-year-card h2{margin:0 0 10px;font-size:18px;font-variant-numeric:tabular-nums}
 .usage-year-card dl{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-variant-numeric:tabular-nums}
 .usage-year-card dt{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .usage-year-card dd{margin:0;font-size:17px;font-weight:700}
@@ -1696,7 +1696,7 @@ table.data.usage-table th:last-child,table.data.usage-table td:last-child{paddin
    page actions and the finance type, territory and uploaded filters as labelled glass capsules. */
 .list-heading{align-items:flex-end;flex-wrap:nowrap}
 .list-title{min-width:0}
-.list-title h1{font-size:40px;line-height:1.08;letter-spacing:-.03em;margin:0}
+.list-title h1{font-size:32px;line-height:1.08;letter-spacing:-.03em;margin:0}
 .list-title p{font-size:16px}
 .list-title p b{color:var(--ink);font-weight:600}
 .list-card{border-radius:24px;background:var(--card);overflow:hidden}
@@ -1716,7 +1716,7 @@ table.data.files-table .file-name{width:22%}
 @media(max-width:1200px) and (min-width:901px){.files-table .file-territory{display:none}}
 @media(max-width:900px){
 .list-heading{flex-wrap:wrap}
-.list-title h1{font-size:32px}
+.list-title h1{font-size:28px}
 .list-card{background:transparent;border-radius:0;overflow:visible}
 .list-card>.empty{border-radius:22px}
 .list-card>.pager{border-top:0;padding:12px 4px}
@@ -1730,7 +1730,7 @@ table.data.files-table .file-name{width:22%}
 @media(max-width:900px){.machine-tabs{position:static}}
 /* A territory's History tab */
 .terr-history-intro{margin:0;padding:16px 24px 12px;font-size:14px;color:var(--ink-2);border-bottom:1px solid var(--line)}
-.terr-history-intro b{font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.terr-history-intro b{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .terr-history .h-date{width:130px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
 .terr-history .h-by{width:18%;color:var(--ink-2)}
 .terr-history-more{margin:0;padding:12px 24px;font-size:13px;color:var(--ink-2)}
@@ -1791,13 +1791,13 @@ body.more-open .tabbar{z-index:38}
 .more-sheet.scrolled .more-bar-title{opacity:1}
 .more-bar-end{flex:none;width:44px}
 .more-in{display:flex;flex-direction:column;gap:20px;max-width:640px;margin:0 auto;padding:4px 16px calc(120px + env(safe-area-inset-bottom))}
-.more-heading h1{margin:0;font-size:32px;line-height:1.12;font-weight:800;letter-spacing:-.025em}
+.more-heading h1{margin:0;font-size:28px;line-height:1.12;font-weight:800;letter-spacing:-.025em}
 .more-heading p{margin:4px 0 0;font-size:15px;color:var(--ink-2)}
 .more-card{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:22px;background:var(--card);min-width:0}
 .more-card[hidden]{display:none}
-.more-avatar{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--accent-light);color:var(--accent);font-size:18px;font-weight:700}
+.more-avatar{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:var(--accent-light);color:var(--accent);font-size:17px;font-weight:700}
 .more-who{flex:1;min-width:0;display:flex;flex-direction:column}
-.more-who b{font-size:18px;line-height:1.25;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-who b{font-size:17px;line-height:1.25;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .more-who>span{font-size:14px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .more-install .more-who b{font-size:16px}
 .more-install .more-who>span{font-size:13px}
@@ -1919,7 +1919,7 @@ main{max-width:1360px;margin:0 auto;padding:32px 40px 96px}
 
 /* Type: 16px rows, fields and subtitles; every page's title 40px (32px on a phone) */
 body{font-size:16px;line-height:1.45}
-h1{font-size:40px;line-height:1.08;font-weight:800;letter-spacing:-.03em}
+h1{font-size:32px;line-height:1.08;font-weight:800;letter-spacing:-.03em}
 .page-heading p,.page-heading .company-info{font-size:16px}
 .field input,.field select,.field textarea,.field-value{font-size:16px}
 .field select{font-weight:500}
@@ -2013,7 +2013,7 @@ dialog.act-panel,dialog.dlg,dialog.dlg-ask{margin:32px auto auto;max-height:calc
   .impersonation-bar~.impersonation-bar{margin-top:8px}
   main{padding:calc(64px + env(safe-area-inset-top)) 16px calc(130px + env(safe-area-inset-bottom))}
   .impersonation-bar~main{padding-top:20px}
-  h1{font-size:32px;line-height:1.12}
+  h1{font-size:28px;line-height:1.12}
   /* The page's actions float at the top right, level with the step back */
   main .page-heading>.heading-actions{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;left:auto;width:auto;z-index:31;margin:0;flex-wrap:nowrap;gap:8px}
   main .page-heading>.heading-actions .button:not(.phone-fab){height:44px}

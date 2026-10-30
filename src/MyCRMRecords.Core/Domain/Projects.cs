@@ -88,11 +88,14 @@ public sealed class ProjectTerritories(Func<string, long?> userIdOf)
 
     private static void TakeAway(IRecordStore s, TemporaryTerritory territory)
     {
-        foreach (var link in s.Find<TemporaryCompanyTerritory>(Query.Where("TerritoryId", territory.Id).And("IsActive", true)))
-        {
-            link.IsActive = false;
-            s.Update(link);
-        }
+        // In MyCRM in one statement (a territory can hold tens of thousands of companies); elsewhere (tests) one by one.
+        if (s is RoutedStore { Crm: MyCrmStore crm }) crm.DeactivateTemporaryLinks(territory.Id);
+        else
+            foreach (var link in s.Find<TemporaryCompanyTerritory>(Query.Where("TerritoryId", territory.Id).And("IsActive", true)))
+            {
+                link.IsActive = false;
+                s.Update(link);
+            }
         if (!territory.IsActive) return;
         territory.IsActive = false;
         s.Update(territory);
@@ -663,7 +666,7 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
         foreach (var m in s.Find<ProjectMember>(Query.Where("ProjectId", projectId)))
             if (m.TerritoryId is not null)
             {
-                if (ProjectTerritories.Reached(s, m).Count > 0) count++;
+                if (ProjectTerritories.ReachesAny(s, m)) count++;
                 ProjectTerritories.TakeAway(s, m);
             }
         return count;
@@ -754,9 +757,12 @@ public sealed class Projects(IRecordStore store, IRecordStore own, Access access
                 var projects = new Dictionary<long, Project>();
                 foreach (var chunk in members.Select(m => m.ProjectId).Distinct().Select((v, i) => (v, i)).GroupBy(x => x.i / 1000, x => (object)x.v))
                     foreach (var p in store.Find<Project>(Query.All().In("Id", chunk))) projects[p.Id] = p;
+                // By territory once: thousands of active temporary territories (the CSST part's too) against thousands of
+                // members, compared each with each, kept the task busy for minutes.
+                var byTerritory = members.Where(m => m.TerritoryId is not null).GroupBy(m => m.TerritoryId!.Value).ToDictionary(g => g.Key, g => g.ToList());
                 foreach (var t in active)
                 {
-                    var of = members.Where(m => m.TerritoryId == t.Id).ToList();
+                    var of = byTerritory.TryGetValue(t.Id, out var list) ? list : new List<ProjectMember>();
                     var keep = of.Any(m => m.IsActive && projects.TryGetValue(m.ProjectId, out var p) && ProjectTerritories.IsOpen(p, today));
                     if (keep) continue;
                     store.Batch(s =>
