@@ -143,8 +143,8 @@
     const c = settings.connections;
     const key = name => name.charAt(0).toLowerCase() + name.slice(1);
     const uses = {
-      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: MyCRMRecords reads them where MyCRM keeps them, and changes them once Let MyCRMRecords change MyCRM's data is on (MyCRM tab: adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company. MyOrders' costing sheets and request forms (with their items and attachments) and MyFiles' files (the Files page) are only read, never changed: a SELECT is all they need.",
-      AdvanceConnector: "Advance's customers (Customer_Supp: Business_reg, Cust_no), read only: the scheduled task Customer numbers from Advance fills each company's customer number from them.",
+      OutSystems: "MyCRM's Users, Territory and Company tables (CRM users and teams, companies with their addresses, contacts, phones and emails, permanent territories and their companies, territory movements) and its users: MyCRMRecords reads them where MyCRM keeps them, and changes them once Let MyCRMRecords change MyCRM's data is on (MyCRM tab: adding and changing rows, never deleting). MyCRM's temporary territories (projects, CSST) are read to decide who may open a company. MyOrders' costing sheets and request forms (with their items and attachments) and MyFiles' files (the Files page) are only read, never changed: a SELECT is all they need. MyMachines' temporary access (TempAccess) is read for who sees which machines, and changed only once Let MyCRMRecords change MyMachines' temporary access is on (MyCRM tab).",
+      AdvanceConnector: "Advance's customers (Customer_Supp: Business_reg, Cust_no), read only: the scheduled task Customer numbers from Advance fills each company's customer number from them. And Advance's machines (daily_mif, serial, customer, meter_card, Service, SMeter_History, daily_TM), read only, for the Machines pages.",
     };
     $('#tab').innerHTML = `<form id="conn-form" novalidate class="stack">
       <p class="muted">The OutSystems database (MyCRM's tables, MyOrders' for the costing sheets and request forms, and MyFiles' for the Files page) and AdvanceConnector. Reading needs SELECT; changing MyCRM's data (MyCRM tab) also needs INSERT and UPDATE on MyCRM's tables, never DELETE. Test saves the tab, then checks every table and column MyCRMRecords uses.</p>
@@ -155,7 +155,10 @@
         <div class="action-buttons"><button type="button" class="button secondary small-btn" data-test="${esc(d.name)}">Test</button></div><div data-test-result="${esc(d.name)}"></div></section>`).join('')}
       <section class="card"><details><summary class="text-button">Names in those databases</summary>
         <div class="form-grid two" style="margin-top:12px">
-          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'ordersModule', 'MyOrders module')}${field(c, 'filesModule', 'MyFiles module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
+          ${field(c, 'crmModule', 'MyCRM module')}${field(c, 'ordersModule', 'MyOrders module')}${field(c, 'filesModule', 'MyFiles module')}${field(c, 'machinesModule', 'MyMachines module')}${field(c, 'advanceTables.customerSupp', 'Customers with their BRN (AdvanceConnector)')}
+          ${field(c, 'advanceTables.dailyMif', 'Machines: daily_mif')}${field(c, 'advanceTables.serial', 'Machines: serial')}${field(c, 'advanceTables.customer', 'Machines: customer')}
+          ${field(c, 'advanceTables.meterCard', 'Machines: meter_card')}${field(c, 'advanceTables.service', 'Machines: Service')}${field(c, 'advanceTables.sMeterHistory', 'Machines: SMeter_History')}
+          ${field(c, 'advanceTables.dailyTm', 'Machines: daily_TM')}
         </div></details></section>
       <div class="action-buttons"><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="conn-result" hidden></div></form>`;
@@ -254,8 +257,15 @@
         <p class="muted small">Until this is ticked MyCRMRecords only reads: saving a company, address, contact, territory, CRM user or team is refused, and every page says so. When it is ticked, MyCRMRecords adds and changes rows of MyCRM's tables (the OutSystems database's login needs INSERT and UPDATE on them) and never deletes one: what is taken away is marked inactive, as MyCRMRecords always did. Every value written is listed below with the value it replaced.</p>
         <div class="action-buttons"><button class="button primary" type="submit">Save</button></div>
         <div class="notice" id="mycrm-result" hidden></div></form></section>
+      <section class="card"><h2>MyMachines' temporary access</h2>
+        <p class="muted">Who sees a company's machines: who may open the company, and the people given temporary access in MyMachines (its TempAccess table, in the OutSystems database). Sales Admins list it on the Machine access page.</p>
+        <form id="mymachines-form" style="margin-top:12px">
+          <label class="check"><input type="checkbox" id="machine-writes"${d.machineWritesEnabled ? ' checked' : ''}>Let MyCRMRecords change MyMachines' temporary access</label>
+          <p class="muted small">Until this is ticked the Machine access page only lists it. When it is ticked, giving access adds a row to MyMachines' TempAccess, and removing it marks the row ("X:" before its customer name and BRN, so it matches no customer) instead of deleting it. The OutSystems database's login needs INSERT and UPDATE on that table. Every value written is listed below (table MyMachines.TempAccess).</p>
+          <div class="action-buttons"><button class="button primary" type="submit">Save</button></div>
+          <div class="notice" id="mymachines-result" hidden></div></form></section>
       <section class="card"><h2>Changes made in MyCRM</h2>
-        <p class="muted">Every value MyCRMRecords wrote in MyCRM's tables, newest first, with the value it replaced and who made the change.</p>
+        <p class="muted">Every value MyCRMRecords wrote in MyCRM's tables (and in MyMachines' temporary access), newest first, with the value it replaced and who made the change.</p>
         <div class="toolbar"><label class="search-box" style="flex:1"><span data-icon="search"></span><input id="changes-q" placeholder="Search table, column, value or person"></label></div>
         <div id="changes"></div></section>`;
     $('#mycrm-form').addEventListener('submit', async event => {
@@ -265,6 +275,14 @@
       const a = await api('POST', 'admin/mycrm', {writesEnabled});
       report($('#mycrm-result'), a);
       if (a.result.ok) setTimeout(() => location.reload(), 1200);
+    });
+    $('#mymachines-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const writesEnabled = $('#machine-writes').checked;
+      if (writesEnabled && !d.machineWritesEnabled && !await ask({title: "Let MyCRMRecords change MyMachines' temporary access?", text: 'From now on, Sales Admins give and remove temporary access to machines in MyMachines\' TempAccess (never deleting there), and every value is listed on this tab.', ok: 'Turn on'})) return;
+      const a = await api('POST', 'admin/mymachines', {writesEnabled});
+      report($('#mymachines-result'), a);
+      if (a.result.ok) d.machineWritesEnabled = writesEnabled;
     });
     let skip = 0, timer = 0;
     async function changes() {

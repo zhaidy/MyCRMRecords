@@ -17,7 +17,7 @@ public sealed class OrdersSqlServerTests
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ESPACE ([ID] int NOT NULL PRIMARY KEY, [NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_ENTITY ([ID] int NOT NULL PRIMARY KEY, [ESPACE_ID] int NOT NULL, [NAME] nvarchar(200) NOT NULL, [PHYSICAL_TABLE_NAME] nvarchar(200) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
         sql.AppendLine("CREATE TABLE dbo.OSSYS_USER ([ID] int NOT NULL PRIMARY KEY, [USERNAME] nvarchar(250) NOT NULL, [NAME] nvarchar(250) NOT NULL, [EMAIL] nvarchar(250) NOT NULL, [IS_ACTIVE] bit NOT NULL);");
-        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1), (4, N'MyFiles', 1);");
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (1, N'MyOrders', 0), (2, N'MyOrders', 1), (3, N'MyCRM', 1), (4, N'MyFiles', 1), (5, N'MyMachines', 1);");
         foreach (var u in data.UserRows)
         {
             // OutSystems keeps Cara as her email address (bug 29): MyCRMRecords finds her by it.
@@ -36,8 +36,9 @@ public sealed class OrdersSqlServerTests
         foreach (var check in entities)
         {
             var e = check.Entity;
-            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : e.Module == OsModule.MyFiles ? "OSUSR_mf1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
-            var espace = e.Module == OsModule.MyOrders ? 2 : e.Module == OsModule.MyFiles ? 4 : 3;
+            var physical = (e.Module == OsModule.MyOrders ? "OSUSR_ab1_" : e.Module == OsModule.MyFiles ? "OSUSR_mf1_"
+                : e.Module == OsModule.MyMachines ? "OSUSR_mm1_" : "OSUSR_824_") + e.Name.ToUpperInvariant();
+            var espace = e.Module == OsModule.MyOrders ? 2 : e.Module == OsModule.MyFiles ? 4 : e.Module == OsModule.MyMachines ? 5 : 3;
             // An older row of the same entity, deleted from the module, is not the table.
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}_OLD', 0);");
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY VALUES ({entityId++}, {espace}, N'{e.Name}', N'{physical}', 1);");
@@ -61,9 +62,13 @@ public sealed class OrdersSqlServerTests
                         : "nvarchar(2000)",
                 };
             }
-            sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {TypeOf(c)} {(c == "ID" ? "NOT NULL PRIMARY KEY" : "NULL")}"))});");
+            // MyMachines' TempAccess is added to (the Machine access page): its Id is an identity, as OutSystems makes them.
+            var identity = e == Entities.TempAccess;
+            sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {TypeOf(c)} {(c == "ID" ? (identity ? "IDENTITY(1,1) " : "") + "NOT NULL PRIMARY KEY" : "NULL")}"))});");
+            if (identity && rows.Count > 0) sql.AppendLine($"SET IDENTITY_INSERT dbo.[{physical}] ON;");
             foreach (var row in rows)
                 sql.AppendLine($"INSERT INTO dbo.[{physical}] ({string.Join(", ", row.Keys.Select(k => "[" + k.ToUpperInvariant() + "]"))}) VALUES ({string.Join(", ", row.Values.Select(Literal))});");
+            if (identity && rows.Count > 0) sql.AppendLine($"SET IDENTITY_INSERT dbo.[{physical}] OFF;");
         }
         return sql.ToString();
     }
@@ -264,6 +269,101 @@ public sealed class OrdersSqlServerTests
         Assert.Equal(pdf, sql.Bytes(a));
         Assert.Null(sql.Bytes(999999));
         Assert.Null(sql.Get(999999));
+    }
+
+    [Fact]
+    public void Advance_machines_are_read_by_their_real_column_names_as_the_tests_read_them()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        var fake = new FakeAdvanceMachines();
+        MachinesTests.Fill(fake);
+        using var advance = new TestDatabase();
+        // The tables with their real names ([serial-no], [SO-status], [Meter_Type]…), not MyMachines' (serial_no…).
+        advance.Execute(fake.AdvanceSql());
+        var settings = new CrmSettings();
+        settings.Connections.AdvanceConnector = new ExternalDatabase { Configured = true, SqlServer = advance.Settings };
+        var databases = new ExternalDatabases(() => settings, TestDatabase.Connect);
+        var sql = new SqlAdvanceMachines(databases, () => settings.Connections);
+        var today = new DateTime(2026, 10, 17);
+        string J(object? value) => MyCRMRecords.Json.Serialize(value);
+        // More BRNs than an IN list or parameters could hold.
+        var many = Enumerable.Range(1, 3000).Select(i => "B" + i.ToString("D6")).Append("L2000XYZ").ToList();
+        var searches = new List<MachineSearch>
+        {
+            new(), new() { Keyword = "r000" }, new() { Keyword = "%" }, new() { Keyword = "zen tr" }, new() { Keyword = "T1000" },
+            new() { Brn = "T1000ABC" }, new() { Brn = "T1000ABC", Coverage = Coverages.Active }, new() { Coverage = Coverages.Active },
+            new() { Finance = FinanceTypes.NoneKey }, new() { Finance = "SALCAS" }, new() { Brns = many }, new() { Brns = new string[0] },
+            new() { Brns = new[] { "T1000ABC" }, Names = new[] { "Zen Trading" } }, new() { Brns = new string[0], Names = new[] { "LIM PTE LTD" } },
+            new() { Skip = 2, Take = 3 },
+        };
+        searches.AddRange(Coverages.All.Select(c => new MachineSearch { Coverage = c.Code }));
+        foreach (var search in searches)
+        {
+            search.Today = today;
+            Assert.Equal(J(fake.Search(search)), J(sql.Search(search)));
+        }
+        Assert.Equal(8, sql.Search(new MachineSearch { Today = today }).Total);
+        var from = Machines.From(today, 12);
+        foreach (var row in fake.Search(new MachineSearch { Today = today, Take = 500 }).Rows)
+        {
+            Assert.Equal(J(fake.Get(row.Serial, row.Item, today)), J(sql.Get(row.Serial, row.Item, today)));
+            Assert.Equal(J(fake.Get(row.Serial, "", today)), J(sql.Get(row.Serial, "", today)));
+            Assert.Equal(J(fake.Meters(row.Serial, row.ContractNo, from)), J(sql.Meters(row.Serial, row.ContractNo, from)));
+            Assert.Equal(J(fake.Meters(row.Serial, "", from)), J(sql.Meters(row.Serial, "", from)));
+            Assert.Equal(J(fake.Services(row.Serial, row.CustomerNo, row.ContractNo, from)), J(sql.Services(row.Serial, row.CustomerNo, row.ContractNo, from)));
+            Assert.Equal(J(fake.Toner(row.Serial, row.ContractNo, from)), J(sql.Toner(row.Serial, row.ContractNo, from)));
+            Assert.Equal(J(fake.LastContract(row.Serial, row.Item)), J(sql.LastContract(row.Serial, row.Item)));
+        }
+        Assert.Null(sql.Get("NOPE", "", today));
+        Assert.Equal(41882L, sql.Services("3100R0001", "C1", "CT-1", from).Single().BlackWhite);
+        Assert.Equal("Mei", sql.Get("3100R0002", "", today)!.Contact);
+        Assert.Equal(2, sql.LastContract("3100R0003", "418283")!.Rates.Count);
+        // The connection test finds every table and column by MyMachines' names; a wrong table name shows.
+        settings.Connections.AdvanceTables.CustomerSupp = "dbo.daily_mif";
+        var lines = databases.Test(ExternalNames.AdvanceConnector);
+        Assert.Contains(lines, l => !l.Ok && l.Line.Contains("Business_reg"));
+        Assert.All(lines.Where(l => !l.Line.StartsWith("dbo.daily_mif: found, but", StringComparison.Ordinal)), l => Assert.True(l.Ok, l.Line));
+        settings.Connections.AdvanceTables.DailyTm = "dbo.NoSuchTable";
+        Assert.Contains(databases.Test(ExternalNames.AdvanceConnector), l => !l.Ok && l.Line.Contains("NoSuchTable"));
+    }
+
+    [Fact]
+    public void MyMachines_temporary_access_is_changed_only_when_switched_on_recorded_and_never_deleted()
+    {
+        if (string.IsNullOrEmpty(TestDatabase.Server)) return;
+        using var world = new OrdersWorld();
+        var fake = new FakeMyMachinesAccess(world.Data);
+        fake.Add(OrdersWorld.Sam.Login, OrdersWorld.Sam.DisplayName, OrdersWorld.Sam.Email, "Acme Pte Ltd", "199912345K", new DateTime(2026, 10, 1, 9, 0, 0));
+        // Taken away before: marked, not listed.
+        fake.Add(OrdersWorld.Ken.Login, OrdersWorld.Ken.DisplayName, OrdersWorld.Ken.Email, "X:Zen Trading", "X:Z1", new DateTime(2026, 9, 1, 9, 0, 0));
+        using var outSystems = new TestDatabase();
+        var (app, _) = InOutSystems(world, outSystems);
+        var sql = app.MachineAccess;
+        Assert.IsType<SqlMyMachinesAccess>(sql);
+        Assert.Equal(MyCRMRecords.Json.Serialize(fake.List()), MyCRMRecords.Json.Serialize(sql.List()));
+        Assert.Equal(OrdersWorld.Sam.Login, sql.List().Single().Login);
+        // Switched off: nothing is written.
+        Assert.Throws<MachineAccessRefusedException>(() => sql.Give(OrdersWorld.Ken.Login, OrdersWorld.Ken.Email, "Zen Trading", "Z9000QRS", "Sara Admin"));
+        Assert.Throws<MachineAccessRefusedException>(() => sql.Remove(sql.List().Single().Id, "Sara Admin"));
+        Assert.Equal(2, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_mm1_TEMPACCESS]")));
+        Assert.Equal(0, world.Store.Count<MyCrmChange>());
+        world.SettingsFile.Change(s => s.MyMachines.WritesEnabled = true);
+        var id = sql.Give(OrdersWorld.Ken.Login, OrdersWorld.Ken.Email, "Zen Trading", "Z9000QRS", "Sara Admin");
+        Assert.Contains(sql.List(), r => r.Id == id && r.Brn == "Z9000QRS" && r.CustomerName == "Zen Trading" && r.Login == OrdersWorld.Ken.Login);
+        var added = world.Store.Find<MyCrmChange>(Query.Where("RowId", id));
+        Assert.All(added, c => Assert.Equal(TempAccessRules.ChangeTable, c.TableName));
+        Assert.Contains(added, c => c.Column == "BRN" && c.Before == "" && c.After == "Z9000QRS" && c.ChangedBy == "Sara Admin");
+        Assert.Contains(added, c => c.Column == "USERID" && c.After.Length > 0);
+        // Removed: the row stays, marked, with every value it replaced recorded.
+        sql.Remove(id, "Sara Admin");
+        Assert.DoesNotContain(sql.List(), r => r.Id == id);
+        Assert.Equal(3, Convert.ToInt32(outSystems.Scalar("SELECT COUNT(*) FROM dbo.[OSUSR_mm1_TEMPACCESS]")));
+        Assert.Equal("X:Z9000QRS", outSystems.Scalar($"SELECT BRN FROM dbo.[OSUSR_mm1_TEMPACCESS] WHERE ID = {id}"));
+        Assert.Equal("X:Zen Trading", outSystems.Scalar($"SELECT CUSTOMERNAME FROM dbo.[OSUSR_mm1_TEMPACCESS] WHERE ID = {id}"));
+        Assert.Contains(world.Store.Find<MyCrmChange>(Query.Where("RowId", id)), c => c.Column == "BRN" && c.Before == "Z9000QRS" && c.After == "X:Z9000QRS");
+        Assert.Throws<MachineAccessRefusedException>(() => sql.Remove(id, "Sara Admin"));
+        Assert.Throws<MachineAccessRefusedException>(() => sql.Give(@"RSP
+obody", "", "Zen Trading", "Z9000QRS", "Sara Admin"));
     }
 
     /// <summary>MyOrders retired: its module and entities are inactive in the catalog, but OutSystems keeps the tables.</summary>

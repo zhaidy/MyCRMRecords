@@ -247,6 +247,29 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     "Unassigned Companies": active companies with no active link to an active permanent territory, a vacant territory
     counting as a territory). With No salesperson, those who keep territories tick companies and put them in a
     territory with the Territories page's own change (rule 9), from the list instead of from a user's territory.
+21. **MyMachines' machines are shown here, read only, by MyCRMRecords' company rule** (2026-10-30): the Machines page, a
+    machine's page and a company's Machines tab read Advance's `daily_mif`, `serial`, `customer`, `meter_card`,
+    `Service`, `SMeter_History` and `daily_TM` through AdvanceConnector (the table names are settings; every column by
+    its real name through `ExternalTable`), with MyMachines' own queries' logic (coverage from mif-type and the contract
+    and warranty dates; finance type from `serial.[Serial-stat]`: SALIL, SALEL, SALCAS, SALDLS). Differences from
+    MyMachines and MyCRM, decided by the user:
+    - **Who sees which machines** is MyCRMRecords' company rule (`Access`: territories with the person's list, MyCRM's
+      project and CSST territories, the roles that open every company), by the company's BRN, **plus MyMachines'
+      temporary access** (a `TempAccess` row of the person with the customer's BRN or name). MyMachines' own rule (its
+      specialist and marketing roles seeing every machine; "MyCRM says the user owns the company") is not used. The
+      roles that open every company see no machine until they type 3 characters.
+    - **Giving and removing temporary access** writes MyMachines' `TempAccess` only when *Let MyCRMRecords change
+      MyMachines' temporary access* is on, recorded in `dbo.CrChange` (table `MyMachines.TempAccess`). `TempAccess` has
+      no IsActive, so a row removed is **marked**, not deleted: "X:" goes before its CustomerName and BRN, which then
+      match no customer (MyMachines compares them with the customer's), and the row is no longer listed. A row given
+      here stores the MyCRM company's name and BRN.
+    - The company Machines tab keeps MyCRM's rule (BRN, contract or warranty ending after today) as **Active**, and adds
+      **All**. A coverage is **Expired** when the contract or warranty has ended, **No contract** otherwise.
+    - Service calls are filtered by the machine's customer, and by its contract only when it has one (MyMachines always
+      filtered by both). **Not shown**: technicians' names (in the Datacenter database's `tech_team`, not connected),
+      the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts
+      from `Meter_Bill_History`, `MIF_TDV`, `MIF_Summary` and `Rev_Summary`, its "Wrong BRNs"/"Missing BRNs" lists and
+      the PDF download.
 
 ## 13. Production counts that shaped the design (2026-10-19)
 

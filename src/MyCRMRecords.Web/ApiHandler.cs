@@ -8,7 +8,7 @@ namespace MyCRMRecords.Web;
 
 /// <summary>
 /// Serves <c>api.ashx/...</c> (IIS maps .ashx to ASP.NET by default, so nothing is registered in IIS). The pages call it
-/// as the signed-in person (<see cref="CrmApi"/>, <see cref="OrdersApi"/> and <see cref="MyFilesApi"/> (read only), <see cref="UsersApi"/>, and for
+/// as the signed-in person (<see cref="CrmApi"/>, <see cref="OrdersApi"/> and <see cref="MyFilesApi"/> (read only), <see cref="MachinesApi"/>, <see cref="UsersApi"/>, and for
 /// administrators <see cref="AdminApi"/> and <see cref="DeploymentApi"/>). Every change (each POST) goes into the audit log.
 /// </summary>
 public sealed class ApiHandler : IHttpHandler
@@ -110,6 +110,7 @@ public sealed class ApiHandler : IHttpHandler
         if (UsersApi.Handles(path)) return Services.UsersApi.Handle(request.HttpMethod, path, body, query, user);
         if (OrdersApi.Handles(path)) return Services.OrdersApi.Handle(request.HttpMethod, path, body, query, user);
         if (MyFilesApi.Handles(path)) return Services.MyFilesApi.Handle(request.HttpMethod, path, body, query, user);
+        if (MachinesApi.Handles(path)) return Services.MachinesApi.Handle(request.HttpMethod, path, body, query, user);
         return Services.Api.Handle(request.HttpMethod, path, body, query, user);
     }
 
@@ -221,6 +222,8 @@ public sealed class ApiHandler : IHttpHandler
             case "crmusers" when parts.Length == 3 && parts[2] == "team": return "Create the team named after a manager";
             case "teams" when parts.Length == 2: return Number(1) == 0 ? "Create a team" : $"Save team {Number(1)}";
             case "people": return "Add someone to choose from";
+            case "machineaccess" when parts.Length == 1: return "Give temporary access to a company's machines (MyMachines)";
+            case "machineaccess" when parts.Length == 3: return $"Remove temporary access {Number(1)} to a company's machines (MyMachines)";
         }
         return Capitalise(string.Join(" ", parts).Replace('-', ' '));
     }

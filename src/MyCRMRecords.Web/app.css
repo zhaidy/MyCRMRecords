@@ -315,9 +315,9 @@ h1{font-size:25px}
 .help-button svg{width:20px;height:20px}
 .help-button:hover{background:var(--surface-2);color:var(--accent)}
 .help-button.selected,.help-button[aria-expanded=true]{background:var(--accent-light);color:var(--accent)}
-/* Room for it in the top bar: below 1560px wide (1400px before the Files page joined the menu) the menu drops its icons and Reset sample data its words (as they already
+/* Room for it in the top bar: below 1700px wide (1400px before the Files page joined the menu, 1560px before Machines) the menu drops its icons and Reset sample data its words (as they already
    did below 1150px), and the brand its name while the whole menu is in the bar */
-@media(min-width:1151px) and (max-width:1560px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
+@media(min-width:1151px) and (max-width:1700px){.appbar{gap:20px}.sidebar>.nav-item svg,.nav-group>.nav-item svg,.reset-label{display:none}.reset-demo{padding:7px}}
 @media(min-width:901px) and (max-width:1150px){.brand>span:last-child{display:none}.appbar{gap:12px}.sidebar>.nav-item svg,.nav-group>.nav-item svg{display:none}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 8px;font-size:14px}}
 @media(min-width:901px) and (max-width:1000px){.appbar-name{display:none}}
 .guide-main{max-width:1240px}
@@ -943,3 +943,59 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
 .terr-results .terr-table tr.leaving td,.terr-results .terr-table tr.ticked td{background:none;box-shadow:none}
 .terr-results .terr-table tr.ticked{background:var(--accent-tint)}
 }
+/* With Machines in the menu, a Sales Admin's or administrator's whole menu needs more room: below 1480px the brand keeps
+   only its mark, Install app only its icon, and the menu's links come closer */
+@media(min-width:901px) and (max-width:1480px){.brand>span:last-child{display:none}.install-label{display:none}.install-button{width:44px;padding:0;justify-content:center}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 10px}}
+@media(min-width:901px) and (max-width:1250px){.appbar{gap:8px}.sidebar>.nav-item,.nav-group>.nav-item{padding:0 7px;font-size:14px}.appbar-name{display:none}}
+@media(min-width:901px) and (max-width:1000px){.sidebar>.nav-item,.nav-group>.nav-item{padding:0 5px;font-size:13px}.appbar{gap:4px}.help-button,.sign-out{width:38px}}
+
+/* The Machines pages (machines.js, machine.js, machineaccess.js) and a company's Machines tab: Advance's machines, read only */
+.tag.coverage{padding:2px 10px;font-size:12px}
+.machines-toolbar .since select{min-width:200px}
+.machines-table td{vertical-align:middle}
+.machines-table a.serial{color:var(--accent);font-weight:700}
+.machines-table .machine-company{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.machines-table .machine-company a{color:var(--ink);font-weight:600}
+.coverage-cell{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.open-col{width:52px;text-align:right}
+.company-machines .past{color:var(--muted)}
+.machine-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.machine-title .tag{font-size:13px}
+.page-heading p a{color:var(--accent);font-weight:600}
+.machine-facts{grid-template-columns:repeat(6,minmax(0,1fr))}
+.chart-heading .legend{margin:0 auto 0 4px}
+.chart-heading .tabs,.machines-heading .tabs{margin:0}
+.machine-tabs{margin:18px 0 12px}
+.machine-tabs+.card{margin-top:0}
+.stack>.card+.card,#machine-page .card+.card{margin-top:16px}
+#machine-page .card+.tabs{margin-top:18px}
+.last-contract{width:min(720px,calc(100vw - 30px))}
+.rate-head{margin:18px 0 8px;font-size:15px}
+.rate-facts{grid-template-columns:repeat(4,minmax(0,1fr));padding:14px 16px;border-radius:16px;background:var(--surface-2)}
+.rule-card h2{font-size:18px}
+.rule-steps{list-style:none;counter-reset:step;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 24px}
+.rule-steps li{counter-increment:step;position:relative;padding-left:40px;display:flex;flex-direction:column;gap:2px;font-size:14.5px}
+.rule-steps li::before{content:counter(step);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent-light);color:var(--accent-dark);font-weight:800;font-size:14px}
+.access-layout{display:grid;grid-template-columns:360px minmax(0,1fr);gap:16px;align-items:start;margin-top:16px}
+.company-choices{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.company-choice{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 14px;border:0;background:var(--card);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.company-choice+.company-choice{border-top:1px solid var(--line)}
+.company-choice:hover{background:var(--row-tint)}
+@media(max-width:1200px){.machine-facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:900px){
+.machines-toolbar{flex-direction:column;align-items:stretch}
+.machines-toolbar .search-box{flex:none}
+.machines-toolbar .tabs{display:flex;max-width:100%}
+.machines-toolbar .since select{width:100%}
+#machines-page section>#rows{display:none}
+.machine-facts,.rate-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rule-steps,.access-layout{grid-template-columns:minmax(0,1fr)}
+.chart-heading .legend{margin:0}
+.file-card-line .tag{margin-right:4px}
+}
+.machine-chart svg rect,.machine-chart svg text{stroke:none}
+.machine-chart svg line{stroke:var(--line);stroke-width:1}
+.machine-chart svg text{font-weight:500}
+.machine-cards,.access-cards{margin-top:4px}
+@media(max-width:900px){.machines-wide{display:none}.machine-cards .file-card,.access-cards .file-card{padding-left:0;padding-right:0}.machine-cards,.access-cards{background:none}}
+.machine-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.machine-tabs .tab{white-space:nowrap}

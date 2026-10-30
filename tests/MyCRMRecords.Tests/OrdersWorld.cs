@@ -53,7 +53,8 @@ public sealed class OrdersWorld : IDisposable
         Files = new FakeMyFiles(Data);
         // MyCRM's own records are kept in memory with MyCRMRecords' (the company pages are not what these tests look at).
         D = CrmFactory.Create(Store, SettingsFile, _ => throw new InvalidOperationException("No database in this test."),
-            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, new FakeEmail(), Store, orders: Data, domain: "RSP", files: Files);
+            Path.Combine(Folder, "scheduled-tasks.json"), () => Now, new FakeEmail(), Store, orders: Data, domain: "RSP", files: Files,
+            machines: new FakeAdvanceMachines(), machineAccess: new FakeMyMachinesAccess(Data));
         foreach (var user in new[] { Admin, Sam, Mia, Ken, Cara, Hana, Carl, Sid, Dan, Olga }) D.People.Touch(user.Login, user.DisplayName, user.Email);
 
         // OutSystems' users: Cara's username is her email address, not her Windows login.

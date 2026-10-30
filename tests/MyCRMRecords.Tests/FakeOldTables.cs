@@ -281,6 +281,7 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
         // and the columns the costing sheets read from MyCRM's, so the connection test passes as it does in production.
         sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (2, N'MyOrders', 1);");
         sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (3, N'MyFiles', 1);");
+        sql.AppendLine("INSERT INTO dbo.OSSYS_ESPACE VALUES (4, N'MyMachines', 1);");
         foreach (var (entity, columns) in Entities.Checked)
         {
             string Type(string column) => column == "ID" || column.EndsWith("ID", StringComparison.Ordinal) ? "bigint" : "nvarchar(2000)";
@@ -295,9 +296,10 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
                     sql.AppendLine($"ALTER TABLE dbo.[{table}] ADD [{column}] {Type(column)} NULL;");
                 continue;
             }
-            var physical = (entity.Module == OsModule.MyOrders ? "OSUSR_or1_" : entity.Module == OsModule.MyFiles ? "OSUSR_mf1_" : "OSUSR_ab1_") + entity.Name.ToUpperInvariant();
+            var physical = (entity.Module == OsModule.MyOrders ? "OSUSR_or1_" : entity.Module == OsModule.MyFiles ? "OSUSR_mf1_"
+                : entity.Module == OsModule.MyMachines ? "OSUSR_mm1_" : "OSUSR_ab1_") + entity.Name.ToUpperInvariant();
             sql.AppendLine($"CREATE TABLE dbo.[{physical}] ({string.Join(", ", columns.Select(c => $"[{c}] {Type(c)} NULL"))});");
-            var espace = entity.Module == OsModule.MyOrders ? 2 : entity.Module == OsModule.MyFiles ? 3 : 1;
+            var espace = entity.Module == OsModule.MyOrders ? 2 : entity.Module == OsModule.MyFiles ? 3 : entity.Module == OsModule.MyMachines ? 4 : 1;
             sql.AppendLine($"INSERT INTO dbo.OSSYS_ENTITY ([ESPACE_ID], [NAME], [PHYSICAL_TABLE_NAME], [IS_ACTIVE]) VALUES ({espace}, {Q(entity.Name)}, {Q(physical)}, 1);");
         }
         return sql.ToString();
@@ -306,12 +308,13 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
     /// <summary>
     /// AdvanceConnector's Customer_Supp (for the SQL Server tests), with real-looking column names unlike MyCRM's
     /// ([Business reg] for Business_reg, [Cust-no] for Cust_no): ExternalTable must find them. Two customers share a BRN.
+    /// And the machines' tables, empty, with their real names ([serial-no]…), so the connection test passes.
     /// </summary>
     public static string AdvanceSql() => """
         CREATE TABLE dbo.Customer_Supp ([Cust-no] nvarchar(20) NOT NULL, [Business reg] nvarchar(50) NULL, [Cust name] nvarchar(100) NULL);
         INSERT INTO dbo.Customer_Supp VALUES (N'C0002', N'200012345K', N'Tan & Sons'), (N'C0001', N'199912345K', N'Lim Pte Ltd'),
           (N'C0003', N'199912345K', N'Lim Pte Ltd (2)'), (N'C0004', NULL, N'No BRN'), (N'C0005', N'ABC', N'Short BRN');
-        """;
+        """ + new FakeAdvanceMachines().AdvanceSql();
 
     public static string Text(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
 }
