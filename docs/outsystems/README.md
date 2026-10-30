@@ -314,6 +314,18 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       MyCRM's First Appointment Attended adjustment (that type is not offered, as in MyCRM's form). A member's role is
       changed by removing and adding them again. The project's **History** lists the changes made in MyCRMRecords
       (`dbo.CrChange`), not MyCRM's own.
+24. **A company's Usage & history and its machines by coverage** (2026-10-30): two read-only pages MyCRM did not have,
+    reached from a company (the Overview's Copies per month and the Machines tab), with the company's machine rule
+    (`Machines.MaySeeCompany`). **Usage & history** (`usage.aspx`) adds up `meter_card` as the Overview does
+    (`IAdvanceMachines.MonthlyCopies`) over 6 to 96 months or months chosen, each month beside the same month a year
+    before, and per year with how many of the machines were billed (`IAdvanceMachines.YearlyCopies`, one read-only
+    query); **Export to Excel** downloads both. MyMachines' yearly "machines in field" (full year, added, expired,
+    temporary), revenue and TDV are **not shown**: they come from `MIF_Summary`, `Rev_Summary` and `MIF_TDV`
+    (Datacenter), which are not read and whose columns' meaning is not known. **Machines by coverage**
+    (`companymachines.aspx`) groups every machine of the company's BRN as the Machines page labels them (On contract
+    by contract, Warranty, Time & material, Contract expired, No contract); a T&M machine's **Rates** open its last
+    contract on its own page. Installed date, location and last service of every machine are not shown there (they are
+    read one machine at a time, on its page).
 26. **The company page in the design's layout** (2026-10-30). The Overview adds MyCRM's *Invoice / SOA Email*
     (`MyCustomerEmails`: AdvanceConnector's `CustomerMapping` with `Company_ID` = the company, joined to `Email_Master`
     by customer number, each row once; read only, its tables are settings and in the connection test), *Machines sold by

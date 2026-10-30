@@ -146,6 +146,11 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         return (page.Total, page.Rows.Select(r => new MachineListRow(r, scope.All ? ViaAll : scope.Brns.TryGetValue(brn, out var via) ? via : ViaTemporary, companyId)).ToList(), active);
     }
 
+    /// <summary>The longest span of months a company's copies are read for (ten years, and the year before to compare).</summary>
+    public const int MaxMonths = 132;
+    /// <summary>The most years of a company's yearly history.</summary>
+    public const int MaxYears = 10;
+
     /// <summary>
     /// A company's copies per month (its Overview's chart): every machine of its BRN in Advance, each machine's billed
     /// copies as its own page reads them (of its contract, when it has one), added up by month over the last
@@ -153,18 +158,60 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
     /// </summary>
     public (int Machines, IReadOnlyList<MonthCopies> Months)? CompanyCopies(Actor actor, long companyId, int months = 12)
     {
+        var today = Today(clock());
+        return CompanyCopies(actor, companyId, From(today, months), new DateTime(today.Year, today.Month, 1)) is { } found
+            ? (found.Machines, found.Months) : null;
+    }
+
+    /// <summary>
+    /// A company's copies per month from the month of <paramref name="from"/> to the month of <paramref name="to"/> (the
+    /// Usage &amp; history page; at most <see cref="MaxMonths"/> months, ending at the latest this month), as
+    /// <see cref="CompanyCopies(Actor, long, int)"/> adds them up. Null when the person may not see the company.
+    /// </summary>
+    public (Company Company, int Machines, IReadOnlyList<MonthCopies> Months)? CompanyCopies(Actor actor, long companyId, DateTime from, DateTime to)
+    {
         if (store.Get<Company>(companyId) is not { } company || !MaySeeCompany(actor, company)) return null;
         var today = Today(clock());
-        var from = From(today, months);
-        var empty = Enumerable.Range(0, Math.Max(1, months)).Select(i => from.AddMonths(i)).Select(m => new MonthCopies(m.Year, m.Month, 0, 0)).ToList();
+        var thisMonth = new DateTime(today.Year, today.Month, 1);
+        var last = new DateTime(to.Year, to.Month, 1);
+        if (last > thisMonth) last = thisMonth;
+        var first = new DateTime(from.Year, from.Month, 1);
+        if (first > last) first = last;
+        if (first < last.AddMonths(-(MaxMonths - 1))) first = last.AddMonths(-(MaxMonths - 1));
+        var count = (last.Year - first.Year) * 12 + last.Month - first.Month + 1;
+        var empty = Enumerable.Range(0, count).Select(i => first.AddMonths(i)).Select(m => new MonthCopies(m.Year, m.Month, 0, 0)).ToList();
+        var machines = MetersOf(company, today);
+        if (machines.Count == 0) return (company, 0, empty);
+        var found = advance.MonthlyCopies(machines, first).ToDictionary(m => m.Year * 100 + m.Month);
+        return (company, machines.Count, empty.Select(m => found.TryGetValue(m.Year * 100 + m.Month, out var f) ? f : m).ToList());
+    }
+
+    /// <summary>
+    /// A company's yearly history (the Usage &amp; history page): the copies billed on all its machines in each of the last
+    /// <paramref name="years"/> years (this one so far included), and how many of them were billed each year, a year with
+    /// nothing billed as 0. Null when the person may not see the company.
+    /// </summary>
+    public (Company Company, int Machines, IReadOnlyList<YearCopies> Years)? CompanyYears(Actor actor, long companyId, int years = 5)
+    {
+        if (store.Get<Company>(companyId) is not { } company || !MaySeeCompany(actor, company)) return null;
+        var today = Today(clock());
+        years = Math.Max(1, Math.Min(MaxYears, years));
+        var first = today.Year - years + 1;
+        var empty = Enumerable.Range(first, years).Select(y => new YearCopies(y, 0, 0, 0)).ToList();
+        var machines = MetersOf(company, today);
+        if (machines.Count == 0) return (company, 0, empty);
+        var found = advance.YearlyCopies(machines, new DateTime(first, 1, 1)).ToDictionary(y => y.Year);
+        return (company, machines.Count, empty.Select(y => found.TryGetValue(y.Year, out var f) ? f : y).ToList());
+    }
+
+    /// <summary>Every machine of the company's BRN in Advance, a serial once (Advance can keep a serial under two item numbers), with its contract.</summary>
+    private List<MeterMachine> MetersOf(Company company, DateTime today)
+    {
         var brn = Key(company.Brn);
-        if (brn.Length <= 3) return (0, empty);
+        if (brn.Length <= 3) return new List<MeterMachine>();
         var rows = advance.Search(new MachineSearch { Brn = brn, Today = today, Take = 500 }).Rows;
-        // One serial counts once (Advance can keep a serial under two item numbers).
-        var machines = rows.GroupBy(r => Key(r.Serial), StringComparer.OrdinalIgnoreCase).Where(g => g.Key.Length > 0)
+        return rows.GroupBy(r => Key(r.Serial), StringComparer.OrdinalIgnoreCase).Where(g => g.Key.Length > 0)
             .Select(g => new MeterMachine(g.Key, Key(g.First().ContractNo))).ToList();
-        var found = advance.MonthlyCopies(machines, from).ToDictionary(m => m.Year * 100 + m.Month);
-        return (machines.Count, empty.Select(m => found.TryGetValue(m.Year * 100 + m.Month, out var f) ? f : m).ToList());
     }
 
     /// <summary>

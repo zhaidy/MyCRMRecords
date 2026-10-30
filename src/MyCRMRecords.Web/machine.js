@@ -64,6 +64,8 @@
     chart();
     history();
     $('#last-contract')?.addEventListener('click', lastContract);
+    // Rates on a company's machines by coverage opens the last contract at once.
+    if (location.hash === '#last-contract' && d.lastContract) lastContract();
   }
 
   /** The copies of each month (the invoices' dates), the last 6 or 12 months: black and white in teal, colour in coral. */

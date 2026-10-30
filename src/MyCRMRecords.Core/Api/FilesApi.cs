@@ -17,7 +17,8 @@ public sealed record FileAnswer(int Status, string FileName, string ContentType,
 /// The files of file.ashx: the Excel samples to fill in, downloaded; the number of employees (BRN, NoOfEmployees) and a
 /// territory's list of companies (Company, BRN) uploaded as Excel workbooks; and, read only from MyOrders, a costing
 /// sheet's or request form's attachment and the costing sheets and request forms lists as Excel workbooks; and, read only
-/// from MyFiles, a file's PDF (files/{id}, shown in the page with ?view=1) or several as a zip (files/zip?ids=1,2).
+/// from MyFiles, a file's PDF (files/{id}, shown in the page with ?view=1) or several as a zip (files/zip?ids=1,2); and, read
+/// only from Advance, a company's Usage &amp; history as an Excel workbook (usage?company=).
 /// </summary>
 public sealed class FilesApi(CrmApp w)
 {
@@ -42,6 +43,54 @@ public sealed class FilesApi(CrmApp w)
     public const string MyFilesZip = "files/zip";
     /// <summary>activities?&lt;the Activities page's filters&gt;: MyCRM's Download (CompanyActivity.xls), every activity shown.</summary>
     public const string ActivitiesList = "activities";
+    /// <summary>usage?company=&amp;months=N (or from=yyyy-MM&amp;to=yyyy-MM): a company's Usage &amp; history page as an Excel workbook.</summary>
+    public const string Usage = "usage";
+
+    /// <summary>
+    /// A company's Usage &amp; history (read only from Advance) as an Excel workbook: the copies per month of the range
+    /// chosen with the same month a year before, and the copies per year. Only for who may see the company's machines.
+    /// </summary>
+    private FileAnswer UsageFile(IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        if (!w.Machines.Advance.Available) return FileAnswer.Fail(503, "Advance's machines cannot be read yet: an administrator has to set up the connection to Advance first.");
+        var actor = user.ToActor(w.People);
+        var companyId = Id(query, "company");
+        try
+        {
+            var (from, to) = MachinesApi.Span(query, w.Clock().Date);
+            // The year before each month too, to compare.
+            if (w.Machines.CompanyCopies(actor, companyId, from.AddMonths(-12), to) is not { } copies || w.Machines.CompanyYears(actor, companyId, Machines.MaxYears) is not { } years)
+                return FileAnswer.Fail(403, "You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+            var byMonth = copies.Months.ToDictionary(m => m.Year * 100 + m.Month);
+            static object? Change(long now, long before) => before == 0 ? null : Math.Round((decimal)(now - before) / before * 100m, 1);
+            var months = copies.Months.Where(m => new DateTime(m.Year, m.Month, 1) >= from).Select(m =>
+            {
+                var before = byMonth.TryGetValue((m.Year - 1) * 100 + m.Month, out var b) ? b : new MonthCopies(m.Year - 1, m.Month, 0, 0);
+                return new object?[]
+                {
+                    new DateTime(m.Year, m.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture),
+                    (decimal)m.BlackWhite, (decimal)before.BlackWhite, Change(m.BlackWhite, before.BlackWhite),
+                    (decimal)m.Colour, (decimal)before.Colour, Change(m.Colour, before.Colour),
+                };
+            }).ToList();
+            var name = new string(copies.Company.Name.Where(c => char.IsLetterOrDigit(c) || c == ' ' || c == '-').ToArray()).Trim();
+            return new FileAnswer(200, $"Usage-{(name.Length > 0 ? name : companyId.ToString(CultureInfo.InvariantCulture))}-{w.Clock():yyyyMMdd}.xlsx", FileAnswer.XlsxType, Xlsx.Create(
+            [
+                new Xlsx.Sheet("Copies per month",
+                    [new Xlsx.ColumnSpec("Month", 12), new Xlsx.ColumnSpec("Black & white", 16, "number"), new Xlsx.ColumnSpec("B&W year before", 16, "number"),
+                     new Xlsx.ColumnSpec("B&W change %", 14, "number"), new Xlsx.ColumnSpec("Colour", 14, "number"), new Xlsx.ColumnSpec("Colour year before", 18, "number"),
+                     new Xlsx.ColumnSpec("Colour change %", 16, "number")], months),
+                new Xlsx.Sheet("Copies per year",
+                    [new Xlsx.ColumnSpec("Year", 8), new Xlsx.ColumnSpec("Machines billed", 16, "number"), new Xlsx.ColumnSpec("Black & white", 16, "number"),
+                     new Xlsx.ColumnSpec("Colour", 14, "number")],
+                    years.Years.OrderByDescending(y => y.Year).Select(y => new object?[] { y.Year.ToString(CultureInfo.InvariantCulture), (decimal)y.Machines, (decimal)y.BlackWhite, (decimal)y.Colour })),
+            ]));
+        }
+        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        {
+            return FileAnswer.Fail(503, "Advance's machines could not be read: " + ex.Message);
+        }
+    }
 
     /// <summary>The Activities page's activities as an Excel workbook, as the list shows them (up to <see cref="Activities.MaxRows"/>).</summary>
     private FileAnswer ActivitiesFile(IReadOnlyDictionary<string, string> query, ApiUser user)
@@ -81,6 +130,7 @@ public sealed class FilesApi(CrmApp w)
                     Xlsx.Create("Sheet1", [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 20)], [new object?[] { "Sample Holdings Pte Ltd", "199912345K" }]));
         }
         if (kind == ActivitiesList) return ActivitiesFile(query, user);
+        if (kind == Usage) return UsageFile(query, user);
         if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");
     }
