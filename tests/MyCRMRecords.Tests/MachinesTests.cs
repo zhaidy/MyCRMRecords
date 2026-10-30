@@ -44,6 +44,10 @@ public sealed class MachinesTests
         m.Add("meter_card", new { serial_no = "3100R0001", Contract_no = "CT-1", Invoice_no = 501L, Invoice_date = new DateTime(2026, 9, 20), Copies = 900L, Meter_Type = "C1" });
         m.Add("meter_card", new { serial_no = "3100R0001", Contract_no = "CT-0", Invoice_no = 502L, Invoice_date = new DateTime(2026, 9, 20), Copies = 7L, Meter_Type = "B1" });
         m.Add("meter_card", new { serial_no = "3100R0001", Contract_no = "CT-1", Invoice_no = 400L, Invoice_date = new DateTime(2025, 1, 20), Copies = 1L, Meter_Type = "B1" });
+        // Copies of other machines: Tan's warranty machine (no contract) and Lim's, for a company's copies per month.
+        m.Add("meter_card", new { serial_no = "3100R0002", Contract_no = "", Invoice_no = 601L, Invoice_date = new DateTime(2026, 9, 25), Copies = 1000L, Meter_Type = "B1" });
+        m.Add("meter_card", new { serial_no = "3100R0002", Contract_no = "", Invoice_no = 602L, Invoice_date = new DateTime(2026, 6, 25), Copies = 300L, Meter_Type = "B2" });
+        m.Add("meter_card", new { serial_no = "4100L0001", Contract_no = "CT-L", Invoice_no = 701L, Invoice_date = new DateTime(2026, 9, 25), Copies = 5555L, Meter_Type = "B1" });
         m.Add("Service", new { Service_no = "SR-1", Serial_no = "3100R0001", Cust_no = "C1", Contract_no = "CT-1", Service_type = "FC", SO_status = "F90", Tech_code = "T7",
             Problem_code = "JAM", Entry_date = new DateTime(2026, 10, 1), Entry_time = "09:12", Complete_dt = new DateTime(2026, 10, 1), Complete_tm = "11:40", Invoice_no = 0L, Invoice_date = (DateTime?)null });
         m.Add("Service", new { Service_no = "SR-2", Serial_no = "3100R0001", Cust_no = "C1", Contract_no = "CT-1", Service_type = "XX", SO_status = "F10", Tech_code = "T7",
@@ -156,6 +160,38 @@ public sealed class MachinesTests
         Assert.Equal(403, Call(world, TestWorld.Sam, query: new() { ["company"] = s.Lim.Id.ToString() }).Status);
         Assert.Equal(new[] { "4100L0001" }, Tab(TestWorld.Dina, s.Lim)["rows"]!.Select(r => (string)r["serial"]!));
         Assert.Equal(403, Call(world, TestWorld.Olga, query: new() { ["company"] = s.Zen.Id.ToString() }).Status);
+    }
+
+    [Fact]
+    public void A_company_s_copies_per_month_add_up_its_machines_meters()
+    {
+        var s = World();
+        using var world = s.World;
+        var answer = Call(world, TestWorld.Sam, "machines/copies", new() { ["company"] = s.Tan.Id.ToString() });
+        Assert.Equal(200, answer.Status);
+        var d = JObject.Parse(answer.Json);
+        Assert.Equal(5, (int)d["machines"]!);
+        // The last 12 months, oldest first, a month without invoices as 0 (today is 17 Oct 2026).
+        var months = d["months"]!.ToArray();
+        Assert.Equal(12, months.Length);
+        Assert.Equal((2025, 11), ((int)months[0]["year"]!, (int)months[0]["month"]!));
+        Assert.Equal((2026, 10), ((int)months[11]["year"]!, (int)months[11]["month"]!));
+        // September: 3100R0001's contract invoice (not CT-0's) and 3100R0002's (no contract: every invoice); not Lim's.
+        var september = months[10];
+        Assert.Equal(5000, (long)september["blackWhite"]!);
+        Assert.Equal(900, (long)september["colour"]!);
+        Assert.Equal(300, (long)months[7]["blackWhite"]!);
+        Assert.Equal(0, (long)months[0]["blackWhite"]!);
+        // The company rule, as for its Machines tab.
+        Assert.Equal(403, Call(world, TestWorld.Sam, "machines/copies", new() { ["company"] = s.Lim.Id.ToString() }).Status);
+        Assert.Equal(5555, (long)JObject.Parse(Call(world, TestWorld.Dina, "machines/copies", new() { ["company"] = s.Lim.Id.ToString() }).Json)["months"]![10]!["blackWhite"]!);
+    }
+
+    [Fact]
+    public void Machines_are_listed_for_their_copies_as_XML_whatever_they_hold()
+    {
+        Assert.Equal("<l><m s=\"A&amp;1\" c=\"&quot;C&lt;2&gt;\"/><m s=\"B\" c=\"\"/></l>",
+            SqlAdvanceMachines.XmlMachines(new[] { new MeterMachine(" A&1 ", "\"C<2>"), new MeterMachine("B", ""), new MeterMachine(" ", "X") }));
     }
 
     [Fact]

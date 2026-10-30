@@ -302,6 +302,7 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
             territories = w.Territories.All(includeInactive).Select(t => new
             {
                 t.Id, title = Territories.Title(t), t.Name, t.Number, owner = Person(t.Owner), t.IsActive, companies = counts.TryGetValue(t.Id, out var n) ? n : 0,
+                t.CreatedOn, createdBy = Name(t.CreatedBy), t.RemovedOn, t.RemovedBy,
             }),
         });
     }
@@ -310,10 +311,19 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
     {
         if (w.Territories.Get(id) is not { } t) return ApiResponse.NotFound();
         var (total, rows) = w.Territories.Companies(t.Id, q, skip);
+        var postal = w.Companies.PostalCodes(rows.Select(c => c.Id));
+        var since = w.Territories.Since(t.Id);
         return ApiResponse.Of(new
         {
-            territory = new { t.Id, title = Territories.Title(t), t.Name, t.Number, owner = Person(t.Owner), t.IsActive, createdBy = Name(t.CreatedBy), t.CreatedOn },
-            companies = new { total, skip, take = Territories.PageSize, rows = rows.Select(c => new { c.Id, name = c.Name.Trim(), c.Brn }) },
+            territory = new { t.Id, title = Territories.Title(t), t.Name, t.Number, owner = Person(t.Owner), t.IsActive, createdBy = Name(t.CreatedBy), t.CreatedOn, t.RemovedOn, t.RemovedBy },
+            companies = new
+            {
+                total, skip, take = Territories.PageSize,
+                rows = rows.Select(c => new
+                {
+                    c.Id, name = c.Name.Trim(), c.Brn, postalCode = postal.TryGetValue(c.Id, out var code) ? code : "", since = since.TryGetValue(c.Id, out var putIn) ? putIn : null,
+                }),
+            },
         });
     }
 

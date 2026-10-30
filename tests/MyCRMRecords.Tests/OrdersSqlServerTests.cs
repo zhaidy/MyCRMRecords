@@ -314,6 +314,13 @@ public sealed class OrdersSqlServerTests
             Assert.Equal(J(fake.Toner(row.Serial, row.ContractNo, from)), J(sql.Toner(row.Serial, row.ContractNo, from)));
             Assert.Equal(J(fake.LastContract(row.Serial, row.Item)), J(sql.LastContract(row.Serial, row.Item)));
         }
+        // A company's copies per month: the machines' invoices added up, each machine's of its contract.
+        var listed = fake.Search(new MachineSearch { Today = today, Take = 500 }).Rows.Select(r => new MeterMachine(r.Serial, r.ContractNo)).ToList();
+        Assert.Equal(J(fake.MonthlyCopies(listed, from)), J(sql.MonthlyCopies(listed, from)));
+        var tan = listed.Where(m => m.Serial.StartsWith("3100R", StringComparison.Ordinal)).ToList();
+        Assert.Equal(J(fake.MonthlyCopies(tan, from)), J(sql.MonthlyCopies(tan, from)));
+        Assert.Equal(5000L, sql.MonthlyCopies(tan, from).Single(m => m.Month == 9).BlackWhite);
+        Assert.Empty(sql.MonthlyCopies(new[] { new MeterMachine("NOPE", "") }, from));
         Assert.Null(sql.Get("NOPE", "", today));
         Assert.Equal(41882L, sql.Services("3100R0001", "C1", "CT-1", from).Single().BlackWhite);
         Assert.Equal("Mei", sql.Get("3100R0002", "", today)!.Contact);

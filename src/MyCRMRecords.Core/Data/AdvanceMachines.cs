@@ -156,6 +156,12 @@ public sealed record MachineDetail
 /// <summary>An invoice's copies (meter_card): the most black-and-white (meter type B…) and colour (C…) copies on it.</summary>
 public sealed record MeterReading(string InvoiceNo, DateTime? InvoiceDate, long BlackWhite, long Colour);
 
+/// <summary>A machine whose copies are added up: its serial number and its contract (none: every invoice of the serial).</summary>
+public sealed record MeterMachine(string Serial, string ContractNo);
+
+/// <summary>A month's copies on some machines together (<see cref="IAdvanceMachines.MonthlyCopies"/>).</summary>
+public sealed record MonthCopies(int Year, int Month, long BlackWhite, long Colour);
+
 /// <summary>A service call done (Service, SO-status F90) with its meter readings (SMeter_History).</summary>
 public sealed record ServiceCall
 {
@@ -196,6 +202,11 @@ public interface IAdvanceMachines
     MachineDetail? Get(string serial, string item, DateTime today);
     /// <summary>The copies billed per invoice since <paramref name="from"/>, newest first (of the contract, when there is one).</summary>
     IReadOnlyList<MeterReading> Meters(string serial, string contractNo, DateTime from);
+    /// <summary>
+    /// The copies billed per month since <paramref name="from"/> on these machines together, oldest month first: each
+    /// machine's invoices as <see cref="Meters"/> reads them (of its contract, when it has one), added up by month.
+    /// </summary>
+    IReadOnlyList<MonthCopies> MonthlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from);
     /// <summary>The service calls done since <paramref name="from"/> at this customer (and contract, when there is one), newest first.</summary>
     IReadOnlyList<ServiceCall> Services(string serial, string customerNo, string contractNo, DateTime from);
     /// <summary>The toner orders since <paramref name="from"/> (of the contract, when there is one), newest first.</summary>
@@ -391,6 +402,54 @@ public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<Connect
 
     public static MeterReading MeterOf(IReadOnlyDictionary<string, object?> r) =>
         new(r.Text("InvoiceNo"), r.Date("InvoiceDate"), r.Long("BlackWhite"), r.Long("Colour"));
+
+    /// <summary>The machines as XML text (&lt;l&gt;&lt;m s="serial" c="contract"/&gt;&lt;/l&gt;), one parameter however many.</summary>
+    public static string XmlMachines(IEnumerable<MeterMachine> machines)
+    {
+        static string Attribute(string? value)
+        {
+            var text = new StringBuilder();
+            foreach (var ch in (value ?? "").Trim())
+            {
+                if (ch == '&') text.Append("&amp;");
+                else if (ch == '<') text.Append("&lt;");
+                else if (ch == '>') text.Append("&gt;");
+                else if (ch == '"') text.Append("&quot;");
+                else if (ch >= ' ') text.Append(ch);
+            }
+            return text.ToString();
+        }
+        var xml = new StringBuilder("<l>");
+        foreach (var m in machines.Where(m => (m.Serial ?? "").Trim().Length > 0))
+            xml.Append("<m s=\"").Append(Attribute(m.Serial)).Append("\" c=\"").Append(Attribute(m.ContractNo)).Append("\"/>");
+        return xml.Append("</l>").ToString();
+    }
+
+    public IReadOnlyList<MonthCopies> MonthlyCopies(IReadOnlyList<MeterMachine> machines, DateTime from)
+    {
+        if (machines.Count == 0) return Array.Empty<MonthCopies>();
+        return databases.Use(ExternalNames.AdvanceConnector, connection =>
+        {
+            var t = ExternalTable.Of(connection, Tables.MeterCard);
+            // An invoice counts once whatever the machines listed: EXISTS, not a join.
+            var listed = "SELECT x.m.value('@s', 'nvarchar(400)') AS [s], x.m.value('@c', 'nvarchar(400)') AS [c] " +
+                         "FROM (SELECT CAST(@machines AS xml) AS d) q CROSS APPLY q.d.nodes('/l/m') AS x(m)";
+            return (IReadOnlyList<MonthCopies>)Sql.Rows(connection, null,
+                    "SELECT YEAR(i.[InvoiceDate]) AS [Year], MONTH(i.[InvoiceDate]) AS [Month], SUM(i.[BlackWhite]) AS [BlackWhite], SUM(i.[Colour]) AS [Colour] FROM (" +
+                    $"SELECT mc.{t["Invoice_date"]} AS [InvoiceDate], " +
+                    $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'B%' THEN mc.{t["Copies"]} ELSE 0 END) AS [BlackWhite], " +
+                    $"MAX(CASE WHEN mc.{t["Meter_Type"]} LIKE 'C%' THEN mc.{t["Copies"]} ELSE 0 END) AS [Colour] " +
+                    $"FROM {t} mc WHERE mc.{t["Invoice_date"]} >= @from AND EXISTS (SELECT 1 FROM ({listed}) k " +
+                    $"WHERE k.[s] = mc.{t["serial_no"]} AND (k.[c] = N'' OR k.[c] = mc.{t["Contract_no"]})) " +
+                    $"GROUP BY mc.{t["serial_no"]}, mc.{t["Invoice_no"]}, mc.{t["Invoice_date"]}) i " +
+                    "GROUP BY YEAR(i.[InvoiceDate]), MONTH(i.[InvoiceDate]) ORDER BY [Year], [Month]",
+                    ("@machines", XmlMachines(machines)), ("@from", from))
+                .Select(MonthOf).ToList();
+        });
+    }
+
+    public static MonthCopies MonthOf(IReadOnlyDictionary<string, object?> r) =>
+        new((int)r.Long("Year"), (int)r.Long("Month"), r.Long("BlackWhite"), r.Long("Colour"));
 
     public IReadOnlyList<ServiceCall> Services(string serial, string customerNo, string contractNo, DateTime from) => databases.Use(ExternalNames.AdvanceConnector, connection =>
     {

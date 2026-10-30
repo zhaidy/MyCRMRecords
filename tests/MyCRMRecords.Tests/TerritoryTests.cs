@@ -82,6 +82,18 @@ public sealed class TerritoryTests
     }
 
     [Fact]
+    public void A_territory_says_since_when_each_of_its_companies_is_in_it()
+    {
+        using var world = new TestWorld();
+        var tan = world.Company("Tan", "T1000");
+        var lim = world.Company("Lim", "L1000");
+        var north = world.Territory("North", 1, TestWorld.Sam, tan.Id);
+        var since = world.D.Territories.Since(north.Id);
+        Assert.Equal(world.Now, since[tan.Id]);
+        Assert.False(since.ContainsKey(lim.Id));
+    }
+
+    [Fact]
     public void Companies_taken_out_have_no_salesperson_and_the_move_is_recorded()
     {
         using var world = new TestWorld();

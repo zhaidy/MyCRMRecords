@@ -6,7 +6,7 @@ namespace MyCRMRecords.Api;
 
 /// <summary>
 /// The Machines pages' API (api.ashx/machines..., api.ashx/machineaccess...), as the signed-in person: Advance's machines
-/// they see (read only), a company's (machines?company=), a machine's page (machines/detail?serial=&amp;item=), and for
+/// they see (read only), a company's (machines?company=) and its copies per month (machines/copies?company=), a machine's page (machines/detail?serial=&amp;item=), and for
 /// Sales Admins MyMachines' temporary access, given and removed only when switched on.
 /// </summary>
 public sealed class MachinesApi(CrmApp w)
@@ -45,6 +45,17 @@ public sealed class MachinesApi(CrmApp w)
                     phone = detail.Machine.Phone, address = detail.Machine.Address,
                     meters = detail.Meters, services = detail.Services, toner = detail.Toner, lastContract = detail.LastContract,
                     months, from = Machines.From(w.Clock().Date, months),
+                });
+            }
+            if (parts.Length == 2 && parts[1] == "copies")
+            {
+                if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
+                if (w.Machines.CompanyCopies(actor, ofCompany) is not { } copies)
+                    return ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+                return ApiResponse.Of(new
+                {
+                    machines = copies.Machines,
+                    months = copies.Months.Select(m => new { year = m.Year, month = m.Month, blackWhite = m.BlackWhite, colour = m.Colour }),
                 });
             }
             if (parts.Length != 1) return ApiResponse.NotFound();
