@@ -38,16 +38,16 @@
   let orderCounts = {activities: '', prospects: '', projects: '', files: '', machines: '', costing: '', requests: ''};
   function sections() {
     return [
-      {id: 'overview', label: 'Overview', count: '', color: '#0a58f0'},
-      {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0'},
-      {id: 'activities', label: 'Activities', count: orderCounts.activities, color: '#8b5cf6'},
-      {id: 'prospects', label: 'Prospects', count: orderCounts.prospects, color: '#e59a0b'},
-      {id: 'projects', label: 'Projects', count: orderCounts.projects, color: '#f2675a'},
-      {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed'},
-      {id: 'machines', label: 'Machines', count: orderCounts.machines, color: '#0d9488'},
-      {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b'},
-      {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b'},
-      {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488'}
+      {id: 'overview', label: 'Overview', count: '', color: '#0a58f0', icon: 'file'},
+      {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0', icon: 'users'},
+      {id: 'activities', label: 'Activities', count: orderCounts.activities, color: '#8b5cf6', icon: 'calendar'},
+      {id: 'prospects', label: 'Prospects', count: orderCounts.prospects, color: '#e59a0b', icon: 'chart'},
+      {id: 'projects', label: 'Projects', count: orderCounts.projects, color: '#f2675a', icon: 'briefcase'},
+      {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed', icon: 'folder'},
+      {id: 'machines', label: 'Machines', count: orderCounts.machines, color: '#0d9488', icon: 'printer'},
+      {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b', icon: 'money'},
+      {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b', icon: 'truck'},
+      {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488', icon: 'history'}
     ];
   }
   function showTab(next) {
@@ -118,7 +118,7 @@
         </div>
         <aside class="ov-side">
           <div class="stat-tiles">${stats.map(s => `<button type="button" class="stat-tile" data-tab="${s.id}" aria-label="${esc(s.label)}: open the tab">
-            <span class="stat-label" style="color:${s.color}">${esc(s.label)}</span><span class="stat-n">…</span><span class="stat-sub">${esc(s.sub)}</span></button>`).join('')}</div>
+            <span class="stat-label" style="--c:${s.color}">${esc(s.label)}</span><span class="stat-n">…</span><span class="stat-sub">${esc(s.sub)}</span></button>`).join('')}</div>
           <section class="card ov-more-part ov-owner" aria-labelledby="ov-owner"><h2 id="ov-owner">Salesperson and caretakers</h2>
             ${d.owner ? `<div class="owner-row"><span class="owner-avatar" aria-hidden="true">${initial(ownerName)}</span>
               <span class="owner-text"><span class="muted small">Owner</span><span><b>${esc(ownerName)}</b> · ${territory}</span>${d.owner.team ? `<span class="muted small">Manager ${esc(d.owner.team)}</span>` : ''}</span></div>`
@@ -144,8 +144,8 @@
           </dl></section>
         </aside>
         <h2 class="group-label group-sections" aria-hidden="true">Sections</h2>
-        <nav class="section-list" aria-label="Company sections">${[{id: 'more', label: 'More details', count: '', color: '#8e8e93'}].concat(sections().filter(s => s.id !== 'overview')).map(s => `<button type="button" class="section-row" data-tab="${s.id}">
-          <span class="section-dot" style="--dot:${s.color}" aria-hidden="true">${esc(s.label.charAt(0))}</span><span class="section-name">${esc(s.label)}</span>
+        <nav class="section-list" aria-label="Company sections">${[{id: 'more', label: 'More details', count: '', color: '#8e8e93', icon: 'file'}].concat(sections().filter(s => s.id !== 'overview')).map(s => `<button type="button" class="section-row" data-tab="${s.id}">
+          <span class="section-dot" style="--dot:${s.color}" data-icon="${s.icon}" aria-hidden="true"></span><span class="section-name">${esc(s.label)}</span>
           <span class="section-count">${s.count}</span><span data-icon="arrow-right" class="section-chevron"></span></button>`).join('')}</nav>
       </div>
       <div class="stack tab-panel" role="tabpanel" id="panel-contacts" aria-labelledby="tab-contacts"><section class="card" id="contacts"></section></div>
@@ -264,8 +264,9 @@
    */
   async function copies() {
     const box = $('#copies');
+    // The legend only beside the bars it explains (not over Loading… or a message).
     const heading = (sub = '') => `<div class="card-heading"><h2 id="ov-copies">Copies per month${sub ? ` <span class="muted ov-sub-title">· ${sub}</span>` : ''}</h2>
-      <span class="legend copies-legend"><span><i style="background:var(--teal)"></i>Black</span><span><i style="background:var(--coral)"></i>Colour</span></span></div>`;
+      ${sub ? '<span class="legend copies-legend"><span><i style="background:var(--teal)"></i>Black</span><span><i style="background:var(--coral)"></i>Colour</span></span>' : ''}</div>`;
     box.innerHTML = heading() + '<p class="muted small">Loading…</p>';
     const answer = await api('GET', 'machines/copies?' + new URLSearchParams({company: String(id)}));
     if (!answer.result.ok) { box.innerHTML = heading() + `<p class="muted small">${esc(answer.result.message)}</p>`; return; }
@@ -475,7 +476,7 @@
           <span class="address-default">${a.isDefault ? 'Default' : ''}</span>
           ${can ? `<span class="row-buttons"><button type="button" class="icon-button small" data-address="${a.id}" title="Edit the address" aria-label="Edit ${esc((a.typeLabel || '').toLowerCase())} address ${esc(a.text)}"><span data-icon="edit"></span></button>
             <button type="button" class="icon-button small danger" data-delete-address="${a.id}" title="Delete the address" aria-label="Delete ${esc((a.typeLabel || '').toLowerCase())} address ${esc(a.text)}"><span data-icon="trash"></span></button></span>` : ''}</div>`).join('')}</div>`
-        : `<p class="muted">${d.addresses.length ? 'No address of this type.' : 'No address.'}</p>`}
+        : `<p class="muted small">${d.addresses.length ? 'No address of this type.' : 'No address.'}</p>`}
       <p class="muted small address-foot">The default billing address is used on printouts.</p>`;
     drawIcons($('#addresses'));
     $$('[data-address-filter]', $('#addresses')).forEach(b => b.addEventListener('click', () => { addressType = b.dataset.addressFilter; addresses(); }));

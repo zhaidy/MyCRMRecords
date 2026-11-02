@@ -439,7 +439,7 @@ table.data tr:last-child{border-bottom:0}
    with a darker rim and a bright top edge. One setting, --glass-opacity, goes from clear (.15) to tinted (.75).
    On a phone the menu moves to a floating bar at the bottom (AppPage.TopBar: .tabbar), whose More opens the rest of
    the menu as a sheet. Text is the device's own font (SF Pro on Apple devices, Segoe UI on Windows, Roboto on Android). */
-:root{--bg:#f2f2f7;--card:#fff;--raised:#fff;--surface:#f7f8fb;--surface-2:#eef0f4;--glass:#fff;--control:#fff;--ink:#111114;--ink-2:#5b5f69;--muted:#6b7080;--placeholder:#8a8f9a;--line:rgba(60,60,67,.13);--border:rgba(60,60,67,.18);--border-soft:rgba(60,60,67,.09);--field:rgba(60,60,67,.28);--secondary-border:rgba(0,0,0,.12);--accent:#0a58f0;--accent-dark:#0847c4;--accent-light:rgba(10,88,240,.12);--accent-tint:rgba(10,88,240,.06);--accent-border:rgba(10,88,240,.3);--focus:#0a58f0;--control-solid:#0a58f0;--on-control-solid:#fff;--row-tint:rgba(10,88,240,.04);--teal:#0d9488;--coral:#f2675a;--chart-ok:#0d9488;--chart-over:#f2675a;
+:root{--bg:#f2f2f7;--card:#fff;--raised:#fff;--surface:#f7f8fb;--surface-2:#eef0f4;--glass:#fff;--control:#fff;--ink:#111114;--ink-2:#5b5f69;--muted:#6b7080;--placeholder:#8a8f9a;--line:rgba(60,60,67,.13);--border:rgba(60,60,67,.18);--border-soft:rgba(60,60,67,.09);--field:rgba(60,60,67,.28);--secondary-border:rgba(0,0,0,.12);--accent:#0a58f0;--accent-dark:#0847c4;--accent-light:rgba(10,88,240,.12);--accent-tint:rgba(10,88,240,.06);--accent-border:rgba(10,88,240,.3);--focus:#0a58f0;--control-solid:#0a58f0;--on-control-solid:#fff;--row-tint:rgba(10,88,240,.04);--teal:#0d9488;--coral:#f2675a;--coral-fg:color-mix(in srgb,var(--coral) 65%,var(--ink));--chart-ok:#0d9488;--chart-over:#f2675a;
   --glass-rgb:248,248,252;--glass-opacity:.36;--glass-blur:24px;--glass-saturate:180%;--rim:rgba(0,0,0,.12);--spec:rgba(255,255,255,.95);--spec-rim:rgba(255,255,255,.55);--glass-fg:#0b0b0f;--glass-shadow:0 10px 30px rgba(0,0,0,.14),0 1px 3px rgba(0,0,0,.10);--scrim:rgba(0,0,0,.22)}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--raised:#2c2c2e;--surface:#232326;--surface-2:#2c2c2e;--glass:#1c1c1e;--control:#2c2c2e;--ink:#f5f5f7;--ink-2:#a1a1aa;--muted:#8e8e96;--placeholder:#7c7c84;--line:rgba(235,235,245,.13);--border:rgba(235,235,245,.18);--border-soft:rgba(235,235,245,.08);--field:rgba(235,235,245,.24);--secondary-border:rgba(255,255,255,.16);--accent:#3d82ff;--accent-dark:#7aa8ff;--accent-light:rgba(61,130,255,.2);--accent-tint:rgba(61,130,255,.1);--accent-border:rgba(61,130,255,.4);--focus:#3d82ff;--control-solid:#3d82ff;--on-control-solid:#fff;--row-tint:rgba(255,255,255,.03);--teal:#2dd4bf;--coral:#ff8a7e;--chart-ok:#2dd4bf;--chart-over:#ff8a7e;
   --glass-rgb:44,44,48;--rim:rgba(255,255,255,.16);--spec:rgba(255,255,255,.42);--spec-rim:rgba(255,255,255,.18);--glass-fg:#fff;--glass-shadow:0 10px 30px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);--scrim:rgba(0,0,0,.5)}}
@@ -510,6 +510,7 @@ svg.qr path{fill:#000;stroke:none}
 .section-row+.section-row{border-top:1px solid var(--line)}
 .section-row:hover{background:var(--row-tint)}
 .section-dot{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700;background:var(--dot)}
+.section-dot svg{width:18px;height:18px}
 .section-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .section-count{color:var(--ink-2);font-variant-numeric:tabular-nums}
 .section-chevron{color:var(--ink-2);opacity:.6}
@@ -549,7 +550,7 @@ svg.qr path{fill:#000;stroke:none}
 .stat-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .stat-tile{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 16px;border:0;border-radius:22px;background:var(--card);color:var(--ink);text-align:left;font:inherit;cursor:pointer;transition:background-color .14s}
 .stat-tile:hover{background:var(--surface)}
-.stat-label{font-size:13px;font-weight:700}
+.stat-label{font-size:13px;font-weight:700;color:color-mix(in srgb,var(--c,var(--accent)) 65%,var(--ink))}
 .stat-n{font-size:26px;font-weight:700;line-height:1.2;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .stat-sub{font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .owner-row{display:flex;align-items:center;gap:12px}
@@ -718,7 +719,7 @@ table.data.companies-table{table-layout:fixed;width:100%}
 .companies-table .co-territory{width:11%}
 .companies-table .co-type{width:10%}
 .companies-table td:nth-last-child(4){color:var(--ink)}
-.no-salesperson{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral)}
+.no-salesperson{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap;background:color-mix(in srgb,var(--coral) 16%,transparent);color:var(--coral-fg)}
 .put-companies{margin:0 0 14px;padding:0;list-style:none;border-radius:16px;background:var(--surface);overflow:hidden}
 .put-companies li{padding:10px 16px;font-weight:600;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .put-companies li:last-child{border-bottom:0}
