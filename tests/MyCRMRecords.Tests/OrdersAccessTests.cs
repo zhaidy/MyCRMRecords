@@ -126,8 +126,34 @@ public sealed class OrdersAccessTests
         var hers = world.Sheet(jean, world.Zen);
         world.Sheet(world.KenId, world.Zen);
         Assert.Equal(new[] { hers }, world.D.CostingSheets.List(world.Actor(asJean), new CostingSheetSearch()).Rows.Select(r => r.Id));
-        // Only administrators get the list.
+        // Only administrators and Sales Admins get the list.
         Assert.Equal(403, world.Call("orders/people", OrdersWorld.Sam).Status);
+    }
+
+    [Fact]
+    public void A_Sales_Admin_signs_in_as_others_but_never_as_an_administrator()
+    {
+        using var world = new OrdersWorld();
+        world.Store.Insert(new CrmUser { Login = OrdersWorld.Mia.Login, Role = CrmRoles.SalesAdmin, CreatedAt = world.Now });
+        Assert.True(world.D.People.SetRoles(world.Actor(OrdersWorld.Admin), OrdersWorld.Olga.Login, null, null, new[] { Roles.Admin }).Ok);
+
+        var mia = world.Actor(OrdersWorld.Mia);
+        Assert.True(mia.CanSignInAs);
+        Assert.False(world.Actor(OrdersWorld.Sam).CanSignInAs);
+        Assert.True((bool)world.Json(world.Call("orders/session", OrdersWorld.Mia))["can"]!["actAs"]!);
+        Assert.False((bool)world.Json(world.Call("orders/session", OrdersWorld.Sam))["can"]!["actAs"]!);
+
+        // Mia's list has the others but not Olga, an administrator here; an administrator's list has Olga.
+        var hers = world.Json(world.Call("orders/people", OrdersWorld.Mia))["people"]!.Select(p => (string)p["login"]!).ToList();
+        Assert.Contains(OrdersWorld.Sam.Login, hers, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(OrdersWorld.Olga.Login, hers, StringComparer.OrdinalIgnoreCase);
+        var admins = world.Json(world.Call("orders/people"))["people"]!.Select(p => (string)p["login"]!).ToList();
+        Assert.Contains(OrdersWorld.Olga.Login, admins, StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(mia.MaySignInAs(new string[0]));
+        Assert.False(mia.MaySignInAs(new[] { Roles.Admin }));
+        Assert.False(mia.MaySignInAs(new string[0], listedAdmin: true));
+        Assert.True(world.Actor(OrdersWorld.Admin).MaySignInAs(new[] { Roles.Admin }, listedAdmin: true));
     }
 
     [Fact]

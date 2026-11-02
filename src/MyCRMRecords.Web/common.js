@@ -457,6 +457,52 @@
     }
   })();
 
+  /* Sign in as… in the person's menu (administrators and Sales Admins; AppPage draws the button only for them):
+     MyCRMRecords then shows what that person sees, until Return to in the bar at the top. It is recorded with both names.
+     Everyone MyCRM has a user for, every salesperson and specialist of a costing sheet and everyone who opened
+     MyCRMRecords; a Sales Admin is not offered the administrators. */
+  async function signInAs() {
+    const answer = await api('GET', 'orders/people');
+    if (!answer.result.ok) { toast(answer.result.message, true); return; }
+    const dialog = document.createElement('dialog');
+    dialog.className = 'act-panel dlg';
+    dialog.innerHTML = `<form method="dialog" class="act-panel-in">${dialogHead('Sign in as someone else', {closeLabel: 'Cancel'})}
+      <div class="act-panel-body"><p class="dlg-text">MyCRMRecords shows what that person sees and works as them until you choose Return in the bar at the top. Everything you do is recorded as you on behalf of them.</p>
+      <label class="field"><span>Find</span><input id="act-q" type="search" placeholder="Name, login, email or MyCRM role" autocomplete="off"></label>
+      <div class="people-list dlg-card" id="act-people" style="max-height:320px;overflow:auto;padding:0"></div></div></form>`;
+    document.body.append(dialog);
+    drawIcons(dialog);
+    const list = $('#act-people', dialog);
+    const draw = () => {
+      const q = $('#act-q', dialog).value.trim().toLowerCase();
+      const people = answer.people.filter(p => !q || `${p.name} ${p.login} ${p.email} ${p.role}`.toLowerCase().includes(q)).slice(0, 60);
+      list.innerHTML = people.length ? people.map(p => `<button type="button" class="person" data-login="${esc(p.login)}" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:none;border-bottom:1px solid var(--border-soft)">
+        <b>${esc(p.name)}</b>${p.role ? ` <span class="tag">${esc(p.role)}</span>` : ''}<span class="sub muted small" style="display:block">${[p.login, p.email].filter(Boolean).map(esc).join(' · ')}</span></button>`).join('')
+        : '<p class="muted">Nobody found.</p>';
+    };
+    draw();
+    $('#act-q', dialog).addEventListener('input', draw);
+    list.addEventListener('click', async event => {
+      const person = event.target.closest('[data-login]');
+      if (!person) return;
+      const result = await api('POST', 'users/impersonate', {login: person.dataset.login});
+      toast(result.result.message, !result.result.ok);
+      if (result.result.ok) location.href = './';
+    });
+    $('button[value=cancel]', dialog)?.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => dialog.remove());
+    dialog.showModal();
+    $('#act-q', dialog).focus();
+  }
+  document.addEventListener('click', event => {
+    if (!event.target.closest('[data-sign-in-as]')) return;
+    const avatarMenu = $('#avatar-menu');
+    if (avatarMenu) avatarMenu.hidden = true;
+    const more = $('#more-sheet');
+    if (more && !more.hidden) $('#more-close')?.click();
+    signInAs();
+  });
+
   window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, dialogHead, showErrors, param, pager, change, upload,
     coverageTag, coverageText, machineUrl, crumbs};
 })();

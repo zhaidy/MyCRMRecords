@@ -131,19 +131,27 @@ public sealed class ApiHandler : IHttpHandler
         catch (Exception) { return false; }
     }
 
+    private static bool IsSalesAdmin(ApiUser user)
+    {
+        try { return user.ToActor(Services.App.People).CanSignInAs; }
+        catch (Exception) { return false; }
+    }
+
     private sealed class ImpersonateInput
     {
         public string? Login { get; set; }
     }
 
     /// <summary>
-    /// "Sign in as" on the User roles page and the Costing sheets page (administrators only; recorded): the person's
-    /// cookie replaces theirs, carrying who to return to.
+    /// "Sign in as" on the User roles page and in the person's menu (administrators and Sales Admins; recorded): the
+    /// person's cookie replaces theirs, carrying who to return to. A Sales Admin who is not an administrator cannot sign in
+    /// as an administrator (given the role here or listed in Web.config), so they never get more than they have.
     /// </summary>
     private static ApiResponse Impersonate(HttpContext context, string body, ApiUser user)
     {
         if (user.Impersonator is not null) return ApiResponse.Forbidden("Return to your own account first.");
-        if (!IsAdmin(user)) return ApiResponse.Forbidden("Only administrators can sign in as someone else.");
+        var admin = IsAdmin(user);
+        if (!admin && !IsSalesAdmin(user)) return ApiResponse.Forbidden("Only administrators and Sales Admins can sign in as someone else.");
         ImpersonateInput input;
         try { input = MyCRMRecords.Json.Deserialize<ImpersonateInput>(body) ?? new ImpersonateInput(); }
         catch (Newtonsoft.Json.JsonException) { return ApiResponse.BadRequest(); }
@@ -154,7 +162,10 @@ public sealed class ApiHandler : IHttpHandler
         PersonToSignInAs? listed = null;
         try { listed = Services.App.OrdersAccess.PeopleToSignInAs(Services.App.People.Everyone()).FirstOrDefault(p => string.Equals(p.Login, login, StringComparison.OrdinalIgnoreCase)); }
         catch (Exception) { /* MyOrders cannot be read just now: only the people MyCRMRecords knows. */ }
-        if (person is null && listed is null && Services.App.People.RolesOf(login).Count == 0) return ApiResponse.NotFound();
+        var theirRoles = Services.App.People.RolesOf(login);
+        if (person is null && listed is null && theirRoles.Count == 0) return ApiResponse.NotFound();
+        if (!admin && (Admins.IsListed(context, login) || theirRoles.Any(r => string.Equals(r, MyCRMRecords.Domain.Roles.Admin, StringComparison.OrdinalIgnoreCase))))
+            return ApiResponse.Forbidden("Only administrators can sign in as an administrator.");
         var name = person is { DisplayName.Length: > 0 } ? person.DisplayName : listed?.Name ?? login;
         var email = person is { Email.Length: > 0 } ? person.Email : listed?.Email ?? "";
         var target = new ApiUser(person?.Login ?? listed?.Login ?? login, name, email, Impersonator: new ApiUser(user.Login, user.DisplayName, user.Email));

@@ -26,7 +26,7 @@ How MyCRM works, and every rule MyCRMRecords changed on purpose, is in
 | Named territories: a number, a salesperson, companies; moves recorded | Territories, TerritoryDetail, TerritoryUpdate, UserTerritory | `territories.aspx` (`Territories`) |
 | CRM users (role, teams, codes) and teams | Users, CUserDetails, Teams, AdminPage | `people.aspx` (`CrmUsers`) |
 | Advance's customer number of each company | timer UpdateCustomerNo (02:45) | scheduled task *Customer numbers from Advance* (`CustomerNumbers`) |
-| Sign in as someone else | (none) | `users/impersonate` (administrators) |
+| Sign in as someone else | (none) | `users/impersonate` (administrators and Sales Admins, never as an administrator) |
 | MyOrders' costing sheets, read only: list, page, attachments, Download, the costing sheet PDF | MyOrders' CostingSheets, CostingSheetSummary, PDF | `costingsheets.aspx`, `costingsheet.aspx`, `print.aspx` (`CostingSheets`, `OrdersAccess`) |
 | MyOrders' request forms, read only: list, page, attachments, Download, delivery and collection forms | MyOrders' RequestForms, RequestFormSummary, PDF | `requestforms.aspx`, `requestform.aspx`, `requestformprint.aspx` (`RequestForms`) |
 
@@ -94,7 +94,8 @@ What people may do comes from their **MyCRM role**, as in MyCRM: the role of the
 
 MyCRMRecords's own role is **Administrator** (the admin pages, user roles, the audit log, and everything a Sales Admin
 does), given on the User roles page or listed in `MyCRMRecords:Admins` in the server's `Web.Local.config`. *Sign in as*
-opens MyCRMRecords as another person (administrators only; recorded with both names).
+(the person's menu) opens MyCRMRecords as another person (administrators and Sales Admins, a Sales Admin never as an
+administrator; recorded with both names).
 
 ## Storage
 

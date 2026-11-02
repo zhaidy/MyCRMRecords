@@ -131,9 +131,11 @@ public class AppPage : Page
             .Append($"<a class=\"help-button{(current == "guide.aspx" ? " selected" : "")}\" id=\"guide-button\" href=\"guide.aspx{(guideSection.Length > 0 ? "#" + guideSection : "")}\" title=\"User guide\" aria-label=\"User guide\"><span data-icon=\"help\"></span></a>")
             // Install app (common.js): on a computer, a QR code to open MyCRMRecords on a phone and install it there.
             .Append("<button type=\"button\" class=\"install-button\" id=\"install-button\" hidden><span data-icon=\"phone-download\"></span><span class=\"install-label\">Install app</span></button>")
-            // The person: their initials; a click shows their name and login and Sign out (common.js).
+            // The person: their initials; a click shows their name and login, Sign in as… (administrators and Sales
+            // Admins, common.js) and Sign out.
             .Append($"<span class=\"avatar-wrap\"><button type=\"button\" class=\"avatar\" id=\"avatar-button\" aria-haspopup=\"true\" aria-expanded=\"false\" aria-controls=\"avatar-menu\" title=\"{HttpUtility.HtmlAttributeEncode(DisplayName)} ({HttpUtility.HtmlAttributeEncode(Login)})\" aria-label=\"Signed in as {HttpUtility.HtmlAttributeEncode(DisplayName)}\">{HttpUtility.HtmlEncode(InitialsOf(DisplayName))}</button>")
             .Append($"<span class=\"avatar-menu\" id=\"avatar-menu\" hidden><span class=\"avatar-menu-name\">{HttpUtility.HtmlEncode(DisplayName)}</span><span class=\"avatar-menu-login\">{HttpUtility.HtmlEncode(Login)}</span>")
+            .Append(MaySignInAs ? "<button type=\"button\" class=\"avatar-menu-item\" data-sign-in-as aria-haspopup=\"dialog\"><span data-icon=\"users\"></span>Sign in as…</button>" : "")
             .Append("<a class=\"avatar-menu-item\" href=\"logout.aspx\"><span data-icon=\"logout\"></span>Sign out</a></span></span>")
             .Append("</div></header>");
         // On a phone the menu is a bar at the bottom of the screen (app.css): Companies, Files, Machines, Orders (the costing
@@ -204,11 +206,15 @@ public class AppPage : Page
             .Append(Group("Records", records))
             .Append(Group("Machines", machines))
             .Append(Group("App", app))
+            .Append(MaySignInAs ? "<div class=\"more-list\"><button type=\"button\" class=\"more-row\" data-sign-in-as aria-haspopup=\"dialog\"><span class=\"more-tile\" style=\"--tile:#0a58f0\" data-icon=\"users\"></span><span class=\"more-label\">Sign in as…</span></button></div>" : "")
             .Append("<div class=\"more-list more-signout\"><a class=\"more-row\" href=\"logout.aspx\"><span class=\"more-tile\" data-icon=\"logout\"></span><span class=\"more-label\">")
             .Append(Person?.Impersonator is { } signedInAs ? "Return to " + HttpUtility.HtmlEncode(signedInAs.DisplayName) : "Sign out").Append("</span></a></div>")
             .Append("<p class=\"more-foot\">MyCRMRecords</p></div></div>");
         return html.ToString();
     }
+
+    /// <summary>Sign in as… in the person's menu: administrators and Sales Admins, not while signed in as someone already.</summary>
+    protected bool MaySignInAs => Person?.Impersonator is null && Actor?.CanSignInAs == true;
 
     /// <summary>The person's MyCRM role ("Sales Admin") and, for administrators, Administrator; their login when neither.</summary>
     protected string RoleLine

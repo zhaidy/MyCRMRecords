@@ -29,7 +29,8 @@ Who does what (your MyCRM role is set on the **CRM users** page):
   access to; see [Machines](#machines). **Sales Admins** give and remove the temporary access
   ([Machine access](#machine-access)).
 - **Administrators** (MyCRMRecords's own role) do everything, keep the settings and the user roles, and may sign in as
-  someone else.
+  someone else. **Sales Admins** may sign in as someone else too, but not as an administrator; see
+  [Signing in as someone else](#signing-in-as-someone-else).
 
 ## Finding your way around
 
@@ -55,6 +56,18 @@ Its title is in the middle; the round **×** at the left closes it
 without saving (so does the Esc key); the button at the right does what the window is for, for example **Save**,
 **Create territory**, **Save changes** or **Take away** (red when it takes something away). When something cannot be
 saved, the window stays open, says why under the form and marks the fields to correct.
+
+### Signing in as someone else
+
+For administrators and Sales Admins, to see MyCRMRecords as another person sees it.
+
+1. Press your initials at the top right (on a phone: **More** in the bar at the bottom) and choose **Sign in as…**.
+2. Type part of a name, login, email address or MyCRM role in **Find**, and press the person. The list has everyone
+   MyCRM has a user for, every salesperson and specialist of a costing sheet, and everyone who has opened
+   MyCRMRecords. Sales Admins are not offered the administrators, and cannot sign in as one.
+3. MyCRMRecords opens the Companies page as that person, with a bar at the top saying so. Everything you do is recorded
+   as done by you on their behalf.
+4. Press **Return to** in the bar (or in your menu) to go back to your own account.
 
 ## Using MyCRMRecords on a phone
 
@@ -114,7 +127,6 @@ the title says how many there are.
 - **Upload number of employees** (MyCRM Admins): choose an Excel workbook with the columns **BRN** and
   **NoOfEmployees** (**Download a sample** gives one). The first active company with each BRN gets the number; rows
   with no such company are skipped and counted.
-- **Sign in as…** (administrators) opens MyCRMRecords as someone else; see [User roles](#user-roles).
 - **Download** (at the top) gives the **Company summary**, an Excel workbook of **every** company that matches the
   search, filters and **All**, **Mine** or **No salesperson** you chose (not only the 50 on the page), as you may open
   them: company, BRN, customer code, customer type, group name, account type, industry, salesperson, their team and
@@ -566,8 +578,6 @@ and **Costing sheets** / **Request forms** at the top switches between the two l
 - Opened from a company's page (**See all** under *Costing Sheets and Request Forms*), the list shows only that
   company's costing sheets, with no other filter; **Show every company** goes back to the whole list (and your own
   search and filters).
-- **Sign in as…** (administrators) opens MyCRMRecords as someone else, chosen among everyone MyCRM or a costing sheet
-  names, to see the costing sheets they see; see [User roles](#user-roles).
 
 ## A costing sheet
 
@@ -695,7 +705,8 @@ set on the [CRM users](#crm-users) page. The role here is MyCRMRecords's own: **
 - **People with a role** lists the administrators; untick and press **Save** to take the role away. The role is kept
   in the database, marked as taken away (when, and by whom), not deleted.
 - **Sign in as** opens MyCRMRecords as that person, to see what they see. A bar at the top says so; **Return to**
-  goes back to your own account. Everything you do is recorded as done by you on their behalf.
+  goes back to your own account. Everything you do is recorded as done by you on their behalf. You can also sign in as
+  someone from any page; see [Signing in as someone else](#signing-in-as-someone-else).
 
 ## Settings
 
