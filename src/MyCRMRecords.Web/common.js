@@ -423,6 +423,20 @@
         }
       }
       body.classList.toggle('has-fab', $$('main .phone-fab').some(b => !b.hidden && b.getClientRects().length > 0));
+      reserve();
+    };
+    /* On a phone the page's actions float at the top right of the bar (app.css): the bar's title keeps clear of them
+       (--bar-actions, their width), so neither covers the other. */
+    const reserve = () => {
+      const actions = $('main .page-heading>.heading-actions');
+      const fixed = actions && !actions.hidden && getComputedStyle(actions).position === 'fixed';
+      let width = 0;
+      if (fixed) $$(':scope>*', actions).forEach(a => {
+        if (a.hidden || !a.getClientRects().length || getComputedStyle(a).position === 'fixed') return;
+        const r = a.getBoundingClientRect();
+        width = Math.max(width, innerWidth - r.left);
+      });
+      document.body.style.setProperty('--bar-actions', Math.ceil(width) + 'px');
     };
     back?.addEventListener('click', event => {
       const section = $('main .in-section .section-back');
@@ -431,6 +445,7 @@
     const schedule = () => { if (!syncing) { syncing = true; requestAnimationFrame(sync); } };
     const main = document.querySelector('main');
     if (main) new MutationObserver(schedule).observe(main, {childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden']});
+    addEventListener('resize', schedule);
     schedule();
     // The person's menu: name, login and Sign out behind the avatar.
     const avatar = $('#avatar-button', bar), card = $('#avatar-menu', bar);

@@ -2005,8 +2005,9 @@ dialog.act-panel,dialog.dlg,dialog.dlg-ask{margin:32px auto auto;max-height:calc
   body.has-back .appbar-back svg{width:20px;height:20px;stroke-width:2.3}
   body.has-back main .crumbs{display:none}
   body.has-back #page.in-section .section-back{display:none}
-  .appbar-title{flex:1 1 auto;text-align:center;padding:0 52px 0 0}
-  body:not(.has-back) .appbar-title{padding:0 0 0 0}
+  /* The title keeps clear of the page's actions at the right (--bar-actions, common.js) */
+  .appbar-title{flex:1 1 auto;text-align:center;padding:0 max(0px,calc(var(--bar-actions,0px) - 4px)) 0 0}
+  body.has-back .appbar-title{padding-right:max(52px,calc(var(--bar-actions,0px) - 4px))}
   body.bar-titled .appbar-title{opacity:1}
   body:before{height:calc(64px + env(safe-area-inset-top))}
   .impersonation-bar{margin:calc(60px + env(safe-area-inset-top)) 12px 0}

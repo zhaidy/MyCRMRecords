@@ -70,11 +70,12 @@ Settings, Deployment and Audit log, marked **Admin**). **Sign out** is at the bo
 On a phone there is no bar at the top: the page starts with its large title. On a record's page (a company, a
 territory, a project, a machine…) the round back button at the top left goes back the way you came (in a company's
 section, back to the company), and the page's buttons (for example print and edit on a company) float at the top right,
-as icons. Once you scroll past a page's large title, the title shows at the top of the screen. The user guide, Install
+as icons. Once you scroll past a page's large title, the title shows at the top of the screen, between the back button
+and the page's buttons (cut short with … when it is long). The user guide, Install
 the app, your name and **Sign out** are on the **More** screen.
 
-On Territories, Activities, Projects and a company's page, the round **+** beside the bottom bar is the page's create
-button: **New territory**, **New activity** or **Create project**.
+On Companies, Territories, Activities, Projects and a company's page, the round **+** beside the bottom bar is the
+page's create button: **New company**, **New territory**, **New activity** or **Create project**.
 
 To put MyCRMRecords on your phone's home screen, so it opens like an app, full screen:
 
