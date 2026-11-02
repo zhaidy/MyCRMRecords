@@ -62,6 +62,40 @@ public sealed class ReportTests
     }
 
     [Fact]
+    public void The_company_summary_has_each_companys_contacts_with_their_phones_and_emails()
+    {
+        var (world, tan, lim, _) = Setup();
+        using var _w = world;
+        var admin = world.Actor(TestWorld.Admin);
+        // As 3 Mobile Telecom: no company phone, a contact who is not the primary one with a phone and an email.
+        Assert.True(world.D.Companies.SaveContact(admin, lim.Id, 0, new Companies.ContactInput
+        {
+            FirstName = "Chia", LastName = "May", Department = "HR",
+            Emails = [new Companies.EmailInput { Address = "Maychia@m-dr.com" }],
+            Phones = [new Companies.PhoneInput { Number = "6347 8945" }],
+        }).Ok);
+        Assert.True(world.D.Companies.SaveContact(admin, lim.Id, 0, new Companies.ContactInput
+        {
+            FirstName = "Zed", LastName = "Primary", IsDefault = true,
+            Emails = [new Companies.EmailInput { Address = "zed@lim.example" }, new Companies.EmailInput { Address = "accounts@lim.example" }],
+        }).Ok);
+        // A contact taken away is left out.
+        var gone = world.D.Companies.SaveContact(admin, lim.Id, 0, new Companies.ContactInput { FirstName = "Old", LastName = "Gone",
+            Phones = [new Companies.PhoneInput { Number = "9999 0000" }] }).Id!.Value;
+        Assert.True(world.D.Companies.RemoveContact(admin, lim.Id, gone).Ok);
+
+        var l = world.D.Reports.CompanySummary(admin, new Companies.ListFilter()).Lines.Single(x => x.Company.Id == lim.Id);
+        Assert.Equal("Zed Primary; Chia May", l.Contacts);
+        Assert.Equal("6347 8945", l.ContactPhones);
+        Assert.Equal("accounts@lim.example; zed@lim.example; Maychia@m-dr.com", l.ContactEmails);
+        Assert.Equal(("", "", ""), (world.D.Reports.CompanySummary(admin, new Companies.ListFilter()).Lines.Single(x => x.Company.Id == tan.Id) is var t ? (t.Contacts, t.ContactPhones, t.ContactEmails) : default));
+
+        var row = Sheet(new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string> { ["show"] = Companies.NoSalesperson }, TestWorld.Admin)).Single();
+        Assert.Equal(("Lim Trading", "Zed Primary; Chia May", "6347 8945"), (row["Company"], row["Contacts"], row["Contact phones"]));
+        Assert.Contains("Maychia@m-dr.com", row["Contact emails"]);
+    }
+
+    [Fact]
     public void The_company_summary_download_has_only_the_companies_the_person_may_open()
     {
         var (world, tan, _, _) = Setup();

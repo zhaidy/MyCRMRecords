@@ -363,7 +363,9 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     company of the page's search, filters and All / Mine / No salesperson, as the list's rule allows, with its
     salesperson (`Territories.Owners`), team and managers (`CUser`, `Team`), territory, first postal code and billing
     (else default) address, caretake remarks (`CompanyCaretake`) and caretakers (MyCRM's `companyOwnerCaretake`, for all
-    companies at once). Reports 17 *Projects* and 08 *Caretake Account* are the Projects page's **Download**
+    companies at once). Beside the company's own phone (often empty: MyCRM keeps most numbers on contacts) it lists
+    the company's active contacts, primary first, with their active phones and emails (added 2026-11-02; MyCRM's
+    report had no contacts). Reports 17 *Projects* and 08 *Caretake Account* are the Projects page's **Download**
     (`file.ashx/projects`, `Reports.ProjectsReport`): the list's projects, and a line per project company with its
     account owner and the project's caretakers, each with whether their temporary territory gives them the company.
     Both read a thousand companies per query, never one per company; at most 100,000 companies (10,000 projects) per

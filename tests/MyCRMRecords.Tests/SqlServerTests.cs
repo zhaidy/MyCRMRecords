@@ -401,6 +401,8 @@ public sealed class SqlServerTests
         var lim = lines.Single(l => l.Company.Id == 7);
         Assert.Equal(("Territory 1203", "Mia Manager", "654321", "2 Lim Street, 654321"), (lim.Territory, lim.Team, lim.PostalCode, lim.BillingAddress));
         Assert.Equal(("SME", "Lim Group", "Non-User"), (lim.CustomerType, lim.GroupName, lim.AccountType));
+        // The contacts with their phones and emails, read from MyCRM's tables.
+        Assert.Equal(("Mei Lim", "91234567", "mei@lim.example"), (lim.Contacts, lim.ContactPhones, lim.ContactEmails));
         Assert.EndsWith("(Cover)", lim.Caretakers);
         Assert.EndsWith("(Cover)", lines.Single(l => l.Company.Id == tan).Caretakers);
         Assert.Equal(new[] { tan }, d.Reports.CompanySummary(admin, new Companies.ListFilter(Show: Companies.NoSalesperson)).Lines.Select(l => l.Company.Id));
