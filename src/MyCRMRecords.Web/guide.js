@@ -222,7 +222,7 @@
     article.innerHTML = html;
     const tocItems = headings.filter(h => h.level === 2 || h.level === 3);
     toc.innerHTML = `<ol>${tocItems.map(h => `<li class="toc-${h.level}"><a href="#${esc(h.id)}">${esc(h.text)}</a></li>`).join('')}</ol>`;
-    const narrow = matchMedia('(max-width: 900px)');
+    const narrow = matchMedia('(max-width: 56.25em)');
     if (narrow.matches) contents.open = false;
 
     // The contents follow the search: only the sections and parts shown are listed.

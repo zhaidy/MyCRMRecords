@@ -180,16 +180,16 @@ public class AppPage : Page
             return list.Count == 0 ? "" : $"<section class=\"more-group\" aria-label=\"{title}\"><h2>{title}</h2><div class=\"more-list\">{string.Concat(list)}</div></section>";
         }
         var records = new List<string>();
-        if (CanManageTerritories) records.Add(Row("territories.aspx", "matrix", "#0891b2", "Territories"));
-        if (IsSalesAdmin) records.Add(Row("people.aspx", "users", "#0a58f0", "CRM users"));
+        if (CanManageTerritories) records.Add(Row("territories.aspx", "matrix", "var(--hue-cyan)", "Territories"));
+        if (IsSalesAdmin) records.Add(Row("people.aspx", "users", "var(--hue-blue)", "CRM users"));
         var machines = new List<string>();
-        if (IsSalesAdmin) machines.Add(Row("machineaccess.aspx", "shield", "#e59a0b", "Machine access"));
-        var app = new List<string> { Row("guide.aspx", "help", "#64748b", "User guide") };
+        if (IsSalesAdmin) machines.Add(Row("machineaccess.aspx", "shield", "var(--hue-amber)", "Machine access"));
+        var app = new List<string> { Row("guide.aspx", "help", "var(--hue-slate)", "User guide") };
         if (IsAdmin)
             app.AddRange(new[]
             {
-                Row("users.aspx", "key", "#64748b", "User roles", true), Row("admin.aspx", "database", "#64748b", "Settings", true),
-                Row("deployment.aspx", "history", "#64748b", "Deployment", true), Row("audit.aspx", "audit", "#64748b", "Audit log", true),
+                Row("users.aspx", "key", "var(--hue-slate)", "User roles", true), Row("admin.aspx", "database", "var(--hue-slate)", "Settings", true),
+                Row("deployment.aspx", "history", "var(--hue-slate)", "Deployment", true), Row("audit.aspx", "audit", "var(--hue-slate)", "Audit log", true),
             });
         var html = new StringBuilder();
         html.Append("<div class=\"more-sheet\" id=\"more-sheet\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"more-title\" hidden>")
@@ -201,12 +201,12 @@ public class AppPage : Page
             .Append("<section class=\"more-card more-install\" id=\"more-install\" aria-label=\"Install the app\" hidden><span class=\"more-app-icon\" aria-hidden=\"true\">").Append(Brand.Mark).Append("</span>")
             .Append("<span class=\"more-who\"><b data-install-title>Install the app</b><span data-install-text>Add MyCRMRecords to your home screen.</span></span>")
             .Append("<button type=\"button\" class=\"button primary small-btn\" id=\"more-install-button\" aria-haspopup=\"dialog\">Install</button></section>")
-            .Append(Group("Sales", new[] { Row("projects.aspx", "briefcase", "#0d9488", "Projects"), Row("activities.aspx", "calendar", "#f2675a", "Activities"),
-                Row("prospects.aspx", "chart", "#e59a0b", "Prospects"), Row("dormant.aspx", "clock", "#7c6ad9", "Dormant") }))
+            .Append(Group("Sales", new[] { Row("projects.aspx", "briefcase", "var(--hue-teal)", "Projects"), Row("activities.aspx", "calendar", "var(--hue-coral)", "Activities"),
+                Row("prospects.aspx", "chart", "var(--hue-amber)", "Prospects"), Row("dormant.aspx", "clock", "var(--hue-lavender)", "Dormant") }))
             .Append(Group("Records", records))
             .Append(Group("Machines", machines))
             .Append(Group("App", app))
-            .Append(MaySignInAs ? "<div class=\"more-list\"><button type=\"button\" class=\"more-row\" data-sign-in-as aria-haspopup=\"dialog\"><span class=\"more-tile\" style=\"--tile:#0a58f0\" data-icon=\"users\"></span><span class=\"more-label\">Sign in as…</span></button></div>" : "")
+            .Append(MaySignInAs ? "<div class=\"more-list\"><button type=\"button\" class=\"more-row\" data-sign-in-as aria-haspopup=\"dialog\"><span class=\"more-tile\" style=\"--tile:var(--hue-blue)\" data-icon=\"users\"></span><span class=\"more-label\">Sign in as…</span></button></div>" : "")
             .Append("<div class=\"more-list more-signout\"><a class=\"more-row\" href=\"logout.aspx\"><span class=\"more-tile\" data-icon=\"logout\"></span><span class=\"more-label\">")
             .Append(Person?.Impersonator is { } signedInAs ? "Return to " + HttpUtility.HtmlEncode(signedInAs.DisplayName) : "Sign out").Append("</span></a></div>")
             .Append("<p class=\"more-foot\">MyCRMRecords</p></div></div>");
