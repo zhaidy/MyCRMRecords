@@ -69,6 +69,14 @@ public sealed record Actor(string Login, string DisplayName, string Email, IRead
     public bool IsSalesAdmin => IsAdmin || CrmSalesAdmin;
     /// <summary>The territories: Sales Admins, and MD (MyCRM's bulk transfer screen let MD move companies).</summary>
     public bool CanManageTerritories => IsSalesAdmin || CrmRole == CrmRoles.Md;
+    /// <summary>
+    /// "Sign in as…" in the person's menu (recorded): administrators and Sales Admins. A Sales Admin who is not an
+    /// administrator never signs in as an administrator (<see cref="MaySignInAs"/>).
+    /// </summary>
+    public bool CanSignInAs => IsSalesAdmin;
+    /// <summary>Whether the person may sign in as someone with these roles here: an administrator only by administrators.</summary>
+    public bool MaySignInAs(IReadOnlyList<string> theirRoles, bool listedAdmin = false) =>
+        CanSignInAs && (IsAdmin || !(listedAdmin || theirRoles.Any(r => string.Equals(r, Domain.Roles.Admin, StringComparison.OrdinalIgnoreCase))));
     /// <summary>MyCRM shows the address and contact buttons to every role but Marketing.</summary>
     public bool CanEditContacts => IsAdmin || CrmRole != CrmRoles.Marketing;
     /// <summary>MyCRM's UserCanAccessCompany: these roles open every company.</summary>

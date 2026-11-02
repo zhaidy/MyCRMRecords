@@ -173,8 +173,8 @@ public sealed class CrmApi(CrmApp w, Func<string, IReadOnlyList<DirectoryPerson>
     {
         admin = actor.IsAdmin, salesAdmin = actor.IsSalesAdmin, territories = actor.CanManageTerritories, editContacts = actor.CanEditContacts,
         seesAll = actor.SeesAllCompanies, uploadEmployees = actor.IsAdmin || actor.CrmRole == CrmRoles.Admin,
-        // Signing in as someone else (recorded in the audit log): administrators only.
-        actAs = actor.IsAdmin,
+        // Signing in as someone else (recorded in the audit log): administrators and Sales Admins.
+        actAs = actor.CanSignInAs,
     };
 
     private static object Choices(ChoiceList list, params string[] inactive) =>

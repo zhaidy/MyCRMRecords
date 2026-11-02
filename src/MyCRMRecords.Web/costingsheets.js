@@ -91,12 +91,9 @@
   function reset() { everyCompany(); Object.assign(filter, blank, {skip: 0}); moreOpen = false; page.innerHTML = ''; load(); }
 
   function actions() {
-    const signIn = session && session.can.actAs && !session.impersonating;
     $('#actions').innerHTML = `<div class="action-capsule" role="group" aria-label="Costing sheet actions">
-      ${signIn ? '<button type="button" class="capsule-button" id="act-as" title="Sign in as…"><span data-icon="users"></span><span class="action-label">Sign in as…</span></button><span class="capsule-divider" aria-hidden="true"></span>' : ''}
       <a class="capsule-button" id="download" href="file.ashx/costingsheets?${esc(query().toString())}" title="Download"><span data-icon="excel"></span><span class="action-label">Download</span></a></div>`;
     drawIcons($('#actions'));
-    $('#act-as')?.addEventListener('click', actAs);
   }
 
   // One line per costing sheet; the headings sort as before (Number, Company, Sales rep, Created, Achieved, Invoice, OPO).
@@ -211,41 +208,6 @@
     sheet.showModal();
   }
 
-  /** Sign in as someone else (administrators): MyCRMRecords then shows what that person sees; it is recorded with both names. */
-  async function actAs() {
-    const answer = await api('GET', 'orders/people');
-    if (!answer.result.ok) { toast(answer.result.message, true); return; }
-    const dialog = document.createElement('dialog');
-    dialog.className = 'act-panel dlg';
-    dialog.innerHTML = `<form method="dialog" class="act-panel-in">${window.WH.dialogHead('Sign in as someone else', {closeLabel: 'Cancel'})}
-      <div class="act-panel-body"><p class="dlg-text">MyCRMRecords shows what that person sees until you choose Return in the bar at the top. Signing in as them is recorded.</p>
-      <label class="field"><span>Find</span><input id="act-q" type="search" placeholder="Name, login, email or MyCRM role" autocomplete="off"></label>
-      <div class="people-list dlg-card" id="act-people" style="max-height:320px;overflow:auto;padding:0"></div></div></form>`;
-    document.body.append(dialog);
-    drawIcons(dialog);
-    const list = $('#act-people', dialog);
-    const draw = () => {
-      const q = $('#act-q', dialog).value.trim().toLowerCase();
-      const people = answer.people.filter(p => !q || `${p.name} ${p.login} ${p.email} ${p.role}`.toLowerCase().includes(q)).slice(0, 60);
-      list.innerHTML = people.length ? people.map(p => `<button type="button" class="person" data-login="${esc(p.login)}" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:none;border-bottom:1px solid var(--border-soft)">
-        <b>${esc(p.name)}</b>${p.role ? ` <span class="tag">${esc(p.role)}</span>` : ''}<span class="sub muted small" style="display:block">${[p.login, p.email].filter(Boolean).map(esc).join(' · ')}</span></button>`).join('')
-        : `<p class="muted">${q ? 'Nobody found. Everyone MyCRM has a user for is here, and every salesperson and specialist of a costing sheet.' : 'Nobody to sign in as: MyOrders cannot be read just now.'}</p>`;
-    };
-    draw();
-    $('#act-q', dialog).addEventListener('input', draw);
-    list.addEventListener('click', async event => {
-      const person = event.target.closest('[data-login]');
-      if (!person) return;
-      const result = await api('POST', 'users/impersonate', {login: person.dataset.login});
-      toast(result.result.message, !result.result.ok);
-      if (result.result.ok) location.href = 'costingsheets.aspx';
-    });
-    $('button[value=cancel]', dialog).addEventListener('click', () => dialog.close());
-    dialog.addEventListener('close', () => dialog.remove());
-    dialog.showModal();
-    $('#act-q', dialog).focus();
-  }
-
   page.addEventListener('click', event => {
     const sort = event.target.closest('[data-sort]');
     if (sort) {
@@ -267,7 +229,7 @@
 
   (async () => {
     const [answer, filters] = await Promise.all([api('GET', 'orders/session'), api('GET', 'costingsheets/filters')]);
-    session = answer.result.ok ? {can: answer.can, impersonating: !!$('.impersonation-bar:not(.warning-bar)')} : null;
+    session = answer.result.ok ? {can: answer.can} : null;
     choices = filters.result.ok ? filters : {statuses: [], salesReps: [], specialists: []};
     load();
   })();

@@ -1496,6 +1496,7 @@ button.avatar:hover,button.avatar[aria-expanded=true]{box-shadow:inset 0 0 0 2px
 .avatar-menu-item{display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border-radius:16px;color:var(--glass-fg);font-weight:600;text-decoration:none}
 .avatar-menu-item:hover{background:var(--accent-light);color:var(--accent)}
 .avatar-menu-item svg{width:18px;height:18px}
+button.avatar-menu-item,button.more-row{width:100%;border:0;background:none;font:inherit;text-align:left}
 
 /* Breadcrumb (WH.crumbs): the way you came; on a phone only the step back */
 .crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin:0 0 8px;font-size:14px;line-height:1.4;min-width:0}
@@ -1812,6 +1813,8 @@ body.more-open .tabbar{z-index:38}
 .more-row{position:relative}
 .more-row+.more-row:before{content:"";position:absolute;left:58px;right:0;top:0;height:1px;background:var(--line)}
 .more-row:hover,.more-row.selected{background:var(--surface)}
+button.more-row{font-size:15px;color:var(--ink)}
+button.avatar-menu-item:hover{background:var(--accent-light)}
 .more-tile{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;background:var(--tile,#64748b)}
 .more-tile svg{width:18px;height:18px}
 .more-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

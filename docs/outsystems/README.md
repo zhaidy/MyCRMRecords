@@ -212,7 +212,8 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
     every company with an empty BRN; companies already in the territory are shown instead of skipped silently; the
     list is kept on the page (MyCRM's `TempCompanies` scratch table is not used).
 15. **MD keeps the territories like a Sales Admin** (MyCRM let MD only use the bulk transfer screen), and **only
-    administrators sign in as someone else**.
+    administrators and Sales Admins sign in as someone else** (a Sales Admin never as an administrator; from the
+    person's menu, decided 2026-11-02).
 16. **Not carried over**: the postal-code look-up from Google on the address form (not wanted, decided 2026-10-19); the company list's contract-date filters (they read `ExpireMachine`, which stays in MyCRM); the
     MSD sales rep on the company page (MyCRMMSD stays in MyCRM; the caretakers from projects are shown again since
     the projects are read here, as MyCRM's companyOwnerCaretake did); the company page's Competitors and Purchase

@@ -7,7 +7,7 @@
   // All, Mine (their and their team's permanent territories) or No salesperson (in no permanent territory: MyCRM's
   // "Unassigned Companies"), and those who keep territories tick companies without a salesperson and put them in a
   // territory (the Territories page's own "add"). Sales Admins add companies; MyCRM Admins upload the number of
-  // employees; administrators may sign in as someone else. On a phone: a card per company, the filters in a sheet.
+  // employees. On a phone: a card per company, the filters in a sheet.
   const {$, $$, esc, api, toast, drawIcons, pager} = window.WH;
   const {companyForm, uploadDialog, dialog, refused} = window.CRM;
   const page = $('#page');
@@ -89,13 +89,11 @@
 
   function actions() {
     const can = data.can;
-    const signIn = session && session.can.actAs && !session.impersonating;
     // Download: the Company summary of every company that matches (not just this page); Print: the page as shown.
     const download = new URLSearchParams({q: filter.q, customerType: filter.customerType, groupName: filter.groupName, postalCode: filter.postalCode, show: filter.show});
     const more = [
       `<a class="capsule-button" id="download" href="file.ashx/companies?${esc(download.toString())}" title="Download the Company summary of every company that matches (Excel)"><span data-icon="excel"></span><span class="action-label">Download</span></a>`,
       '<button type="button" class="capsule-button companies-wide" id="print" title="Print this page"><span data-icon="printer"></span><span class="action-label">Print</span></button>',
-      signIn ? '<button type="button" class="capsule-button" id="act-as" title="Sign in as…"><span data-icon="users"></span><span class="action-label">Sign in as…</span></button>' : '',
       can.uploadEmployees ? '<button type="button" class="capsule-button" id="employees" title="Upload number of employees"><span data-icon="upload"></span><span class="action-label">Upload number of employees</span></button>' : '',
     ].filter(Boolean);
     $('#actions').innerHTML = `
@@ -105,7 +103,6 @@
       ${more.length ? `<div class="action-capsule" role="group" aria-label="More actions">${more.join('<span class="capsule-divider" aria-hidden="true"></span>')}</div>` : ''}
       ${can.create ? '<button type="button" class="button primary" id="new-company" title="New company"><span data-icon="plus"></span><span class="action-label">New company</span></button>' : ''}`;
     drawIcons($('#actions'));
-    $('#act-as')?.addEventListener('click', actAs);
     $('#print').addEventListener('click', () => window.print());
     $('#download').addEventListener('click', () => toast(data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…'));
     $('#new-company')?.addEventListener('click', async () => {
@@ -285,47 +282,13 @@
     });
   }
 
-  /** Sign in as someone else (administrators): MyCRMRecords then works as that person; everything is recorded with both names. */
-  async function actAs() {
-    const answer = await api('GET', 'people');
-    if (!answer.result.ok) { toast(answer.result.message, true); return; }
-    const dialog = document.createElement('dialog');
-    dialog.className = 'act-panel dlg';
-    dialog.innerHTML = `<form method="dialog" class="act-panel-in">${window.WH.dialogHead('Sign in as someone else', {closeLabel: 'Cancel'})}
-      <div class="act-panel-body"><p class="dlg-text">MyCRMRecords works as that person until you choose Return in the bar at the top. Everything you do is recorded as you on behalf of them.</p>
-      <label class="field"><span>Find</span><input id="act-q" type="search" placeholder="Name, login or email" autocomplete="off"></label>
-      <div class="people-list dlg-card" id="act-people" style="max-height:320px;overflow:auto;padding:0"></div></div></form>`;
-    document.body.append(dialog);
-    drawIcons(dialog);
-    const list = $('#act-people', dialog);
-    const draw = () => {
-      const q = $('#act-q', dialog).value.trim().toLowerCase();
-      const people = answer.people.filter(p => !q || `${p.name} ${p.login} ${p.email}`.toLowerCase().includes(q)).slice(0, 60);
-      list.innerHTML = people.length ? people.map(p => `<button type="button" class="person" data-login="${esc(p.login)}" style="display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:none;border-bottom:1px solid var(--border-soft)">
-        <b>${esc(p.name)}</b><span class="sub muted small" style="display:block">${esc(p.login)} · ${esc(p.email)}</span></button>`).join('') : '<p class="muted">Nobody found.</p>';
-    };
-    draw();
-    $('#act-q', dialog).addEventListener('input', draw);
-    list.addEventListener('click', async event => {
-      const person = event.target.closest('[data-login]');
-      if (!person) return;
-      const result = await api('POST', 'users/impersonate', {login: person.dataset.login});
-      toast(result.result.message, !result.result.ok);
-      if (result.result.ok) location.href = './';
-    });
-    $('button[value=cancel]', dialog).addEventListener('click', () => dialog.close());
-    dialog.addEventListener('close', () => dialog.remove());
-    dialog.showModal();
-    $('#act-q', dialog).focus();
-  }
-
   try {
     const flash = sessionStorage.getItem('flash');
     if (flash) { sessionStorage.removeItem('flash'); setTimeout(() => toast(flash), 300); }
   } catch { /* nothing to show */ }
   (async () => {
     const [answer, listsAnswer] = await Promise.all([api('GET', 'session'), api('GET', 'lists')]);
-    session = answer.result.ok ? {can: answer.can, myCrm: answer.myCrm, impersonating: !!$('.impersonation-bar:not(.warning-bar)')} : null;
+    session = answer.result.ok ? {can: answer.can, myCrm: answer.myCrm} : null;
     lists = listsAnswer.result.ok ? listsAnswer : {companyGroups: [], groupNames: [], advanceCustomerTypes: [], compAccountTypes: [], compOwnerships: []};
     load();
   })();

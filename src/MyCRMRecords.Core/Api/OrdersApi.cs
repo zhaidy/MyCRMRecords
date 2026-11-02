@@ -6,7 +6,7 @@ namespace MyCRMRecords.Api;
 
 /// <summary>
 /// The API behind MyCRMRecords's pages (api.ashx/...), as the signed-in person: the costing sheets they may see (the
-/// list and its filters, a costing sheet's page) and, for administrators, the people to sign in as. Everything is read
+/// list and its filters, a costing sheet's page) and, for administrators and Sales Admins, the people to sign in as. Everything is read
 /// only: MyCRMRecords changes nothing in MyOrders or MyCRM.
 /// </summary>
 public sealed class OrdersApi(CrmApp w)
@@ -111,10 +111,15 @@ public sealed class OrdersApi(CrmApp w)
                 }
                 case "orders" when parts.Length == 2 && parts[1] == "people":
                 {
-                    // The people an administrator may sign in as.
+                    // The people an administrator or a Sales Admin may sign in as (a Sales Admin: not the administrators).
                     var actor = user.ToActor(w.People);
-                    if (!actor.IsAdmin) return ApiResponse.Forbidden("Only administrators sign in as someone else.");
-                    return ApiResponse.Of(new { people = w.OrdersAccess.PeopleToSignInAs(w.People.Everyone()).Select(p => new { p.Login, p.Name, p.Email, p.Role }) });
+                    if (!actor.CanSignInAs) return ApiResponse.Forbidden("Only administrators and Sales Admins sign in as someone else.");
+                    return ApiResponse.Of(new
+                    {
+                        people = w.OrdersAccess.PeopleToSignInAs(w.People.Everyone())
+                            .Where(p => actor.IsAdmin || actor.MaySignInAs(w.People.RolesOf(p.Login)))
+                            .Select(p => new { p.Login, p.Name, p.Email, p.Role }),
+                    });
                 }
             }
             return ApiResponse.NotFound();
@@ -131,7 +136,7 @@ public sealed class OrdersApi(CrmApp w)
     {
         seesAll = actor.SeesAllCostingSheets,
         seesMargins = CostingSheets.SeesMargins(actor),
-        actAs = actor.IsAdmin,
+        actAs = actor.CanSignInAs,
         admin = actor.IsAdmin,
     };
 
