@@ -22,7 +22,8 @@ public sealed class Reports(IRecordStore store, Companies companies, Projects pr
     /// <summary>A line of the Company summary.</summary>
     public sealed record CompanyLine(
         Company Company, string CustomerType, string GroupName, string AccountType, string Industry, string Salesperson, string Team, string Manager,
-        string Territory, string PostalCode, string BillingAddress, string CaretakeRemarks, string Caretakers, string CreatedBy, string UpdatedBy);
+        string Territory, string PostalCode, string BillingAddress, string CaretakeRemarks, string Caretakers, string CreatedBy, string UpdatedBy,
+        string Contacts = "", string ContactPhones = "", string ContactEmails = "");
 
     /// <summary>A project of the projects download: its state (Open, Ended or Closed), companies counted and members with their roles.</summary>
     public sealed record ProjectLine(Project Project, string Status, string State, string Owner, int Companies, string Members, string UpdatedBy);
@@ -74,8 +75,10 @@ public sealed class Reports(IRecordStore store, Companies companies, Projects pr
         var postal = new Dictionary<long, string>();
         var billing = new Dictionary<long, string>();
         var remarks = new Dictionary<long, List<string>>();
+        var contacts = new Dictionary<long, (string Names, string Phones, string Emails)>();
         foreach (var chunk in Chunks(ids))
         {
+            foreach (var pair in ContactsOf(chunk)) contacts[pair.Key] = pair.Value;
             var links = store.Find<CompanyAddressLink>(Query.All().In("CompanyId", chunk)).OrderBy(l => l.Id).ToList();
             var addresses = new Dictionary<long, Address>();
             foreach (var part in Chunks(links.Select(l => l.AddressId)))
@@ -108,9 +111,50 @@ public sealed class Reports(IRecordStore store, Companies companies, Projects pr
                 name(owner), team, manager, owned ? Territories.Title(o.Territory) : "",
                 postal.TryGetValue(c.Id, out var p) ? p : "", billing.TryGetValue(c.Id, out var b) ? b : "",
                 remarks.TryGetValue(c.Id, out var r) ? string.Join("; ", r.Take(10)) : "",
-                caretakers.TryGetValue(c.Id, out var ct) ? ct : "", name(c.CreatedBy), name(c.UpdatedBy));
+                caretakers.TryGetValue(c.Id, out var ct) ? ct : "", name(c.CreatedBy), name(c.UpdatedBy),
+                contacts.TryGetValue(c.Id, out var k) ? k.Names : "", contacts.TryGetValue(c.Id, out k) ? k.Phones : "",
+                contacts.TryGetValue(c.Id, out k) ? k.Emails : "");
         }).ToList();
         return (total, lines);
+    }
+
+    /// <summary>
+    /// The companies' contacts as the company's Contacts block shows them (active, with a first or last name, the primary
+    /// contact first, then by name), for a thousand companies at once: their names, and their active phones and emails
+    /// (each once), joined by "; ".
+    /// </summary>
+    private Dictionary<long, (string Names, string Phones, string Emails)> ContactsOf(List<object> companyIds)
+    {
+        var result = new Dictionary<long, (string, string, string)>();
+        var links = store.Find<CompanyContactLink>(Query.All().In("CompanyId", companyIds));
+        if (links.Count == 0) return result;
+        var named = new Dictionary<long, Contact>();
+        var phones = new List<Phone>();
+        var emails = new List<ContactEmail>();
+        foreach (var part in Chunks(links.Select(l => l.ContactId)))
+        {
+            foreach (var c in store.Find<Contact>(Query.Where("IsActive", true).In("Id", part)))
+                if (c.FirstName.Trim().Length > 0 || c.LastName.Trim().Length > 0) named[c.Id] = c;
+            var asNullable = part.Select(x => (object)(long?)(long)x).ToList();
+            phones.AddRange(store.Find<Phone>(Query.Where("IsActive", true).In("ContactId", asNullable)).Where(p => p.Number.Trim().Length > 0));
+            emails.AddRange(store.Find<ContactEmail>(Query.Where("IsActive", true).In("ContactId", asNullable)).Where(e => e.Address.Trim().Length > 0));
+        }
+        var phonesOf = phones.Where(p => p.ContactId is not null).GroupBy(p => p.ContactId!.Value).ToDictionary(g => g.Key, g => g.OrderBy(p => p.Id).Select(p => p.Number.Trim()).ToList());
+        var emailsOf = emails.Where(e => e.ContactId is not null).GroupBy(e => e.ContactId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Address.Trim()).OrderBy(a => a, StringComparer.OrdinalIgnoreCase).ToList());
+        foreach (var group in links.GroupBy(l => l.CompanyId))
+        {
+            var defaults = new HashSet<long>(group.Where(l => l.IsDefault).Select(l => l.ContactId));
+            var shown = group.Select(l => l.ContactId).Distinct().Where(named.ContainsKey).Select(id => named[id])
+                .OrderByDescending(c => defaults.Contains(c.Id)).ThenBy(Companies.ContactName, StringComparer.OrdinalIgnoreCase).ToList();
+            if (shown.Count == 0) continue;
+            string Joined(Func<Contact, IEnumerable<string>> values) =>
+                string.Join("; ", shown.SelectMany(values).Distinct(StringComparer.OrdinalIgnoreCase));
+            result[group.Key] = (string.Join("; ", shown.Select(Companies.ContactName)),
+                Joined(c => phonesOf.TryGetValue(c.Id, out var p) ? p : new List<string>()),
+                Joined(c => emailsOf.TryGetValue(c.Id, out var e) ? e : new List<string>()));
+        }
+        return result;
     }
 
     /// <summary>

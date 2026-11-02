@@ -195,7 +195,7 @@ public sealed class FilesApi(CrmApp w)
             IEnumerable<object?[]> rows = lines.Select(l => new object?[]
             {
                 l.Company.Name.Trim(), l.Company.Brn, l.Company.CustomerNo, l.CustomerType, l.GroupName, l.AccountType, l.Industry, l.Salesperson, l.Team, l.Manager,
-                l.Territory, l.PostalCode, l.BillingAddress, l.Company.Phone, l.Company.Website, YesNo(l.Company.IsCaretake), l.CaretakeRemarks, l.Caretakers,
+                l.Territory, l.PostalCode, l.BillingAddress, l.Company.Phone, l.Contacts, l.ContactPhones, l.ContactEmails, l.Company.Website, YesNo(l.Company.IsCaretake), l.CaretakeRemarks, l.Caretakers,
                 Day(l.Company.CreatedDate), l.CreatedBy, Day(l.Company.UpdatedDate), l.UpdatedBy, YesNo(l.Company.IsActive),
             });
             if (lines.Count < total) rows = rows.Concat(new[] { new object?[] { Cut(lines.Count, total, "companies", "the Companies page") } });
@@ -203,7 +203,8 @@ public sealed class FilesApi(CrmApp w)
                 [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Customer code", 14), new Xlsx.ColumnSpec("Customer type", 18),
                  new Xlsx.ColumnSpec("Group name", 24), new Xlsx.ColumnSpec("Account type", 12), new Xlsx.ColumnSpec("Industry", 22), new Xlsx.ColumnSpec("Salesperson", 24),
                  new Xlsx.ColumnSpec("Team", 20), new Xlsx.ColumnSpec("Manager", 24), new Xlsx.ColumnSpec("Territory", 18), new Xlsx.ColumnSpec("Postal code", 11),
-                 new Xlsx.ColumnSpec("Billing address", 44), new Xlsx.ColumnSpec("Phone", 14), new Xlsx.ColumnSpec("Website", 24), new Xlsx.ColumnSpec("Caretake", 9),
+                 new Xlsx.ColumnSpec("Billing address", 44), new Xlsx.ColumnSpec("Company phone", 14),
+                 new Xlsx.ColumnSpec("Contacts", 30), new Xlsx.ColumnSpec("Contact phones", 20), new Xlsx.ColumnSpec("Contact emails", 30), new Xlsx.ColumnSpec("Website", 24), new Xlsx.ColumnSpec("Caretake", 9),
                  new Xlsx.ColumnSpec("Caretake remarks", 36), new Xlsx.ColumnSpec("Caretakers (open projects)", 40), new Xlsx.ColumnSpec("Created on", 12, "date"),
                  new Xlsx.ColumnSpec("Created by", 22), new Xlsx.ColumnSpec("Updated on", 12, "date"), new Xlsx.ColumnSpec("Updated by", 22), new Xlsx.ColumnSpec("Active", 7)],
                 rows));

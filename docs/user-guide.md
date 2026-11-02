@@ -130,8 +130,8 @@ the title says how many there are.
 - **Download** (at the top) gives the **Company summary**, an Excel workbook of **every** company that matches the
   search, filters and **All**, **Mine** or **No salesperson** you chose (not only the 50 on the page), as you may open
   them: company, BRN, customer code, customer type, group name, account type, industry, salesperson, their team and
-  manager, territory, postal code, billing address (or the default address), phone, website, caretake and caretake
-  remarks, the caretakers of the company's open projects, created and updated on and by, and active. It replaces
+  manager, territory, postal code, billing address (or the default address), company phone, the company's contacts
+  (the primary contact first) with their phones and emails, website, caretake and caretake remarks, the caretakers of the company's open projects, created and updated on and by, and active. It replaces
   MyCRM's report *Company Summary*. All companies can take a minute; a file holds at most 100,000 companies, and its
   last line says so when there are more. Each download is recorded in the audit log.
 - **Print** (on a computer) prints the page as it is shown: the title, a line with the filters and when it was
