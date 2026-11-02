@@ -96,7 +96,7 @@
     if (event.key === 'Escape') { event.preventDefault(); setMore(false); }
   });
   // Grown wider than a phone (a tablet turned), the menu is in the top bar again.
-  matchMedia('(min-width: 901px)').addEventListener?.('change', event => { if (event.matches) setMore(false); });
+  matchMedia('(min-width: 56.3125em)').addEventListener?.('change', event => { if (event.matches) setMore(false); });
   const closeNavGroups = target => $$('.nav-group[open]').forEach(group => { if (!group.contains(target)) group.open = false; });
   document.addEventListener('click', event => closeNavGroups(event.target));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') closeNavGroups(null); });
@@ -242,8 +242,8 @@
   const tag = (label, color) => label ? `<span class="tag" style="--tag:${esc(color || '#7a8299')}">${esc(label)}</span>` : '';
 
   /** A machine's coverage (machines.js, machine.js, company.js): its tag, and what it says in a few words. */
-  const coverageColors = {Contract: '#0a58f0', Warranty: '#0d9488', TM: '#7c3aed', Expired: '#d9443a', None: '#8e8e96'};
-  const coverageTag = m => `<span class="tag coverage" style="--tag:${coverageColors[m.coverage] || '#8e8e96'}">${esc(m.coverageName || m.coverage)}</span>`;
+  const coverageColors = {Contract: 'var(--hue-blue)', Warranty: 'var(--hue-teal)', TM: 'var(--hue-purple)', Expired: 'var(--hue-red)', None: 'var(--hue-grey)'};
+  const coverageTag = m => `<span class="tag coverage" style="--tag:${coverageColors[m.coverage] || 'var(--hue-grey)'}">${esc(m.coverageName || m.coverage)}</span>`;
   function coverageText(m) {
     switch (m.coverage) {
       case 'Contract': return [m.contractNo, m.contractEnd ? 'ends ' + date(m.contractEnd) : ''].filter(Boolean).join(' · ');
@@ -260,7 +260,7 @@
      code of MyCRMRecords' address to open on a phone and install there, and installs on the computer too when the
      browser can. Hidden once MyCRMRecords runs as the installed app. */
   const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const onPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || matchMedia('(max-width: 900px)').matches;
+  const onPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || matchMedia('(max-width: 56.25em)').matches;
   const isIos = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const appAddress = () => new URL('./', location.href).href;
   let installPrompt = null;

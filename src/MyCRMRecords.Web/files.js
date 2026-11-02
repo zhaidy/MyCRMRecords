@@ -17,7 +17,7 @@
   const company = {id: /^\d+$/.test(linked.get('company') || '') ? linked.get('company') : '', name: linked.get('name') || ''};
   if (company.id) Object.assign(filter, blank, {company: company.id});
   const everyCompany = () => { delete filter.company; company.id = ''; history.replaceState(null, '', location.pathname); };
-  const wide = window.matchMedia('(min-width: 901px)');
+  const wide = window.matchMedia('(min-width: 56.3125em)');
   let data = null, timer = 0, previewId = 0;
   const ticked = new Map();
 
@@ -35,8 +35,8 @@
   const query = () => new URLSearchParams(Object.entries(filter).filter(([k, v]) => v !== '' && !(k === 'skip' && v === 0)).map(([k, v]) => [k, String(v)]));
   const viewUrl = id => `file.ashx/files/${id}?view=1`;
   const downloadUrl = id => `file.ashx/files/${id}`;
-  const typeColor = {CostingSheet: '#0a58f0', RequestForm: '#0d9488', FSA: '#7c3aed', Leasing: '#c2410c', DO: '#475569', Others: '#8e8e96'};
-  const tag = r => r.type ? `<span class="tag file-type" style="--tag:${typeColor[r.typeLabel] || '#8e8e96'}">${esc(r.type)}</span>` : '';
+  const typeColor = {CostingSheet: 'var(--hue-blue)', RequestForm: 'var(--hue-teal)', FSA: 'var(--hue-purple)', Leasing: 'var(--hue-orange)', DO: 'var(--hue-slate-dark)', Others: 'var(--hue-grey)'};
+  const tag = r => r.type ? `<span class="tag file-type" style="--tag:${typeColor[r.typeLabel] || 'var(--hue-grey)'}">${esc(r.type)}</span>` : '';
   const size = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : bytes >= 1024 ? Math.round(bytes / 1024) + ' KB' : bytes + ' B';
   const number = r => r.numbers.length ? `${r.numbers[0].kind} ${r.numbers[0].number}` : '';
   const numbers = r => r.numbers.map(n => `${n.kind} ${n.number}`).join(', ');

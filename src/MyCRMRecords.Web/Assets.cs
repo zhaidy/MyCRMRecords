@@ -55,6 +55,6 @@ public static class Brand
     /// <summary>The browser tab's icon: the same picture, written into the page so there is no file to deploy.</summary>
     public static string TabIcon { get; } =
         "<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml,"
-        + System.Uri.EscapeDataString("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#3346c8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" + Shapes + "</svg>")
+        + System.Uri.EscapeDataString("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#0a58f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>" + Shapes + "</svg>")
         + "\">";
 }

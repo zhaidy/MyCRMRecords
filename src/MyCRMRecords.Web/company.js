@@ -38,16 +38,16 @@
   let orderCounts = {activities: '', prospects: '', projects: '', files: '', machines: '', costing: '', requests: ''};
   function sections() {
     return [
-      {id: 'overview', label: 'Overview', count: '', color: '#0a58f0', icon: 'file'},
-      {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: '#0a58f0', icon: 'users'},
-      {id: 'activities', label: 'Activities', count: orderCounts.activities, color: '#8b5cf6', icon: 'calendar'},
-      {id: 'prospects', label: 'Prospects', count: orderCounts.prospects, color: '#e59a0b', icon: 'chart'},
-      {id: 'projects', label: 'Projects', count: orderCounts.projects, color: '#f2675a', icon: 'briefcase'},
-      {id: 'files', label: 'Files', count: orderCounts.files, color: '#7c3aed', icon: 'folder'},
-      {id: 'machines', label: 'Machines', count: orderCounts.machines, color: '#0d9488', icon: 'printer'},
-      {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: '#64748b', icon: 'money'},
-      {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: '#64748b', icon: 'truck'},
-      {id: 'relations', label: 'Relationships & history', count: '', color: '#0d9488', icon: 'history'}
+      {id: 'overview', label: 'Overview', count: '', color: 'var(--hue-blue)', icon: 'file'},
+      {id: 'contacts', label: 'Contacts', count: d.contacts.length, color: 'var(--hue-blue)', icon: 'users'},
+      {id: 'activities', label: 'Activities', count: orderCounts.activities, color: 'var(--hue-violet)', icon: 'calendar'},
+      {id: 'prospects', label: 'Prospects', count: orderCounts.prospects, color: 'var(--hue-amber)', icon: 'chart'},
+      {id: 'projects', label: 'Projects', count: orderCounts.projects, color: 'var(--hue-coral)', icon: 'briefcase'},
+      {id: 'files', label: 'Files', count: orderCounts.files, color: 'var(--hue-purple)', icon: 'folder'},
+      {id: 'machines', label: 'Machines', count: orderCounts.machines, color: 'var(--hue-teal)', icon: 'printer'},
+      {id: 'costing', label: 'Costing sheets', count: orderCounts.costing, color: 'var(--hue-slate)', icon: 'money'},
+      {id: 'requests', label: 'Request forms', count: orderCounts.requests, color: 'var(--hue-slate)', icon: 'truck'},
+      {id: 'relations', label: 'Relationships & history', count: '', color: 'var(--hue-teal)', icon: 'history'}
     ];
   }
   function showTab(next) {
@@ -87,8 +87,8 @@
     const stats = [
       {id: 'machines', label: 'Machines', sub: 'contract or warranty running', color: 'var(--teal)'},
       {id: 'projects', label: 'Projects', sub: 'that include the company', color: 'var(--coral)'},
-      {id: 'activities', label: 'Activities', sub: 'of you, your team and its salespeople', color: '#8b5cf6'},
-      {id: 'files', label: 'Files', sub: 'in MyFiles', color: '#e59a0b'}
+      {id: 'activities', label: 'Activities', sub: 'of you, your team and its salespeople', color: 'var(--hue-violet)'},
+      {id: 'files', label: 'Files', sub: 'in MyFiles', color: 'var(--hue-amber)'}
     ];
     const ownerName = d.owner ? d.owner.name || 'Vacant' : '';
     const initial = name => esc(((/[A-Za-z0-9]/.exec(name) || ['?'])[0]).toUpperCase());
@@ -144,7 +144,7 @@
           </dl></section>
         </aside>
         <h2 class="group-label group-sections" aria-hidden="true">Sections</h2>
-        <nav class="section-list" aria-label="Company sections">${[{id: 'more', label: 'More details', count: '', color: '#8e8e93', icon: 'file'}].concat(sections().filter(s => s.id !== 'overview')).map(s => `<button type="button" class="section-row" data-tab="${s.id}">
+        <nav class="section-list" aria-label="Company sections">${[{id: 'more', label: 'More details', count: '', color: 'var(--hue-grey)', icon: 'file'}].concat(sections().filter(s => s.id !== 'overview')).map(s => `<button type="button" class="section-row" data-tab="${s.id}">
           <span class="section-dot" style="--dot:${s.color}" data-icon="${s.icon}" aria-hidden="true"></span><span class="section-name">${esc(s.label)}</span>
           <span class="section-count">${s.count}</span><span data-icon="arrow-right" class="section-chevron"></span></button>`).join('')}</nav>
       </div>
