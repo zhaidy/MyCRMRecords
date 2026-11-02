@@ -103,7 +103,7 @@
         <button type="button" class="text-button" id="clear-ticks">Clear</button>
         <button type="button" class="button primary small-btn" id="put">Put in a territory…</button></span>` : ''}
       ${more.length ? `<div class="action-capsule" role="group" aria-label="More actions">${more.join('<span class="capsule-divider" aria-hidden="true"></span>')}</div>` : ''}
-      ${can.create ? '<button type="button" class="button primary" id="new-company" title="New company"><span data-icon="plus"></span><span class="action-label">New company</span></button>' : ''}`;
+      ${can.create ? '<button type="button" class="button primary phone-fab" id="new-company" title="New company"><span data-icon="plus"></span><span class="action-label">New company</span></button>' : ''}`;
     drawIcons($('#actions'));
     $('#act-as')?.addEventListener('click', actAs);
     $('#print').addEventListener('click', () => window.print());
