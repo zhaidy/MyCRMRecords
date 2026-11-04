@@ -46,9 +46,39 @@ jobs:
         shell: powershell
         run: if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { $instance = (($env:GITHUB_REPOSITORY -split '/')[-1] -replace '[^A-Za-z0-9]', '') + 'CI'; if (-not ((SqlLocalDB info) -contains $instance)) { SqlLocalDB create $instance | Out-Null }; Start-Process SqlLocalDB -ArgumentList 'start', $instance -WorkingDirectory $env:RUNNER_TEMP -WindowStyle Hidden }
       - uses: actions/checkout@v4
+        if: vars.SELF_HOSTED_RUNNER != 'true'
         with:
           # The full history, for the change log on the Deployment admin page.
           fetch-depth: 0
+      - name: Check out on the self-hosted runner
+        # actions/checkout took about 1.5 minutes here (and 40 seconds more in its post step), nearly all of it in
+        # git submodule commands that each start a shell on Windows, although this repository has no submodules. The
+        # runner keeps the repository between runs, so plain git fetches only what is new, in a few seconds, and the
+        # full history stays (the change log needs it). The token reaches git through its environment only, never the
+        # command line or the repository's config, so the code under test cannot read it.
+        if: vars.SELF_HOSTED_RUNNER == 'true'
+        shell: powershell
+        env:
+          FETCH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:GIT_TERMINAL_PROMPT = '0'; $env:GCM_INTERACTIVE = 'never'
+          # git reports on stderr; its exit code decides (as in TestAndMerge.ps1).
+          # (A function named Git would hide git itself: PowerShell's names ignore case.)
+          function Invoke-Git { $gitArgs = $args; & { $ErrorActionPreference = 'Continue'; & git.exe @gitArgs }; if ($LASTEXITCODE) { throw ('git ' + ($gitArgs -join ' ') + " failed with exit code $LASTEXITCODE.") } }
+          Set-Location -LiteralPath $env:GITHUB_WORKSPACE
+          if (-not (Test-Path -LiteralPath '.git')) { Invoke-Git init -q; Invoke-Git remote add origin ('https://github.com/' + $env:GITHUB_REPOSITORY) }
+          # A run stopped before actions/checkout's post step could leave its sign-in in the config: never send two.
+          & { $ErrorActionPreference = 'Continue'; & git.exe config --local --unset-all 'http.https://github.com/.extraheader' }
+          $deepen = @(); if ((& git.exe rev-parse --is-shallow-repository) -eq 'true') { $deepen = @('--unshallow') }
+          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes('x-access-token:' + $env:FETCH_TOKEN))
+          $env:GIT_CONFIG_COUNT = '1'; $env:GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader'; $env:GIT_CONFIG_VALUE_0 = 'AUTHORIZATION: basic ' + $basic
+          try { Invoke-Git -c credential.helper= -c protocol.version=2 fetch -q --prune --no-tags @deepen origin '+refs/heads/*:refs/remotes/origin/*' $env:SHA }
+          finally { Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0, Env:FETCH_TOKEN -ErrorAction SilentlyContinue }
+          Invoke-Git checkout -q --force --detach $env:SHA
+          Invoke-Git clean -ffdxq
+          Write-Host ('Checked out ' + (& git.exe rev-parse HEAD) + '.')
       - name: Check for the .NET 8 runtime
         id: dotnet
         # The runner image comes with the .NET SDKs, and the newest of them builds (setup-dotnet never changed which).
