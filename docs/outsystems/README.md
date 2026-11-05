@@ -283,8 +283,10 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       (of the contracts not on instalment payment, as Contract expired machines picks it; `SqlAdvanceMachines.Get` falls
       back to it), where MyMachines' machine page found nothing; the Machines page finds such a machine by its exact
       serial number only (MyMachines' search read `daily_mif` alone); the tab's count and the Overview tile count all
-      four sections; and the Company summary download (MyCRM's report 09) adds each company's machines by BRN, read in
-      bulk with the tab's queries (`IAdvanceMachines.Customers`, the BRNs and contracts in table variables).
+      four sections; and **Download machines** on the Companies page (`file.ashx/companymachines`, beside the Company
+      summary, MyCRM's report 09, which stays as it was so it stays quick) gives the companies' machines by BRN, read in
+      bulk with the tab's queries (`IAdvanceMachines.Customers`: the BRNs and contracts in table variables, OPTION
+      (RECOMPILE), 10 minutes per query, expired lines ranked only for the customers' serials).
     - Service calls are filtered by the machine's customer, and by its contract only when it has one (MyMachines always
       filtered by both). **Not shown**: technicians' names (in the Datacenter database's `tech_team`, not connected),
       the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts

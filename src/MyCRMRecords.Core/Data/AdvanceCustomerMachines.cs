@@ -257,11 +257,15 @@ public sealed partial class SqlAdvanceMachines
         var gm = ExternalTable.Of(connection, t.ContractMgMember);
         var gr = ExternalTable.Of(connection, t.ContractGrant);
         var args = new (string, object?)[] { ("@today", today.Date), ("@brn", brn), ("@name", name), ("@brnlist", XmlList(brns)) };
-        List<Dictionary<string, object?>> Rows(string sql, params (string, object?)[] parameters) => Sql.Rows(connection, null, sql, parameters);
+        // Many BRNs (a download): more time per query, and plans made for the key tables' real sizes (OPTION (RECOMPILE)).
+        var many = who == Who.Many;
+        var recompile = many ? " OPTION (RECOMPILE)" : "";
+        List<Dictionary<string, object?>> Rows(string sql, params (string, object?)[] parameters) => Query(connection, sql, many ? 600 : 120, parameters);
         var empty = new List<Dictionary<string, object?>>();
         // Before a query: the BRNs asked for as @brns. Its customers, by BRN (Customer_Supp) or by customer name.
-        var start = who == Who.Many ? KeyTable("@brns", "@brnlist") : "";
-        string ByCs() => who == Who.Many ? $"cs.{cs["Business_reg"]} IN (SELECT [k] FROM @brns)" : who == Who.Brn ? $"cs.{cs["Business_reg"]} = @brn" : $"cu.{cu["Name"]} = @name";
+        var start = many ? KeyTable("@brns", "@brnlist") : "";
+        string ByCs(string csAlias = "cs", string cuAlias = "cu") =>
+            many ? $"{csAlias}.{cs["Business_reg"]} IN (SELECT [k] FROM @brns)" : who == Who.Brn ? $"{csAlias}.{cs["Business_reg"]} = @brn" : $"{cuAlias}.{cu["Name"]} = @name";
 
         // Contract machines (GetContractsByBRN / ByName): the contracts with a line running today, not on instalment payment.
         var contracts = Rows(start +
@@ -273,7 +277,7 @@ public sealed partial class SqlAdvanceMachines
             $"LEFT JOIN {ip} ip ON c.{c["Contract_no"]} = ip.{ip["contract_no"]} " +
             $"WHERE CAST(cl.{cl["Cntrct_end"]} AS date) >= @today AND CAST(cl.{cl["Cntrct_start"]} AS date) <= @today AND ip.{ip["contract_no"]} IS NULL AND {ByCs()} " +
             $"GROUP BY c.{c["Contract_no"]}, c.{c["Cntrct_start"]}, c.{c["Cntrct_end"]}, cu.{cu["Name"]}, cs.{cs["Business_reg"]}, cu.{cu["Cust_no"]} " +
-            $"ORDER BY c.{c["Cntrct_end"]}, c.{c["Contract_no"]}, cu.{cu["Cust_no"]}, cs.{cs["Business_reg"]}",
+            $"ORDER BY c.{c["Cntrct_end"]}, c.{c["Contract_no"]}, cu.{cu["Cust_no"]}, cs.{cs["Business_reg"]}{recompile}",
             args);
         var numbers = ("@contractlist", (object?)XmlList(contracts.Select(r => r.Text("ContractNo"))));
         var any = contracts.Count > 0;
@@ -283,47 +287,50 @@ public sealed partial class SqlAdvanceMachines
         var machines = !any ? empty : Rows(ofContracts +
             $"SELECT m.{m["serial_no"]} AS [Serial], m.{m["item_no"]} AS [Item], m.{m["model"]} AS [Model], m.{m["cntrct_start"]} AS [Start], " +
             $"m.{m["cntrct_end"]} AS [End], m.{m["cust_no"]} AS [CustNo], m.{m["contract_no"]} AS [ContractNo] " +
-            $"FROM {m} m WHERE m.{m["contract_no"]} IN (SELECT [k] FROM @contracts) ORDER BY m.{m["serial_no"]}, m.{m["item_no"]}",
+            $"FROM {m} m WHERE m.{m["contract_no"]} IN (SELECT [k] FROM @contracts) ORDER BY m.{m["serial_no"]}, m.{m["item_no"]} OPTION (RECOMPILE)",
             numbers);
         var groups = !any ? empty : Rows(ofContracts +
             $"SELECT cl.{cl["Contract_no"]} AS [ContractNo], cl.{cl["Serial_no"]} AS [Serial], gm.{gm["MGroup_No"]} AS [Group] " +
             $"FROM {cl} cl LEFT JOIN {gm} gm ON cl.{cl["Line_no"]} = gm.{gm["Line_No"]} AND cl.{cl["Contract_no"]} = gm.{gm["Contract_No"]} " +
             $"WHERE cl.{cl["Contract_no"]} IN (SELECT [k] FROM @contracts) " +
-            $"ORDER BY cl.{cl["Ar_entity"]}, cl.{cl["Contract_no"]}, cl.{cl["Serial_no"]}, cl.{cl["Line_no"]}, gm.{gm["MGroup_No"]}",
+            $"ORDER BY cl.{cl["Ar_entity"]}, cl.{cl["Contract_no"]}, cl.{cl["Serial_no"]}, cl.{cl["Line_no"]}, gm.{gm["MGroup_No"]} OPTION (RECOMPILE)",
             numbers);
         var meters = !any ? empty : Rows(ofContracts +
             $"SELECT g.{g["Contract_No"]} AS [ContractNo], g.{g["MGroup_No"]} AS [Group], g.{g["Meter_Type"]} AS [MeterType], " +
             $"g.{g["Meter_Read_1"]} AS [Read1], g.{g["Meter_Read_2"]} AS [Read2], g.{g["Meter_Read_3"]} AS [Read3], " +
             $"g.{g["Meter_Price_1"]} AS [Price1], g.{g["Meter_Price_2"]} AS [Price2], g.{g["Meter_Price_3"]} AS [Price3], g.{g["Min_Bill"]} AS [MinBill] " +
             $"FROM {g} g WHERE g.{g["Contract_No"]} IN (SELECT [k] FROM @contracts) AND g.{g["Meter_Type"]} IN (N'BW', N'COL') " +
-            $"ORDER BY g.{g["AR_Entity"]}, g.{g["Contract_No"]}, g.{g["MGroup_No"]}",
+            $"ORDER BY g.{g["AR_Entity"]}, g.{g["Contract_No"]}, g.{g["MGroup_No"]} OPTION (RECOMPILE)",
             numbers);
         var grants = !any ? empty : Rows(ofContracts +
             $"SELECT gr.{gr["Contract_no"]} AS [ContractNo], gr.{gr["MGroup_No"]} AS [MeterType], gr.{gr["granted_copies"]} AS [Granted], gr.{gr["used_copies"]} AS [Used] " +
             $"FROM {gr} gr WHERE gr.{gr["Contract_no"]} IN (SELECT [k] FROM @contracts) AND gr.{gr["MGroup_No"]} IN (N'BW', N'COL') " +
-            $"ORDER BY gr.{gr["Record_type"]}, gr.{gr["Contract_no"]}, gr.{gr["Line_no"]}, gr.{gr["seq_no"]}",
+            $"ORDER BY gr.{gr["Record_type"]}, gr.{gr["Contract_no"]}, gr.{gr["Line_no"]}, gr.{gr["seq_no"]} OPTION (RECOMPILE)",
             numbers);
 
         // Warranty machines (GetDailyMifsByBRN / ByName), and each one's extended warranty (ExtendedWarranty blocks: the first contract line by contract record type).
-        var byMif = who == Who.Many ? $"m.{m["BRN"]} IN (SELECT [k] FROM @brns)" : who == Who.Brn ? $"m.{m["BRN"]} = @brn" : $"m.{m["name"]} = @name";
+        var byMif = many ? $"m.{m["BRN"]} IN (SELECT [k] FROM @brns)" : who == Who.Brn ? $"m.{m["BRN"]} = @brn" : $"m.{m["name"]} = @name";
         var warranty = Rows(start +
             $"SELECT m.{m["serial_no"]} AS [Serial], m.{m["item_no"]} AS [Item], m.{m["description"]} AS [Model], m.{m["sell_start"]} AS [Start], m.{m["sell_end"]} AS [End], " +
-            (who == Who.Many ? $"m.{m["BRN"]} AS [Key] " : "N'' AS [Key] ") +
+            (many ? $"m.{m["BRN"]} AS [Key] " : "N'' AS [Key] ") +
             $"FROM {m} m WHERE CAST(m.{m["sell_end"]} AS date) >= @today AND m.{m["mif_type"]} = N'war' AND {byMif} " +
             $"GROUP BY m.{m["serial_no"]}, m.{m["item_no"]}, m.{m["model"]}, m.{m["sell_end"]}, m.{m["sell_start"]}, m.{m["description"]}" +
-            (who == Who.Many ? $", m.{m["BRN"]} " : " ") +
-            $"ORDER BY m.{m["sell_end"]}, m.{m["serial_no"]}, m.{m["item_no"]}, m.{m["model"]}, m.{m["description"]}",
+            (many ? $", m.{m["BRN"]} " : " ") +
+            $"ORDER BY m.{m["sell_end"]}, m.{m["serial_no"]}, m.{m["item_no"]}, m.{m["model"]}, m.{m["description"]}{recompile}",
             args);
         var types = string.Join(" OR ", CustomerMachinesRules.ExtendedWarrantyTypes.Select(x => $"c.{c["Contract_typ"]} LIKE N'{x}%'"));
         var extended = warranty.Count == 0 ? empty : Rows(KeyTable("@serials", "@seriallist") +
             $"SELECT x.[Serial], x.[Start], x.[End] FROM (SELECT cl.{cl["Serial_no"]} AS [Serial], cl.{cl["Cntrct_start"]} AS [Start], cl.{cl["Cntrct_end"]} AS [End], " +
             $"ROW_NUMBER() OVER (PARTITION BY cl.{cl["Serial_no"]} ORDER BY c.{c["Record_type"]}, c.{c["Contract_no"]}, cl.{cl["Line_no"]}) AS [N] " +
             $"FROM {c} c INNER JOIN {cl} cl ON c.{c["Contract_no"]} = cl.{cl["Contract_no"]} " +
-            $"WHERE ({types}) AND cl.{cl["Serial_no"]} IN (SELECT [k] FROM @serials)) x WHERE x.[N] = 1",
+            $"WHERE ({types}) AND cl.{cl["Serial_no"]} IN (SELECT [k] FROM @serials)) x WHERE x.[N] = 1 OPTION (RECOMPILE)",
             ("@seriallist", XmlList(warranty.Select(r => r.Text("Serial")))));
 
         // Contract expired machines (SQLExpContByBRN / ByName, as MyMachines writes it): a machine's contract line that
         // has ended and is its latest (by end) of the contracts not on instalment payment.
+        // Ranked only for the serials of these customers' contract lines (whole serials, so each rank is the same).
+        var customersSerials = $"l.{cl["Serial_no"]} IN (SELECT cl3.{cl["Serial_no"]} FROM {cl} cl3 INNER JOIN {c} c3 ON c3.{c["Contract_no"]} = cl3.{cl["Contract_no"]} " +
+            $"INNER JOIN {cs} cs3 ON cs3.{cs["Cust_no"]} = c3.{c["Cust_no"]} INNER JOIN {cu} cu3 ON cu3.{cu["Cust_no"]} = c3.{c["Cust_no"]} WHERE {ByCs("cs3", "cu3")})";
         var expired = Rows(start +
             $"SELECT cl.{cl["Serial_no"]} AS [Serial], i.{i["Description"]} AS [Model], cl.{cl["Item_no"]} AS [Item], " +
             $"k.[ContractNo], k.[Start], k.[End], cs.{cs["Business_reg"]} AS [Key] " +
@@ -332,11 +339,11 @@ public sealed partial class SqlAdvanceMachines
             $"INNER JOIN {cs} cs ON cs.{cs["Cust_no"]} = c.{c["Cust_no"]} " +
             $"INNER JOIN {i2} i2 ON i2.{i2["Item_no"]} = cl.{cl["Item_no"]} " +
             $"INNER JOIN {i} i ON i.{i["Item_no"]} = cl.{cl["Item_no"]} " +
-            $"INNER JOIN ({Latest(cl, ip)}) k " +
+            $"INNER JOIN ({Latest(cl, ip, customersSerials)}) k " +
             $"ON k.[Serial] = cl.{cl["Serial_no"]} AND k.[Item] = cl.{cl["Item_no"]} AND k.[ContractNo] = cl.{cl["Contract_no"]} AND k.[R] = 1 " +
             $"LEFT JOIN {ip} ip ON ip.{ip["contract_no"]} = c.{c["Contract_no"]} " +
             $"WHERE {ByCs()} AND cs.{cs["Business_reg"]} <> N'' AND cl.{cl["Cntrct_end"]} <= @today AND ip.{ip["contract_no"]} IS NULL " +
-            $"ORDER BY cl.{cl["Serial_no"]}, cl.{cl["Item_no"]}, k.[ContractNo], c.{c["Cust_no"]}",
+            $"ORDER BY cl.{cl["Serial_no"]}, cl.{cl["Item_no"]}, k.[ContractNo], c.{c["Cust_no"]}{recompile}",
             args);
 
         // Machines without contract (GetCustomersByBRN / ByName): the customer's serials with no contract line at all.
@@ -349,18 +356,38 @@ public sealed partial class SqlAdvanceMachines
             $"LEFT JOIN {cl} cl ON s.{s["Serial_no"]} = cl.{cl["Serial_no"]} " +
             $"INNER JOIN {cs} cs ON s.{s["Cust_no"]} = cs.{cs["Cust_no"]} " +
             $"WHERE {ByCs()} AND cl.{cl["Contract_no"]} IS NULL AND NOT ({notMachines}) " +
-            $"ORDER BY s.{s["Install_date"]} DESC, s.{s["Serial_no"]}, s.{s["Item_no"]}",
+            $"ORDER BY s.{s["Install_date"]} DESC, s.{s["Serial_no"]}, s.{s["Item_no"]}{recompile}",
             args);
 
         return new Sections(contracts, new CustomerMachinesRules.Parts(machines, groups, meters, grants, extended), warranty, expired, noContract);
     }
 
-    /// <summary>Each contract line with its rank among the serial's lines by end (latest 1) of the contracts not on instalment payment.</summary>
-    private static string Latest(ExternalTable cl, ExternalTable ip) =>
+    /// <summary>
+    /// Each contract line with its rank among the serial's lines by end (latest 1) of the contracts not on instalment
+    /// payment, for the serials <paramref name="serials"/> picks (a condition on l: whole serials, so the ranks stay right).
+    /// </summary>
+    private static string Latest(ExternalTable cl, ExternalTable ip, string serials) =>
         $"SELECT l.{cl["Serial_no"]} AS [Serial], l.{cl["Item_no"]} AS [Item], l.{cl["Contract_no"]} AS [ContractNo], " +
         $"l.{cl["Cntrct_start"]} AS [Start], l.{cl["Cntrct_end"]} AS [End], l.{cl["Line_no"]} AS [LineNo], " +
         $"ROW_NUMBER() OVER (PARTITION BY l.{cl["Serial_no"]} ORDER BY l.{cl["Cntrct_end"]} DESC, l.{cl["Contract_no"]} DESC, l.{cl["Line_no"]} DESC) AS [R] " +
-        $"FROM {cl} l LEFT JOIN {ip} lip ON lip.{ip["contract_no"]} = l.{cl["Contract_no"]} WHERE lip.{ip["contract_no"]} IS NULL";
+        $"FROM {cl} l LEFT JOIN {ip} lip ON lip.{ip["contract_no"]} = l.{cl["Contract_no"]} WHERE lip.{ip["contract_no"]} IS NULL AND {serials}";
+
+    /// <summary>A query's rows as Sql.Rows reads them, with its own time limit (a download of thousands of customers needs more than 2 minutes).</summary>
+    private static List<Dictionary<string, object?>> Query(DbConnection connection, string sql, int seconds, params (string Name, object? Value)[] parameters)
+    {
+        using var command = Sql.Command(connection, null, sql);
+        command.CommandTimeout = seconds;
+        foreach (var (name, value) in parameters) Sql.Add(command, name, value);
+        using var reader = command.ExecuteReader();
+        var rows = new List<Dictionary<string, object?>>();
+        while (reader.Read())
+        {
+            var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            for (var n = 0; n < reader.FieldCount; n++) row[reader.GetName(n)] = reader.IsDBNull(n) ? null : reader.GetValue(n);
+            rows.Add(row);
+        }
+        return rows;
+    }
 
     /// <summary>
     /// A machine daily_mif no longer has, from Advance's contract history: its latest contract line (by end) of the
@@ -378,12 +405,13 @@ public sealed partial class SqlAdvanceMachines
         var s = ExternalTable.Of(connection, t.Serial);
         var i = ExternalTable.Of(connection, t.Item);
         var itemSql = item.Trim().Length > 0 ? $" AND k.[Item] = @item" : "";
+        var oneSerial = $"l.{cl["Serial_no"]} = @serial";
         var rows = Sql.Rows(connection, null,
             $"SELECT TOP 1 k.[Serial], k.[Item], it.[Model], it.[Model] AS [Description], it.[ProdGroup], c.{c["Cust_no"]} AS [CustNo], cx.[CustName], sp.[Brn], N'' AS [MifType], " +
             $"k.[ContractNo], c.{c["Contract_typ"]} AS [ContractType], k.[Start] AS [ContractStart], k.[End] AS [ContractEnd], " +
             "sx.[SellStart], sx.[SellEnd], N'' AS [ServiceRef], N'' AS [InvoiceRef], N'' AS [ContractRef], sx.[FinanceCode], " +
             "sx.[Installed], sx.[Location], sx.[SerialContact], sx.[SerialPhone], cx.[Address], cx.[City], cx.[Zip], cx.[Telephone], cx.[CustomerContact] " +
-            $"FROM ({Latest(cl, ip)}) k INNER JOIN {c} c ON c.{c["Contract_no"]} = k.[ContractNo] " +
+            $"FROM ({Latest(cl, ip, oneSerial)}) k INNER JOIN {c} c ON c.{c["Contract_no"]} = k.[ContractNo] " +
             $"OUTER APPLY (SELECT TOP 1 cr.{cu["Name"]} AS [CustName], cr.{cu["Address"]} AS [Address], cr.{cu["City"]} AS [City], cr.{cu["Zip_code"]} AS [Zip], " +
             $"cr.{cu["Telephone"]} AS [Telephone], cr.{cu["Contact"]} AS [CustomerContact] FROM {cu} cr WHERE cr.{cu["Cust_no"]} = c.{c["Cust_no"]}) cx " +
             $"OUTER APPLY (SELECT TOP 1 b.{cs["Business_reg"]} AS [Brn] FROM {cs} b WHERE b.{cs["Cust_no"]} = c.{c["Cust_no"]} ORDER BY b.{cs["Business_reg"]}) sp " +

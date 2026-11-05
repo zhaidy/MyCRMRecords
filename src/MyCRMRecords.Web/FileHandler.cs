@@ -41,10 +41,13 @@ public sealed class FileHandler : IHttpHandler
 
         if (request.HttpMethod == "GET")
         {
+            // A whole list of companies (and their machines in Advance) can take minutes: longer than ASP.NET's 110 seconds.
+            if (kind is FilesApi.CompanySummary or FilesApi.CompanyMachines or FilesApi.ProjectsReport) context.Server.ScriptTimeout = 900;
             var file = Services.FilesApi.Download(kind, query, user);
-            // The Company summary and the projects download hold whole lists of MyCRM's companies: recorded, done or refused.
-            if (kind is FilesApi.CompanySummary or FilesApi.ProjectsReport)
-                Services.Record(context, user, kind == FilesApi.CompanySummary ? "Download the Company summary" : "Download the projects and caretake accounts",
+            // The Company summary, the companies' machines and the projects download hold whole lists of MyCRM's companies: recorded, done or refused.
+            if (kind is FilesApi.CompanySummary or FilesApi.CompanyMachines or FilesApi.ProjectsReport)
+                Services.Record(context, user, kind == FilesApi.CompanySummary ? "Download the Company summary"
+                        : kind == FilesApi.CompanyMachines ? "Download the companies' machines" : "Download the projects and caretake accounts",
                     "file.ashx/" + kind, file.Status == 200, file.Status == 200 ? file.FileName : file.Error, request.Url.Query, method: "GET", status: file.Status);
             if (file.Status != 200)
             {
