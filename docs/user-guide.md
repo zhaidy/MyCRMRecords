@@ -136,8 +136,9 @@ the title says how many there are.
   last line says so when there are more. Each download is recorded in the audit log.
 - **Download machines** (at the top) gives the machines in Advance of the same companies (the search, filters and
   **All**, **Mine** or **No salesperson** you chose), as each company's **Machines** tab shows them, found by its BRN (a
-  company without a BRN has none here). The sheet **Companies** has how many **Contract machines**, **Warranty
-  machines**, **Contract expired machines** and **Machines without contract** each company has; the sheet **Machines**
+  company without a BRN has none here). The sheet **Companies** has how many machines each company has (**Total
+  machines**) and how many of them are **Contract machines**, **Warranty machines**, **Contract expired machines** and
+  **Machines without contract**; the sheet **Machines**
   has a row for each machine with its company, BRN, **Section**, serial number, model, item number, contract number,
   start and end, extended warranty start and end, install date and meter groups (**MGroup**), at most 500,000. The file
   is built in the background, Advance read a few hundred companies at a time: the button shows **Reading machines…**

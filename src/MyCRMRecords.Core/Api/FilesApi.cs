@@ -292,9 +292,11 @@ public sealed class FilesApi(CrmApp w)
         {
             var m = MachinesOf(c);
             var left = skipped.Contains((c.Brn ?? "").Trim(), StringComparer.OrdinalIgnoreCase);
+            var contract = m.Contracts.Sum(x => x.Machines.Count);
             return new object?[]
             {
-                c.Name.Trim(), c.Brn, left ? null : (decimal)m.Contracts.Sum(x => x.Machines.Count), left ? null : (decimal)m.Warranty.Count,
+                c.Name.Trim(), c.Brn, left ? null : (decimal)(contract + m.Warranty.Count + m.Expired.Count + m.NoContract.Count),
+                left ? null : (decimal)contract, left ? null : (decimal)m.Warranty.Count,
                 left ? null : (decimal)m.Expired.Count, left ? null : (decimal)m.NoContract.Count, left ? "Advance did not answer in time" : "",
             };
         });
@@ -308,9 +310,11 @@ public sealed class FilesApi(CrmApp w)
         var content = Xlsx.Create(
         [
             new Xlsx.Sheet("Companies",
-            [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Contract machines", 10, "number"),
-             new Xlsx.ColumnSpec("Warranty machines", 10, "number"), new Xlsx.ColumnSpec("Contract expired machines", 10, "number"),
-             new Xlsx.ColumnSpec("Machines without contract", 10, "number"), new Xlsx.ColumnSpec("Note", 30)],
+            // Wide enough for each heading to show whole (with Excel's filter arrow).
+            [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Total machines", 17, "number"),
+             new Xlsx.ColumnSpec("Contract machines", 20, "number"), new Xlsx.ColumnSpec("Warranty machines", 20, "number"),
+             new Xlsx.ColumnSpec("Contract expired machines", 28, "number"), new Xlsx.ColumnSpec("Machines without contract", 28, "number"),
+             new Xlsx.ColumnSpec("Note", 32)],
             companyRows),
             new Xlsx.Sheet("Machines",
             [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Section", 22), new Xlsx.ColumnSpec("Serial no", 16),
