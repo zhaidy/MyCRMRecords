@@ -286,7 +286,9 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       four sections; and **Download machines** on the Companies page (`file.ashx/companymachines`, beside the Company
       summary, MyCRM's report 09, which stays as it was so it stays quick) gives the companies' machines by BRN, read in
       bulk with the tab's queries (`IAdvanceMachines.Customers`: the BRNs and contracts in table variables, OPTION
-      (RECOMPILE), 10 minutes per query, expired lines ranked only for the customers' serials).
+      (RECOMPILE), 5 minutes per query, expired lines ranked only for the customers' serials). It is built in the
+      background (`MachineDownloads`, api `machines/download`, the file `file.ashx/companymachines?job=`): 500 BRNs at a
+      time, a part that fails read again in halves, a single BRN that still fails left out and named in the file.
     - Service calls are filtered by the machine's customer, and by its contract only when it has one (MyMachines always
       filtered by both). **Not shown**: technicians' names (in the Datacenter database's `tech_team`, not connected),
       the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts

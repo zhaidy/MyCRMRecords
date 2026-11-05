@@ -8,7 +8,7 @@
   // "Unassigned Companies"), and those who keep territories tick companies without a salesperson and put them in a
   // territory (the Territories page's own "add"). Sales Admins add companies; MyCRM Admins upload the number of
   // employees. On a phone: a card per company, the filters in a sheet.
-  const {$, $$, esc, api, toast, drawIcons, pager, slowDownload} = window.WH;
+  const {$, $$, esc, api, toast, drawIcons, pager, slowDownload, saveDownload} = window.WH;
   const {companyForm, uploadDialog, dialog, refused} = window.CRM;
   const page = $('#page');
   const saved = (() => { try { return JSON.parse(localStorage.getItem('companies-filter') || '{}'); } catch { return {}; } })();
@@ -87,13 +87,64 @@
     load();
   }
 
+  // Download machines: built in the background (api machines/download), Advance read a few hundred BRNs at a time, so no
+  // page waits on it. The button shows how far it is; the file saves when it is ready, or with "Save machines file" when
+  // the person comes back to this page (it is kept two hours).
+  let machinesJob = null, machinesTimer = 0, machinesChecked = false;
+  const thousands = n => Number(n || 0).toLocaleString('en-SG');
+  function showMachines() {
+    const b = $('#download-machines');
+    if (!b) return;
+    const job = machinesJob;
+    const running = !!job && job.state === 'Running';
+    const ready = !!job && job.state === 'Ready' && !job.saved;
+    $('.action-label', b).textContent = running ? `Reading machines… ${job.brns ? Math.floor(100 * job.brnsDone / job.brns) : 0}%` : ready ? 'Save machines file' : 'Download machines';
+    b.classList.toggle('is-busy', running);
+    if (running) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+    b.title = running ? `Reading the machines of ${thousands(job.brns)} BRNs in Advance: ${thousands(job.brnsDone)} done. You can keep working; the file saves when it is ready.`
+      : ready ? `The machines of ${companies(job.companies)} are ready: click to save ${job.fileName}.`
+      : 'Download the machines in Advance of every company that matches (Excel), built in the background';
+  }
+  async function saveMachines() {
+    const job = machinesJob;
+    if (await saveDownload('file.ashx/companymachines?job=' + encodeURIComponent(job.id))) {
+      job.saved = true;
+      if (job.message) toast(job.message, true);
+    }
+    showMachines();
+  }
+  async function pollMachines() {
+    clearTimeout(machinesTimer);
+    const before = machinesJob;
+    const answer = await api('GET', 'machines/download');
+    if (!answer.result.ok) { machinesTimer = setTimeout(pollMachines, 10000); return; }
+    machinesJob = answer.job;
+    const watched = !!before && before.state === 'Running';
+    if (watched && (!machinesJob || machinesJob.id !== before.id)) toast('The machines download stopped (the website restarted). Click Download machines again.', true);
+    showMachines();
+    if (!machinesJob) return;
+    if (machinesJob.state === 'Running') machinesTimer = setTimeout(pollMachines, 4000);
+    else if (watched && machinesJob.state === 'Ready' && !machinesJob.saved) saveMachines();
+    else if (watched && machinesJob.state === 'Failed') toast(machinesJob.message, true);
+  }
+  async function startMachines() {
+    if (machinesJob && machinesJob.state === 'Running') return;
+    if (machinesJob && machinesJob.state === 'Ready' && !machinesJob.saved) { saveMachines(); return; }
+    const answer = await api('POST', 'machines/download', {q: filter.q, customerType: filter.customerType, groupName: filter.groupName, postalCode: filter.postalCode, show: filter.show});
+    if (!answer.result.ok) { toast(answer.result.message, true); return; }
+    machinesJob = answer.job;
+    toast(`Reading the machines of ${companies(machinesJob.companies)} in Advance, a few hundred at a time. You can keep working; the file saves when it is ready.`);
+    showMachines();
+    machinesTimer = setTimeout(pollMachines, 3000);
+  }
+
   function actions() {
     const can = data.can;
     // Download: the Company summary of every company that matches (not just this page); Print: the page as shown.
     const download = new URLSearchParams({q: filter.q, customerType: filter.customerType, groupName: filter.groupName, postalCode: filter.postalCode, show: filter.show});
     const more = [
       `<a class="capsule-button" id="download" href="file.ashx/companies?${esc(download.toString())}" title="Download the Company summary of every company that matches (Excel)"><span data-icon="excel"></span><span class="action-label">Download</span></a>`,
-      `<a class="capsule-button" id="download-machines" href="file.ashx/companymachines?${esc(download.toString())}" title="Download the machines in Advance of every company that matches (Excel)"><span data-icon="printer"></span><span class="action-label">Download machines</span></a>`,
+      `<a class="capsule-button" id="download-machines" href="#" title="Download the machines in Advance of every company that matches (Excel), built in the background"><span data-icon="printer"></span><span class="action-label">Download machines</span></a>`,
       '<button type="button" class="capsule-button companies-wide" id="print" title="Print this page"><span data-icon="printer"></span><span class="action-label">Print</span></button>',
       can.uploadEmployees ? '<button type="button" class="capsule-button" id="employees" title="Upload number of employees"><span data-icon="upload"></span><span class="action-label">Upload number of employees</span></button>' : '',
     ].filter(Boolean);
@@ -107,9 +158,9 @@
     $('#print').addEventListener('click', () => window.print());
     // Fetched in the page: the button is greyed out until the file is saved, so it is not made twice.
     slowDownload($('#download'), data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…');
-    slowDownload($('#download-machines'), data.total > 1000
-      ? `Reading the machines of ${companies(data.total)} in Advance: this can take several minutes. Search or filter first for a quicker file.`
-      : 'Reading the companies\' machines in Advance…');
+    $('#download-machines').addEventListener('click', event => { event.preventDefault(); startMachines(); });
+    showMachines();
+    if (!machinesChecked) { machinesChecked = true; pollMachines(); }
     $('#new-company')?.addEventListener('click', async () => {
       const id = await companyForm(lists, null);
       if (id) location.href = 'company.aspx?id=' + id;

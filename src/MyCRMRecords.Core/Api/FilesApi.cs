@@ -218,52 +218,108 @@ public sealed class FilesApi(CrmApp w)
     }
 
     /// <summary>
-    /// companymachines?&lt;the Companies page's search, filters and show&gt;: the machines in Advance of every company that
-    /// matches, as each company's Machines tab shows them (by BRN, read in bulk): a Companies sheet with how many of each
-    /// section, and a Machines sheet with a row per machine. Separate from the Company summary, which stays quick.
+    /// companymachines?job=: the companies' machines file a background job built (<see cref="StartMachinesDownload"/>),
+    /// for the person who started it, once it is ready.
     /// </summary>
     private FileAnswer CompanyMachinesFile(IReadOnlyDictionary<string, string> query, ApiUser user)
     {
+        var job = w.MachineDownloads.Get(Q(query, "job"), user.Login, w.Clock());
+        if (job is null) return FileAnswer.Fail(404, "That machines file is no longer here (it is kept two hours, and not after the website restarts). Click Download machines again.");
+        if (job.State == MachineDownloads.Failed) return FileAnswer.Fail(503, job.Message);
+        if (job.State != MachineDownloads.Ready || job.Content is null) return FileAnswer.Fail(409, StillPreparing);
+        job.MarkSaved();
+        return new FileAnswer(200, job.FileName, FileAnswer.XlsxType, job.Content);
+    }
+
+    /// <summary>
+    /// Starts building the machines in Advance of every company the Companies page's search, filters and show give
+    /// (MyMachines' customer page sections, as each company's Machines tab shows them, by BRN) in the background; while
+    /// one of the person's is still running, that one is given back. Null with a message when it cannot start.
+    /// </summary>
+    public (MachineDownloads.Job? Job, string Error) StartMachinesDownload(IReadOnlyDictionary<string, string> query, ApiUser user)
+    {
+        if (!w.Machines.Advance.Available) return (null, "Advance's machines cannot be read yet: an administrator has to set up the connection to Advance first.");
+        var running = w.MachineDownloads.Latest(user.Login, w.Clock());
+        if (running is { State: MachineDownloads.Running }) return (running, "");
         var actor = user.ToActor(w.People);
-        if (!w.Machines.Advance.Available) return FileAnswer.Fail(503, "Advance's machines cannot be read yet: an administrator has to set up the connection to Advance first.");
-        try
+        var filter = new Companies.ListFilter(Q(query, "q"), Q(query, "customerType"),
+            long.TryParse(Q(query, "groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q(query, "postalCode"), 0, Q(query, "show"));
+        var (total, companies) = w.Companies.ForDownload(actor, filter with { Skip = 0 }, Reports.MaxCompanies);
+        var brns = companies.Select(c => (c.Brn ?? "").Trim()).Where(b => b.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var stamp = w.Clock();
+        var (job, _) = w.MachineDownloads.Start(user.Login, stamp, companies.Count, brns.Count, j => BuildMachines(j, companies, total, brns, stamp));
+        return (job, "");
+    }
+
+    /// <summary>
+    /// A machines download's work: Advance read <see cref="MachineDownloads.ChunkSize"/> BRNs at a time (a part that fails,
+    /// a query that took too long, is read again in halves; a single BRN that still fails is left out and named in the
+    /// file), then the workbook.
+    /// </summary>
+    private void BuildMachines(MachineDownloads.Job job, IReadOnlyList<Company> companies, int total, IReadOnlyList<string> brns, DateTime stamp)
+    {
+        var found = new Dictionary<string, CustomerMachines>(StringComparer.OrdinalIgnoreCase);
+        var skipped = new List<string>();
+        var size = Math.Max(1, w.MachineDownloads.ChunkSize);
+        var parts = new Stack<List<string>>();
+        for (var i = (brns.Count - 1) / size * size; i >= 0; i -= size) parts.Push(brns.Skip(i).Take(size).ToList());
+        string lastError = "";
+        while (parts.Count > 0)
         {
-            var filter = new Companies.ListFilter(Q(query, "q"), Q(query, "customerType"),
-                long.TryParse(Q(query, "groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q(query, "postalCode"), 0, Q(query, "show"));
-            var (total, companies) = w.Companies.ForDownload(actor, filter with { Skip = 0 }, Reports.MaxCompanies);
-            var machines = w.Machines.ForDownload(companies);
-            CustomerMachines MachinesOf(Company c) => machines.TryGetValue((c.Brn ?? "").Trim(), out var m) ? m : CustomerMachines.None;
-            IEnumerable<object?[]> companyRows = companies.Select(c =>
+            var part = parts.Pop();
+            try
             {
-                var m = MachinesOf(c);
-                return new object?[]
+                foreach (var pair in w.Machines.ForBrns(part)) found[pair.Key] = pair.Value;
+                job.Done(part.Count);
+            }
+            catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+            {
+                lastError = ex.Message;
+                if (part.Count > 1)
                 {
-                    c.Name.Trim(), c.Brn, (decimal)m.Contracts.Sum(x => x.Machines.Count), (decimal)m.Warranty.Count, (decimal)m.Expired.Count, (decimal)m.NoContract.Count,
-                };
-            });
-            if (companies.Count < total) companyRows = companyRows.Concat(new[] { new object?[] { Cut(companies.Count, total, "companies", "the Companies page") } });
-            var machineRows = MachineRows(companies, MachinesOf, out var machineCount);
-            if (machineCount > MaxMachineRows)
-                machineRows = machineRows.Take(MaxMachineRows).Concat(new[] { new object?[] { Cut(MaxMachineRows, machineCount, "machines", "the Companies page") } });
-            return new FileAnswer(200, $"CompanyMachines-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create(
-            [
-                new Xlsx.Sheet("Companies",
-                [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Contract machines", 10, "number"),
-                 new Xlsx.ColumnSpec("Warranty machines", 10, "number"), new Xlsx.ColumnSpec("Contract expired machines", 10, "number"),
-                 new Xlsx.ColumnSpec("Machines without contract", 10, "number")],
-                companyRows),
-                new Xlsx.Sheet("Machines",
-                [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Section", 22), new Xlsx.ColumnSpec("Serial no", 16),
-                 new Xlsx.ColumnSpec("Model", 36), new Xlsx.ColumnSpec("Item no", 10), new Xlsx.ColumnSpec("Contract no", 14), new Xlsx.ColumnSpec("Start", 12, "date"),
-                 new Xlsx.ColumnSpec("End", 12, "date"), new Xlsx.ColumnSpec("Extended warranty start", 12, "date"), new Xlsx.ColumnSpec("Extended warranty end", 12, "date"),
-                 new Xlsx.ColumnSpec("Install date", 12, "date"), new Xlsx.ColumnSpec("MGroup", 16)],
-                machineRows),
-            ]));
+                    parts.Push(part.Skip(part.Count / 2).ToList());
+                    parts.Push(part.Take(part.Count / 2).ToList());
+                }
+                else
+                {
+                    skipped.Add(part[0]);
+                    job.Done(1);
+                }
+            }
         }
-        catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
+        CustomerMachines MachinesOf(Company c) => found.TryGetValue((c.Brn ?? "").Trim(), out var m) ? m : CustomerMachines.None;
+        IEnumerable<object?[]> companyRows = companies.Select(c =>
         {
-            return FileAnswer.Fail(503, "Advance's machines could not be read: " + ex.Message + " Search or filter the Companies page to download fewer companies.");
-        }
+            var m = MachinesOf(c);
+            var left = skipped.Contains((c.Brn ?? "").Trim(), StringComparer.OrdinalIgnoreCase);
+            return new object?[]
+            {
+                c.Name.Trim(), c.Brn, left ? null : (decimal)m.Contracts.Sum(x => x.Machines.Count), left ? null : (decimal)m.Warranty.Count,
+                left ? null : (decimal)m.Expired.Count, left ? null : (decimal)m.NoContract.Count, left ? "Advance did not answer in time" : "",
+            };
+        });
+        if (companies.Count < total) companyRows = companyRows.Concat(new[] { new object?[] { Cut(companies.Count, total, "companies", "the Companies page") } });
+        var machineRows = MachineRows(companies, MachinesOf, out var machineCount);
+        if (machineCount > MaxMachineRows)
+            machineRows = machineRows.Take(MaxMachineRows).Concat(new[] { new object?[] { Cut(MaxMachineRows, machineCount, "machines", "the Companies page") } });
+        var note = skipped.Count == 0 ? ""
+            : $"Advance did not answer in time for {skipped.Count.ToString("N0", CultureInfo.InvariantCulture)} BRN{(skipped.Count == 1 ? "" : "s")} ({lastError}): " +
+              "their companies have no counts on the Companies sheet. Download those companies again later.";
+        var content = Xlsx.Create(
+        [
+            new Xlsx.Sheet("Companies",
+            [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Contract machines", 10, "number"),
+             new Xlsx.ColumnSpec("Warranty machines", 10, "number"), new Xlsx.ColumnSpec("Contract expired machines", 10, "number"),
+             new Xlsx.ColumnSpec("Machines without contract", 10, "number"), new Xlsx.ColumnSpec("Note", 30)],
+            companyRows),
+            new Xlsx.Sheet("Machines",
+            [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Section", 22), new Xlsx.ColumnSpec("Serial no", 16),
+             new Xlsx.ColumnSpec("Model", 36), new Xlsx.ColumnSpec("Item no", 10), new Xlsx.ColumnSpec("Contract no", 14), new Xlsx.ColumnSpec("Start", 12, "date"),
+             new Xlsx.ColumnSpec("End", 12, "date"), new Xlsx.ColumnSpec("Extended warranty start", 12, "date"), new Xlsx.ColumnSpec("Extended warranty end", 12, "date"),
+             new Xlsx.ColumnSpec("Install date", 12, "date"), new Xlsx.ColumnSpec("MGroup", 16)],
+            machineRows),
+        ]);
+        job.Complete($"CompanyMachines-{stamp:yyyyMMdd-HHmm}.xlsx", content, note, w.Clock());
     }
 
     /// <summary>At most this many machines on the Company summary's Machines sheet (Excel holds 1,048,576 rows).</summary>

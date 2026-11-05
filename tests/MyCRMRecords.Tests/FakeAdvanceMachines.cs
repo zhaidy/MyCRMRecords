@@ -311,8 +311,16 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
     }
 
     /// <summary>Many customers' Machines tabs, as <see cref="SqlAdvanceMachines.Customers"/> reads them: each BRN's own page.</summary>
+    /// <summary>BRNs whose bulk read times out, as a slow query on Advance would (tests of the background download).</summary>
+    public HashSet<string> SlowBrns { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>How many BRNs each bulk read was asked for, in order.</summary>
+    public List<int> BulkReads { get; } = new();
+
     public IReadOnlyDictionary<string, CustomerMachines> Customers(IReadOnlyCollection<string> brns, DateTime today)
     {
+        BulkReads.Add(brns.Count);
+        if (brns.Any(SlowBrns.Contains)) throw new TimeoutException("Execution Timeout Expired.");
         var answer = new Dictionary<string, CustomerMachines>(StringComparer.OrdinalIgnoreCase);
         foreach (var brn in brns.Select(b => (b ?? "").Trim()).Where(b => b.Length > 0))
             if (!answer.ContainsKey(brn)) answer[brn] = Customer(brn, "", today);
