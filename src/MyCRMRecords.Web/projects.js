@@ -3,7 +3,7 @@
   // projects.aspx: MyCRM's projects the person or their team are in (MyCRM's Projects screen): open, closed or all,
   // searched by name, remarks or company. Managers, Admins, Sales Admins and MD create one in two steps (details, then
   // companies); members are added on the project's page. On a phone a card per project.
-  const {$, $$, esc, api, toast, drawIcons, pager, date, showErrors} = window.WH;
+  const {$, $$, esc, api, toast, drawIcons, pager, date, showErrors, slowDownload} = window.WH;
   const page = $('#page');
   const filter = {show: 'open', q: '', skip: 0};
   try { const saved = JSON.parse(localStorage.getItem('projects-filter') || '{}'); if (['open', 'closed', 'all'].includes(saved.show)) filter.show = saved.show; } catch { /* none */ }
@@ -42,11 +42,9 @@
     $('#create')?.addEventListener('click', () => create(answer));
     $('#print').addEventListener('click', () => window.print());
     // Every project that matches the Open, Closed or All and the search (not just this page), with a sheet of their companies.
-    $('#download').addEventListener('click', event => {
-      event.preventDefault();
-      toast('Preparing the projects and their caretake accounts…');
-      location.href = 'file.ashx/projects?' + new URLSearchParams({show: filter.show, q: filter.q});
-    });
+    // The address follows the filters at the moment it is clicked; fetched in the page and greyed out until saved.
+    $('#download').addEventListener('click', () => { $('#download').href = 'file.ashx/projects?' + new URLSearchParams({show: filter.show, q: filter.q}); });
+    slowDownload($('#download'), 'Preparing the projects and their caretake accounts…');
   }
 
   function render() {

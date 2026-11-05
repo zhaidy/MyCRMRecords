@@ -142,6 +142,9 @@ the title says how many there are.
   start and end, extended warranty start and end, install date and meter groups (**MGroup**), at most 500,000. Many
   companies take several minutes: search or filter first (for example a postal code or a customer type) for a quicker
   file. Each download is recorded in the audit log.
+- While **Download**, **Download machines** (or the Projects page's **Download**) is being prepared, its button is grey
+  and says **Preparing…**; the file saves when it is ready. You cannot start the same download again until it is done:
+  in another tab you are told *Your download is still being prepared*.
 - **Print** (on a computer) prints the page as it is shown: the title, a line with the filters and when it was
   printed, and the companies on the page, without the menus and filters. Choose **Save as PDF** in the print dialog
   for a PDF. To print every company that matches, download the Company summary instead.

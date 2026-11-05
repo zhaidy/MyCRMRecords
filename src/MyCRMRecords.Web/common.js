@@ -503,6 +503,50 @@
     signInAs();
   });
 
+  /**
+   * A download link that takes a while (file.ashx/companies…): clicked, it is fetched here instead of opened, the link
+   * is greyed out with "Preparing…" until the file is saved (so it cannot be clicked again), and a refusal (the server
+   * builds one such file per person at a time) or an error is shown as a message. <paramref name="started"/>: what to say
+   * when it starts.
+   */
+  function slowDownload(link, started) {
+    if (!link) return;
+    const label = $('.action-label', link);
+    const text = label ? label.textContent : '';
+    link.addEventListener('click', async event => {
+      event.preventDefault();
+      if (link.getAttribute('aria-disabled') === 'true') return;
+      link.setAttribute('aria-disabled', 'true');
+      link.classList.add('is-busy');
+      if (label) label.textContent = 'Preparing…';
+      if (started) toast(started);
+      try {
+        const response = await fetch(link.href, {credentials: 'same-origin', cache: 'no-store'});
+        if (!response.ok) {
+          toast((await response.text()).trim() || 'The file could not be made. Try again in a minute.', true);
+          return;
+        }
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const named = /filename\*=UTF-8''([^;]+)/i.exec(disposition) || /filename="([^"]+)"/i.exec(disposition);
+        const name = named ? decodeURIComponent(named[1]) : 'download.xlsx';
+        const url = URL.createObjectURL(await response.blob());
+        const save = document.createElement('a');
+        save.href = url; save.download = name; save.hidden = true;
+        document.body.appendChild(save);
+        save.click();
+        save.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        toast('Downloaded ' + name + '.');
+      } catch (e) {
+        toast('The download stopped: ' + (e && e.message ? e.message : 'no answer from the server') + '.', true);
+      } finally {
+        link.removeAttribute('aria-disabled');
+        link.classList.remove('is-busy');
+        if (label) label.textContent = text;
+      }
+    });
+  }
+
   window.WH = {tag, $, $$, esc, icon, drawIcons, api, toast, number, date, dateTime, dateInput, statusBadge, ask, dialogHead, showErrors, param, pager, change, upload,
-    coverageTag, coverageText, machineUrl, crumbs};
+    coverageTag, coverageText, machineUrl, crumbs, slowDownload};
 })();
