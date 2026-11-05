@@ -134,12 +134,14 @@ the title says how many there are.
   (the primary contact first) with their phones and emails, website, caretake and caretake remarks, the caretakers of the company's open projects, created and updated on and by, and active. It replaces
   MyCRM's report *Company Summary*. All companies can take a minute; a file holds at most 100,000 companies, and its
   last line says so when there are more. Each download is recorded in the audit log.
-  The workbook also has each company's machines in Advance, as its **Machines** tab shows them (found by its BRN; a
-  company without a BRN has none here): on the first sheet, how many **Contract machines**, **Warranty machines**,
-  **Contract expired machines** and **Machines without contract** it has; on the second sheet, **Machines**, a row for
-  each machine with its company, BRN, **Section**, serial number, model, item number, contract number, start and end,
-  extended warranty start and end, install date and meter groups (**MGroup**). The sheet holds at most 500,000
-  machines and says so when there are more.
+- **Download machines** (at the top) gives the machines in Advance of the same companies (the search, filters and
+  **All**, **Mine** or **No salesperson** you chose), as each company's **Machines** tab shows them, found by its BRN (a
+  company without a BRN has none here). The sheet **Companies** has how many **Contract machines**, **Warranty
+  machines**, **Contract expired machines** and **Machines without contract** each company has; the sheet **Machines**
+  has a row for each machine with its company, BRN, **Section**, serial number, model, item number, contract number,
+  start and end, extended warranty start and end, install date and meter groups (**MGroup**), at most 500,000. Many
+  companies take several minutes: search or filter first (for example a postal code or a customer type) for a quicker
+  file. Each download is recorded in the audit log.
 - **Print** (on a computer) prints the page as it is shown: the title, a line with the filters and when it was
   printed, and the companies on the page, without the menus and filters. Choose **Save as PDF** in the print dialog
   for a PDF. To print every company that matches, download the Company summary instead.

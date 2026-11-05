@@ -277,29 +277,31 @@ public sealed class MachinesTests
     }
 
     [Fact]
-    public void The_company_summary_download_has_each_company_s_machines_as_its_Machines_tab_shows_them()
+    public void The_companies_machines_download_has_each_company_s_machines_as_its_Machines_tab_shows_them()
     {
         var s = World();
         using var world = s.World;
-        var file = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
+        var file = new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string>(), TestWorld.Sam);
         Assert.Equal(200, file.Status);
-        List<Dictionary<string, string>> Sheet(int index)
+        Assert.StartsWith("CompanyMachines-", file.FileName);
+        List<Dictionary<string, string>> Sheet(FileAnswer f, int index)
         {
-            using var stream = new MemoryStream(file.Content);
+            using var stream = new MemoryStream(f.Content);
             return Xlsx.Read(stream, index);
         }
-        var tan = Sheet(0).Single(r => r["Company"] == "Tan");
+        var tan = Sheet(file, 0).Single(r => r["Company"] == "Tan");
         Assert.Equal(("1", "1", "2", "2"), (tan["Contract machines"], tan["Warranty machines"], tan["Contract expired machines"], tan["Machines without contract"]));
-        var machines = Sheet(1);
+        var machines = Sheet(file, 1);
         Assert.All(machines, r => Assert.Equal(("Tan", "T1000ABC"), (r["Company"], r["BRN"])));
         Assert.Equal(new[] { "Contract", "Warranty", "Contract expired", "Contract expired", "No contract", "No contract" }, machines.Select(r => r["Section"]));
         Assert.Equal(new[] { "3100R0001", "3100R0002", "3100R0004", "S3089200488", "3100R0003", "3100R0005" }, machines.Select(r => r["Serial no"]));
         Assert.Equal(("CT-1", "BW1,COL1"), (machines[0]["Contract no"], machines[0]["MGroup"]));
-        // Without AdvanceConnector the sheet says so, and the companies are still there.
+        // The Company summary stays as it was: one sheet, no machines (it stays quick for every company).
+        var summary = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
+        Assert.DoesNotContain("Contract machines", Sheet(summary, 0).Single(r => r["Company"] == "Tan").Keys);
+        // Without AdvanceConnector the download says so.
         world.Machines.Available = false;
-        file = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
-        Assert.Equal("0", Sheet(0).Single(r => r["Company"] == "Tan")["Contract machines"]);
-        Assert.Contains("AdvanceConnector is not set up", string.Join(" ", Sheet(1).SelectMany(r => r.Values).Concat(Sheet(1).SelectMany(r => r.Keys))));
+        Assert.Equal(503, new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string>(), TestWorld.Sam).Status);
     }
 
     [Fact]

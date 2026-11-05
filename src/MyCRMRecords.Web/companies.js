@@ -93,6 +93,7 @@
     const download = new URLSearchParams({q: filter.q, customerType: filter.customerType, groupName: filter.groupName, postalCode: filter.postalCode, show: filter.show});
     const more = [
       `<a class="capsule-button" id="download" href="file.ashx/companies?${esc(download.toString())}" title="Download the Company summary of every company that matches (Excel)"><span data-icon="excel"></span><span class="action-label">Download</span></a>`,
+      `<a class="capsule-button" id="download-machines" href="file.ashx/companymachines?${esc(download.toString())}" title="Download the machines in Advance of every company that matches (Excel)"><span data-icon="printer"></span><span class="action-label">Download machines</span></a>`,
       '<button type="button" class="capsule-button companies-wide" id="print" title="Print this page"><span data-icon="printer"></span><span class="action-label">Print</span></button>',
       can.uploadEmployees ? '<button type="button" class="capsule-button" id="employees" title="Upload number of employees"><span data-icon="upload"></span><span class="action-label">Upload number of employees</span></button>' : '',
     ].filter(Boolean);
@@ -105,6 +106,9 @@
     drawIcons($('#actions'));
     $('#print').addEventListener('click', () => window.print());
     $('#download').addEventListener('click', () => toast(data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…'));
+    $('#download-machines').addEventListener('click', () => toast(data.total > 1000
+      ? `Reading the machines of ${companies(data.total)} in Advance: this can take several minutes. Search or filter first for a quicker file.`
+      : 'Reading the companies\' machines in Advance…'));
     $('#new-company')?.addEventListener('click', async () => {
       const id = await companyForm(lists, null);
       if (id) location.href = 'company.aspx?id=' + id;
