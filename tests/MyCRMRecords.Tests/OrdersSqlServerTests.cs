@@ -351,6 +351,15 @@ public sealed class OrdersSqlServerTests
         // A company's Machines tab (MyMachines' customer page), by BRN and by the customer's name.
         foreach (var (brn, name) in new[] { ("T1000ABC", ""), ("L2000XYZ", ""), ("NOPE", ""), ("", "TAN PTE LTD"), ("", "NOBODY"), ("", "") })
             Assert.Equal(J(fake.Customer(brn, name, today)), J(sql.Customer(brn, name, today)));
+        // Many customers at once (the Company summary download): each BRN as on its own.
+        var asked = new[] { "T1000ABC", "l2000xyz", " T1000ABC ", "NOPE", "" };
+        Assert.Equal(J(fake.Customers(asked, today)), J(sql.Customers(asked, today)));
+        Assert.Equal(J(sql.Customer("T1000ABC", "", today)), J(sql.Customers(asked, today)["T1000ABC"]));
+        Assert.Equal(3, sql.Customers(asked, today).Count);
+        // A machine no longer in daily_mif, read from the contract history.
+        foreach (var (serial, item) in new[] { ("S3089200488", ""), ("S3089200488", "406138"), ("S3089200488", "999"), ("3100R0007", ""), ("NOPE", "") })
+            Assert.Equal(J(fake.Get(serial, item, today)), J(sql.Get(serial, item, today)));
+        Assert.Equal("CT-0", sql.Get("S3089200488", "", today)!.Machine.ContractNo);
         var tanPage = sql.Customer("T1000ABC", "", today);
         Assert.Equal("BW1,COL1", tanPage.Contracts.Single().Machines.Single().Groups);
         Assert.Equal(new[] { "3100R0004", "S3089200488" }, tanPage.Expired.Select(x => x.Serial));

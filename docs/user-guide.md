@@ -134,6 +134,12 @@ the title says how many there are.
   (the primary contact first) with their phones and emails, website, caretake and caretake remarks, the caretakers of the company's open projects, created and updated on and by, and active. It replaces
   MyCRM's report *Company Summary*. All companies can take a minute; a file holds at most 100,000 companies, and its
   last line says so when there are more. Each download is recorded in the audit log.
+  The workbook also has each company's machines in Advance, as its **Machines** tab shows them (found by its BRN; a
+  company without a BRN has none here): on the first sheet, how many **Contract machines**, **Warranty machines**,
+  **Contract expired machines** and **Machines without contract** it has; on the second sheet, **Machines**, a row for
+  each machine with its company, BRN, **Section**, serial number, model, item number, contract number, start and end,
+  extended warranty start and end, install date and meter groups (**MGroup**). The sheet holds at most 500,000
+  machines and says so when there are more.
 - **Print** (on a computer) prints the page as it is shown: the title, a line with the filters and when it was
   printed, and the companies on the page, without the menus and filters. Choose **Save as PDF** in the print dialog
   for a PDF. To print every company that matches, download the Company summary instead.
@@ -170,7 +176,7 @@ whole screen, and the company's name at the top to go back.
   (found by its BRN) in each of the last 12 months, each machine's of its contract as on its own page. Point at a
   month to see its numbers; the line below adds up the year. **Machines** opens the Machines tab and **Usage &
   history ›** the company's [usage and history](#a-companys-usage-and-history).
-- The four tiles count the company's **Machines** (contract or warranty running), **Projects** (with how many are
+- The four tiles count the company's **Machines** (all four sections of its Machines tab), **Projects** (with how many are
   open), **Activities** (with how many are upcoming) and **Files** (with the newest upload's date); click one to open
   its tab.
 - **Salesperson and caretakers**: the company's owner with their territory and manager, then its caretakers: the
@@ -233,8 +239,9 @@ the company's BRN; a company with no BRN by its name). Four sections, read only:
 - **Machines without contract**: the company's machines that never had a contract (toners and other supplies left
   out), with their **Install date** and the **Start date** and **End date** of their warranty.
 
-An end date within 180 days (or already past) is red. Click a **Serial no** to open the machine. The tab's number
-counts the contract and warranty machines. **Search machines**, **Usage & history** and **Grouped by coverage** open
+An end date within 180 days (or already past) is red. Click a **Serial no** to open the machine (a machine no longer in
+Advance's list of machines in the field opens from its last contract). The tab's number counts the machines of all four
+sections, as does the **Machines** tile on the Overview. **Search machines**, **Usage & history** and **Grouped by coverage** open
 those pages. See [Machines](#machines).
 **Usage & history ›** opens the company's [usage and history](#a-companys-usage-and-history) and **Grouped by
 coverage ›** its [machines by coverage](#a-companys-machines-by-coverage).
@@ -472,7 +479,9 @@ You see the machines of the companies you may open (see [Companies](#companies))
 its BRN. You also see the machines of the companies a Sales Admin gave you **temporary access** to (see
 [Machine access](#machine-access)). The roles that open every company see every machine, once they search for one.
 
-- Type in the search box at least 3 characters of a serial number, model, company name or BRN.
+- Type in the search box at least 3 characters of a serial number, model, company name or BRN. A machine no longer in
+  Advance's list of machines in the field (one a company's Machines tab shows under **Contract expired machines**) is
+  found only by its whole serial number, and shows as **Expired**.
 - Choose a coverage: **All**, **Contract** (a contract running today), **Warranty** (a warranty running today),
   **T&M** (time and materials), **Expired** (its contract or warranty has ended) or **No contract**; and a **Finance
   type**: **All**, Internal lease, External lease, Outright, Dealer or **None**. The search and filters are kept for next time.
@@ -485,7 +494,9 @@ its BRN. You also see the machines of the companies a Sales Admin gave you **tem
 
 ## A machine
 
-A machine's page: its serial number and coverage, its model, company and how you see it.
+A machine's page: its serial number and coverage, its model, company and how you see it. A machine no longer in
+Advance's list of machines in the field is shown from its last contract (the one listed under **Contract expired
+machines**): its contract, customer and BRN from that contract, its model from the item, and its history as below.
 
 - The facts: when it was installed, its contract (number, type and dates), finance type, warranty, contact, location,
   address, BRN and Advance's customer number. For a machine on time and materials, its last service and invoice.

@@ -192,27 +192,87 @@ public sealed class FilesApi(CrmApp w)
                 long.TryParse(Q(query, "groupName"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : null, Q(query, "postalCode"), 0, Q(query, "show"));
             var (total, lines) = w.Reports.CompanySummary(actor, filter);
             static string YesNo(bool b) => b ? "Yes" : "No";
-            IEnumerable<object?[]> rows = lines.Select(l => new object?[]
+            // Each company's machines in Advance, as its Machines tab shows them (by BRN; read in bulk).
+            IReadOnlyDictionary<string, CustomerMachines> machines;
+            string? machinesNote = null;
+            try { machines = w.Machines.ForDownload(lines.Select(l => l.Company)); }
+            catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
             {
-                l.Company.Name.Trim(), l.Company.Brn, l.Company.CustomerNo, l.CustomerType, l.GroupName, l.AccountType, l.Industry, l.Salesperson, l.Team, l.Manager,
-                l.Territory, l.PostalCode, l.BillingAddress, l.Company.Phone, l.Contacts, l.ContactPhones, l.ContactEmails, l.Company.Website, YesNo(l.Company.IsCaretake), l.CaretakeRemarks, l.Caretakers,
-                Day(l.Company.CreatedDate), l.CreatedBy, Day(l.Company.UpdatedDate), l.UpdatedBy, YesNo(l.Company.IsActive),
+                machines = new Dictionary<string, CustomerMachines>(StringComparer.OrdinalIgnoreCase);
+                machinesNote = "Advance's machines could not be read: " + ex.Message;
+            }
+            if (machinesNote is null && !w.Machines.Advance.Available) machinesNote = "Advance's machines are not in this file: AdvanceConnector is not set up.";
+            CustomerMachines MachinesOf(Company c) => machines.TryGetValue((c.Brn ?? "").Trim(), out var m) ? m : CustomerMachines.None;
+            IEnumerable<object?[]> rows = lines.Select(l =>
+            {
+                var m = MachinesOf(l.Company);
+                return new object?[]
+                {
+                    l.Company.Name.Trim(), l.Company.Brn, l.Company.CustomerNo, l.CustomerType, l.GroupName, l.AccountType, l.Industry, l.Salesperson, l.Team, l.Manager,
+                    l.Territory, l.PostalCode, l.BillingAddress, l.Company.Phone, l.Contacts, l.ContactPhones, l.ContactEmails, l.Company.Website, YesNo(l.Company.IsCaretake), l.CaretakeRemarks, l.Caretakers,
+                    Day(l.Company.CreatedDate), l.CreatedBy, Day(l.Company.UpdatedDate), l.UpdatedBy, YesNo(l.Company.IsActive),
+                    (decimal)m.Contracts.Sum(x => x.Machines.Count), (decimal)m.Warranty.Count, (decimal)m.Expired.Count, (decimal)m.NoContract.Count,
+                };
             });
             if (lines.Count < total) rows = rows.Concat(new[] { new object?[] { Cut(lines.Count, total, "companies", "the Companies page") } });
-            return new FileAnswer(200, $"CompanySummary-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create("Company summary",
+            var machineRows = MachineRows(lines.Select(l => l.Company), MachinesOf, out var machineCount);
+            if (machineCount > MaxMachineRows)
+                machineRows = machineRows.Take(MaxMachineRows).Concat(new[] { new object?[] { Cut(MaxMachineRows, machineCount, "machines", "the Companies page") } });
+            if (machinesNote is not null) machineRows = new[] { new object?[] { machinesNote } };
+            return new FileAnswer(200, $"CompanySummary-{w.Clock():yyyyMMdd-HHmm}.xlsx", FileAnswer.XlsxType, Xlsx.Create(
+            [
+                new Xlsx.Sheet("Company summary",
                 [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Customer code", 14), new Xlsx.ColumnSpec("Customer type", 18),
                  new Xlsx.ColumnSpec("Group name", 24), new Xlsx.ColumnSpec("Account type", 12), new Xlsx.ColumnSpec("Industry", 22), new Xlsx.ColumnSpec("Salesperson", 24),
                  new Xlsx.ColumnSpec("Team", 20), new Xlsx.ColumnSpec("Manager", 24), new Xlsx.ColumnSpec("Territory", 18), new Xlsx.ColumnSpec("Postal code", 11),
                  new Xlsx.ColumnSpec("Billing address", 44), new Xlsx.ColumnSpec("Company phone", 14),
                  new Xlsx.ColumnSpec("Contacts", 30), new Xlsx.ColumnSpec("Contact phones", 20), new Xlsx.ColumnSpec("Contact emails", 30), new Xlsx.ColumnSpec("Website", 24), new Xlsx.ColumnSpec("Caretake", 9),
                  new Xlsx.ColumnSpec("Caretake remarks", 36), new Xlsx.ColumnSpec("Caretakers (open projects)", 40), new Xlsx.ColumnSpec("Created on", 12, "date"),
-                 new Xlsx.ColumnSpec("Created by", 22), new Xlsx.ColumnSpec("Updated on", 12, "date"), new Xlsx.ColumnSpec("Updated by", 22), new Xlsx.ColumnSpec("Active", 7)],
-                rows));
+                 new Xlsx.ColumnSpec("Created by", 22), new Xlsx.ColumnSpec("Updated on", 12, "date"), new Xlsx.ColumnSpec("Updated by", 22), new Xlsx.ColumnSpec("Active", 7),
+                 new Xlsx.ColumnSpec("Contract machines", 10, "number"), new Xlsx.ColumnSpec("Warranty machines", 10, "number"),
+                 new Xlsx.ColumnSpec("Contract expired machines", 10, "number"), new Xlsx.ColumnSpec("Machines without contract", 10, "number")],
+                rows),
+                new Xlsx.Sheet("Machines",
+                [new Xlsx.ColumnSpec("Company", 40), new Xlsx.ColumnSpec("BRN", 16), new Xlsx.ColumnSpec("Section", 22), new Xlsx.ColumnSpec("Serial no", 16),
+                 new Xlsx.ColumnSpec("Model", 36), new Xlsx.ColumnSpec("Item no", 10), new Xlsx.ColumnSpec("Contract no", 14), new Xlsx.ColumnSpec("Start", 12, "date"),
+                 new Xlsx.ColumnSpec("End", 12, "date"), new Xlsx.ColumnSpec("Extended warranty start", 12, "date"), new Xlsx.ColumnSpec("Extended warranty end", 12, "date"),
+                 new Xlsx.ColumnSpec("Install date", 12, "date"), new Xlsx.ColumnSpec("MGroup", 16)],
+                machineRows),
+            ]));
         }
         catch (Exception ex) when (ex is System.Data.Common.DbException or TimeoutException or InvalidOperationException)
         {
             return FileAnswer.Fail(503, "MyCRM's companies could not be read: " + ex.Message);
         }
+    }
+
+    /// <summary>At most this many machines on the Company summary's Machines sheet (Excel holds 1,048,576 rows).</summary>
+    public const int MaxMachineRows = 500000;
+
+    /// <summary>
+    /// The Company summary's Machines sheet: each company's machines (MyMachines' customer page sections, as its Machines tab
+    /// shows them), a row per machine, in the tab's order. <paramref name="count"/>: how many there are.
+    /// </summary>
+    private static IEnumerable<object?[]> MachineRows(IEnumerable<Company> companies, Func<Company, CustomerMachines> machinesOf, out int count)
+    {
+        var rows = new List<object?[]>();
+        foreach (var c in companies)
+        {
+            var m = machinesOf(c);
+            var name = c.Name.Trim();
+            var brn = (c.Brn ?? "").Trim();
+            foreach (var contract in m.Contracts)
+                foreach (var x in contract.Machines)
+                    rows.Add([name, brn, "Contract", x.Serial, x.Model, x.Item, contract.ContractNo, Day(x.Start), Day(x.End), null, null, null, x.Groups]);
+            foreach (var x in m.Warranty)
+                rows.Add([name, brn, "Warranty", x.Serial, x.Model, x.Item, "", Day(x.Start), Day(x.End), Day(x.ExtendedStart), Day(x.ExtendedEnd), null, ""]);
+            foreach (var x in m.Expired)
+                rows.Add([name, brn, "Contract expired", x.Serial, x.Model, x.Item, x.ContractNo, Day(x.Start), Day(x.End), null, null, null, ""]);
+            foreach (var x in m.NoContract)
+                rows.Add([name, brn, "No contract", x.Serial, x.Model, x.Item, "", Day(x.Start), Day(x.End), null, null, Day(x.Installed), ""]);
+        }
+        count = rows.Count;
+        return rows;
     }
 
     /// <summary>

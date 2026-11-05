@@ -85,7 +85,7 @@
     const info = [d.owner ? 'Territory ' + esc(d.owner.territory) : '', d.owner ? esc(d.owner.name || 'Vacant') : 'No salesperson',
       c.brn ? 'BRN ' + esc(c.brn) : 'No BRN', c.customerNo ? 'Customer code ' + esc(c.customerNo) : ''].filter(Boolean).join(' · ');
     const stats = [
-      {id: 'machines', label: 'Machines', sub: 'contract or warranty running', color: 'var(--teal)'},
+      {id: 'machines', label: 'Machines', sub: 'in Advance, as the Machines tab lists them', color: 'var(--teal)'},
       {id: 'projects', label: 'Projects', sub: 'that include the company', color: 'var(--coral)'},
       {id: 'activities', label: 'Activities', sub: 'of you, your team and its salespeople', color: 'var(--hue-violet)'},
       {id: 'files', label: 'Files', sub: 'in MyFiles', color: 'var(--hue-amber)'}
@@ -466,7 +466,7 @@
       ${section('Machines without contract', answer.noContract.length, table(['Serial no', 'Model', 'Install date', 'Start date', 'End date'],
         answer.noContract.map(m => `<tr><td class="nowrap"><b>${esc(m.serial)}</b></td><td>${esc(m.model)}</td><td class="nowrap">${day(m.installed)}</td>
           <td class="nowrap">${day(m.start)}</td><td class="nowrap">${day(m.end)}</td></tr>`), 'No items to show...'))}`;
-    setCount('machines', answer.contracts.reduce((n, c) => n + c.machines.length, 0) + answer.warranty.length);
+    setCount('machines', answer.contracts.reduce((n, c) => n + c.machines.length, 0) + answer.warranty.length + answer.expired.length + answer.noContract.length);
     const expand = (card, open) => {
       $$('.more-machine', card).forEach(r => { r.hidden = !open; });
       const b = $('[data-expand]', card);
