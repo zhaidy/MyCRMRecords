@@ -61,6 +61,52 @@ public sealed class MachinesTests
         m.Add("daily_TM", new { trans_date = new DateTime(2026, 10, 16), item_no = "418283", serial_no = "3100R0003", Contract_no = "CT-OLD", Cntrct_start = new DateTime(2021, 2, 1),
             Cntrct_end = new DateTime(2024, 1, 31), Meter_Type = "C1", Min_Bill = 80m, MinCopies = 500L, MinRate = 0.06m, Therafter = 0.055m });
         m.Add("customer", new { Cust_no = "C1", Name = "TAN PTE LTD", Address = "18 Tan Street", City = "Singapore", Zip_code = "123456", Telephone = "61234567", Contact = "Mei" });
+        FillContracts(m);
+    }
+
+    /// <summary>
+    /// Tan's contracts in Advance, for its Machines tab (MyMachines' customer page): CT-1 running (3100R0001, with a BW and
+    /// a COL meter group and free copies), CT-4 ended (3100R0004), CT-0 ended long ago on a machine no longer in daily_mif
+    /// (S3089200488), CT-0B an older line of 3100R0001 (not its latest), CT-IP running but on instalment payment, CT-EW the
+    /// extended warranty (CMA-0A) of 3100R0002, starting when its warranty ends. Today is 17 Oct 2026.
+    /// </summary>
+    public static void FillContracts(FakeAdvanceMachines m)
+    {
+        m.Add("Customer_Supp", new { Cust_no = "C1", Business_reg = "T1000ABC" });
+        m.Add("Customer_Supp", new { Cust_no = "C2", Business_reg = "L2000XYZ" });
+        void Contract(string no, string type, DateTime start, DateTime end, string record = "C", string custNo = "C1") =>
+            m.Add("contract", new { Contract_no = no, Cust_no = custNo, Contract_typ = type, Cntrct_start = start, Cntrct_end = end, Record_type = record });
+        void Line(string no, int line, string serial, string item, DateTime start, DateTime end) =>
+            m.Add("contract_lin", new { Contract_no = no, Line_no = line, Serial_no = serial, Item_no = item, Cntrct_start = start, Cntrct_end = end, Ar_entity = "A" });
+        Contract("CT-1", "MPS", new DateTime(2025, 10, 1), new DateTime(2028, 9, 30));
+        Line("CT-1", 1, "3100R0001", "418283", new DateTime(2025, 10, 1), new DateTime(2028, 9, 30));
+        Contract("CT-4", "MPS", new DateTime(2023, 9, 1), new DateTime(2026, 8, 31));
+        Line("CT-4", 1, "3100R0004", "418283", new DateTime(2023, 9, 1), new DateTime(2026, 8, 31));
+        Contract("CT-0", "MPS", new DateTime(2010, 10, 10), new DateTime(2011, 10, 9));
+        Line("CT-0", 1, "S3089200488", "406138", new DateTime(2010, 10, 10), new DateTime(2011, 10, 9));
+        Contract("CT-0B", "MPS", new DateTime(2022, 10, 1), new DateTime(2025, 9, 30));
+        Line("CT-0B", 1, "3100R0001", "418283", new DateTime(2022, 10, 1), new DateTime(2025, 9, 30));
+        Contract("CT-IP", "MPS", new DateTime(2026, 1, 1), new DateTime(2029, 1, 1));
+        Line("CT-IP", 1, "3100R0007", "418283", new DateTime(2026, 1, 1), new DateTime(2029, 1, 1));
+        m.Add("contract_ip", new { contract_no = "CT-IP" });
+        Contract("CT-EW", "CMA-0A1", new DateTime(2027, 3, 15), new DateTime(2029, 3, 14));
+        Line("CT-EW", 1, "3100R0002", "418283", new DateTime(2027, 3, 15), new DateTime(2029, 3, 14));
+        m.Add("Contract_MGMember", new { Contract_No = "CT-1", Line_No = 1, MGroup_No = "COL1" });
+        m.Add("Contract_MGMember", new { Contract_No = "CT-1", Line_No = 1, MGroup_No = "BW1" });
+        m.Add("Contract_MeterGroup", new { AR_Entity = "A", Contract_No = "CT-1", MGroup_No = "BW1", Meter_Type = "BW", Meter_Read_1 = 1000, Meter_Read_2 = 9999999,
+            Meter_Read_3 = 0, Meter_Price_1 = 0m, Meter_Price_2 = 0.012m, Meter_Price_3 = 0m, Min_Bill = 50m });
+        m.Add("Contract_MeterGroup", new { AR_Entity = "A", Contract_No = "CT-1", MGroup_No = "COL1", Meter_Type = "COL", Meter_Read_1 = 200, Meter_Read_2 = 0,
+            Meter_Read_3 = 0, Meter_Price_1 = 0.05m, Meter_Price_2 = 0m, Meter_Price_3 = 0.04m, Min_Bill = 20m });
+        m.Add("contract_grant", new { Record_type = "G", Contract_no = "CT-1", Line_no = 1, seq_no = 1, MGroup_No = "BW", granted_copies = 5000, used_copies = 1200 });
+        m.Add("contract_grant", new { Record_type = "G", Contract_no = "CT-1", Line_no = 1, seq_no = 2, MGroup_No = "COL", granted_copies = 1000, used_copies = 1000 });
+        m.Add("item", new { Item_no = "418283", Description = "IM C3000 MFP", Prod_group = "MFP" });
+        m.Add("item", new { Item_no = "406138", Description = "406138 AFICIO SPC222SF;", Prod_group = "MFP" });
+        m.Add("item", new { Item_no = "800001", Description = "Toner", Prod_group = "0E1" });
+        m.Add("item2", new { Item_no = "418283" });
+        m.Add("item2", new { Item_no = "406138" });
+        // A toner (product group 0E…) at Tan, with no contract: not one of its machines without contract.
+        m.Add("serial", new { Item_no = "800001", Serial_no = "TN0001", Serial_stat = "", Trans_date = new DateTime(2026, 1, 1), Install_date = new DateTime(2026, 2, 1),
+            Location = "", Primary_con = "", Primary_phon = "", Cust_no = "C1", Sell_start = (DateTime?)null, Sell_end = (DateTime?)null });
     }
 
     private static ApiResponse Call(TestWorld world, ApiUser user, string path = "machines", Dictionary<string, string>? query = null, string method = "GET", object? body = null) =>
@@ -163,6 +209,58 @@ public sealed class MachinesTests
         Assert.Equal(403, Call(world, TestWorld.Sam, query: new() { ["company"] = s.Lim.Id.ToString() }).Status);
         Assert.Equal(new[] { "4100L0001" }, Tab(TestWorld.Dina, s.Lim)["rows"]!.Select(r => (string)r["serial"]!));
         Assert.Equal(403, Call(world, TestWorld.Olga, query: new() { ["company"] = s.Zen.Id.ToString() }).Status);
+    }
+
+    [Fact]
+    public void A_company_s_Machines_tab_shows_MyMachines_customer_page_section_by_section()
+    {
+        var s = World();
+        using var world = s.World;
+        var answer = Call(world, TestWorld.Sam, "machines/customer", new() { ["company"] = s.Tan.Id.ToString() });
+        Assert.Equal(200, answer.Status);
+        var tab = JObject.Parse(answer.Json);
+        // Contract machines: CT-1 only (CT-4 and CT-0 ended, CT-IP on instalment payment, CT-EW not started).
+        var contract = Assert.Single(tab["contracts"]!);
+        Assert.Equal("CT-1", (string)contract["contractNo"]!);
+        var machine = Assert.Single(contract["machines"]!);
+        Assert.Equal("3100R0001", (string)machine["serial"]!);
+        Assert.Equal("BW1,COL1", (string)machine["groups"]!);
+        var bw = contract["meters"]!.Single(g => (string)g["meterType"]! == "BW");
+        Assert.Equal(50m, (decimal)bw["minBill"]!);
+        Assert.Equal(new[] { "Free print", "Thereafter" }, bw["steps"]!.Select(x => (string)x["label"]!));
+        Assert.Equal(1000L, (long)bw["steps"]![0]!["copies"]!);
+        Assert.Equal(JTokenType.Null, bw["steps"]![1]!["copies"]!.Type);
+        var col = contract["meters"]!.Single(g => (string)g["meterType"]! == "COL");
+        Assert.Equal(new[] { "Step Rate 1", "Thereafter" }, col["steps"]!.Select(x => (string)x["label"]!));
+        Assert.Equal(new[] { 3800L, 0L }, contract["grants"]!.Select(g => (long)g["remaining"]!));
+        // Warranty machines, with the extended warranty contract (CMA-0A).
+        var warranty = Assert.Single(tab["warranty"]!);
+        Assert.Equal("3100R0002", (string)warranty["serial"]!);
+        Assert.Equal(new DateTime(2029, 3, 14), (DateTime)warranty["extendedEnd"]!);
+        // Contract expired machines: by the latest contract line, also a machine no longer in daily_mif.
+        Assert.Equal(new[] { "3100R0004", "S3089200488" }, tab["expired"]!.Select(x => (string)x["serial"]!));
+        Assert.Equal(new[] { "CT-4", "CT-0" }, tab["expired"]!.Select(x => (string)x["contractNo"]!));
+        Assert.Equal("406138 AFICIO SPC222SF;", (string)tab["expired"]![1]!["model"]!);
+        // Machines without contract: no contract line at all, toners left out.
+        Assert.Equal(new[] { "3100R0003", "3100R0005" }, tab["noContract"]!.Select(x => (string)x["serial"]!));
+        // Who sees the company's machines, as for the rest of the tab.
+        Assert.Equal(403, Call(world, TestWorld.Sam, "machines/customer", new() { ["company"] = s.Lim.Id.ToString() }).Status);
+        // A company without BRN: found by its name, as MyMachines' filter by customer name.
+        var byName = world.Machines.Customer("", "TAN PTE LTD", new DateTime(2026, 10, 17));
+        Assert.Equal(new[] { "CT-1" }, byName.Contracts.Select(c => c.ContractNo));
+        Assert.Empty(world.Machines.Customer("", "", new DateTime(2026, 10, 17)).Expired);
+    }
+
+    [Fact]
+    public void A_meter_group_s_steps_are_labelled_as_MyMachines_labels_them()
+    {
+        string Labels(long m1, long m2, long m3, decimal p1, decimal p2, decimal p3) =>
+            string.Join("|", CustomerMachinesRules.Steps(m1, m2, m3, p1, p2, p3).Select(x => x.Label));
+        Assert.Equal("Free print|Step rate 1", Labels(1000, 500, 0, 0m, 0.01m, 0m));
+        Assert.Equal("Step Rate 1|Step rate 2|Thereafter", Labels(1000, 500, 300, 0.02m, 0.01m, 0.005m));
+        Assert.Equal("Thereafter", Labels(0, 0, 0, 0.01m, 0m, 0m));
+        Assert.Equal(0L, CustomerMachinesRules.Reading(9999999));
+        Assert.Equal("A,,B", CustomerMachinesRules.Groups(new[] { "", "A", "", "B" }));
     }
 
     [Fact]

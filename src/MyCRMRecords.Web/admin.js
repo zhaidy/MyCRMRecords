@@ -159,6 +159,9 @@
           ${field(c, 'advanceTables.dailyMif', 'Machines: daily_mif')}${field(c, 'advanceTables.serial', 'Machines: serial')}${field(c, 'advanceTables.customer', 'Machines: customer')}
           ${field(c, 'advanceTables.meterCard', 'Machines: meter_card')}${field(c, 'advanceTables.service', 'Machines: Service')}${field(c, 'advanceTables.sMeterHistory', 'Machines: SMeter_History')}
           ${field(c, 'advanceTables.dailyTm', 'Machines: daily_TM')}${field(c, 'advanceTables.customerMapping', 'Invoice / SOA emails: CustomerMapping')}${field(c, 'advanceTables.emailMaster', 'Invoice / SOA emails: Email_Master')}
+          ${field(c, 'advanceTables.contract', 'Machines tab: contract')}${field(c, 'advanceTables.contractLine', 'Machines tab: contract_lin')}${field(c, 'advanceTables.contractIp', 'Machines tab: contract_ip')}
+          ${field(c, 'advanceTables.item', 'Machines tab: item')}${field(c, 'advanceTables.item2', 'Machines tab: item2')}${field(c, 'advanceTables.contractMeterGroup', 'Machines tab: Contract_MeterGroup')}
+          ${field(c, 'advanceTables.contractMgMember', 'Machines tab: Contract_MGMember')}${field(c, 'advanceTables.contractGrant', 'Machines tab: contract_grant')}
         </div></details></section>
       <div class="action-buttons"><button type="submit" class="button primary">Save</button></div>
       <div class="notice" id="conn-result" hidden></div></form>`;

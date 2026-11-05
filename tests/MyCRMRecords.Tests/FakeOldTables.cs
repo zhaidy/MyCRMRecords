@@ -337,7 +337,7 @@ public sealed class FakeOldTables : IOldTables, ITemporaryTerritories
         CREATE TABLE dbo.Customer_Supp ([Cust-no] nvarchar(20) NOT NULL, [Business reg] nvarchar(50) NULL, [Cust name] nvarchar(100) NULL);
         INSERT INTO dbo.Customer_Supp VALUES (N'C0002', N'200012345K', N'Tan & Sons'), (N'C0001', N'199912345K', N'Lim Pte Ltd'),
           (N'C0003', N'199912345K', N'Lim Pte Ltd (2)'), (N'C0004', NULL, N'No BRN'), (N'C0005', N'ABC', N'Short BRN');
-        """ + new FakeAdvanceMachines().AdvanceSql();
+        """ + new FakeAdvanceMachines().AdvanceSql(customerSupp: false);
 
     public static string Text(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
 }

@@ -348,6 +348,15 @@ public sealed class OrdersSqlServerTests
         Assert.Equal(41882L, sql.Services("3100R0001", "C1", "CT-1", from).Single().BlackWhite);
         Assert.Equal("Mei", sql.Get("3100R0002", "", today)!.Contact);
         Assert.Equal(2, sql.LastContract("3100R0003", "418283")!.Rates.Count);
+        // A company's Machines tab (MyMachines' customer page), by BRN and by the customer's name.
+        foreach (var (brn, name) in new[] { ("T1000ABC", ""), ("L2000XYZ", ""), ("NOPE", ""), ("", "TAN PTE LTD"), ("", "NOBODY"), ("", "") })
+            Assert.Equal(J(fake.Customer(brn, name, today)), J(sql.Customer(brn, name, today)));
+        var tanPage = sql.Customer("T1000ABC", "", today);
+        Assert.Equal("BW1,COL1", tanPage.Contracts.Single().Machines.Single().Groups);
+        Assert.Equal(new[] { "3100R0004", "S3089200488" }, tanPage.Expired.Select(x => x.Serial));
+        // The dealer machines added above have no contract line either.
+        Assert.Equal(new[] { "3100R0003", "3100R0005", "6100D0001", "6100D0002" }, tanPage.NoContract.Select(x => x.Serial));
+        Assert.Equal(new DateTime(2027, 3, 15), tanPage.Warranty.Single().ExtendedStart);
         // The connection test finds every table and column by MyMachines' names; a wrong table name shows.
         settings.Connections.AdvanceTables.CustomerSupp = "dbo.daily_mif";
         var lines = databases.Test(ExternalNames.AdvanceConnector);

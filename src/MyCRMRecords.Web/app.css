@@ -991,6 +991,23 @@ body.terr-ticking main{padding-bottom:calc(184px + env(safe-area-inset-bottom))}
 .machine-chart svg line{stroke:var(--line);stroke-width:1}
 .machine-chart svg text{font-weight:500}
 .machine-cards,.access-cards{margin-top:4px}
+/* A company's Machines tab: MyMachines' customer page, section by section (company.js machines). */
+.customer-section{margin-top:18px}
+.customer-section h3{margin:0;font-size:1rem}
+.customer-section .action-buttons{margin:0;gap:12px}
+.contract-card{border:1px solid var(--line);border-radius:16px;padding:12px;margin-top:10px;background:var(--card)}
+.contract-head{margin-bottom:8px}
+.contract-card>.text-button{margin-top:6px}
+.meter-types{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+.meter-type{flex:1 1 16rem;min-width:0}
+.meter-type h4{margin:0 0 6px;font-size:0.8125rem;letter-spacing:.5px;color:var(--muted)}
+.meter-group{border:1px solid var(--border-soft);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+.meter-group-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.meter-steps{width:100%;border-collapse:collapse;font-size:0.875rem}
+.meter-steps th{text-align:right;font-size:0.75rem;color:var(--muted);font-weight:700;padding:2px 4px}
+.meter-steps td{padding:2px 4px}
+.meter-steps .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.customer-machines .ending{color:var(--red);font-weight:700}
 @media(max-width:56.25em){.machines-wide{display:none}.machine-cards .file-card,.access-cards .file-card{padding-left:0;padding-right:0}.machine-cards,.access-cards{background:none}}
 .machine-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.machine-tabs .tab{white-space:nowrap}
 

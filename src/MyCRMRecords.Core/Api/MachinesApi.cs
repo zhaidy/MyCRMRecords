@@ -71,6 +71,13 @@ public sealed class MachinesApi(CrmApp w)
                     months = copies.Months.Select(m => new { year = m.Year, month = m.Month, blackWhite = m.BlackWhite, colour = m.Colour }),
                 });
             }
+            if (parts.Length == 2 && parts[1] == "customer")
+            {
+                if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
+                if (w.Machines.Customer(actor, ofCompany) is not { } found)
+                    return ApiResponse.Forbidden("You don't have permissions to view this company's machines: it is not in your or your team's territories.");
+                return ApiResponse.Of(CustomerOf(found.Company, found.Machines));
+            }
             if (parts.Length == 2 && parts[1] is "dealer" or "invoiceemails")
             {
                 if (!long.TryParse(Q("company"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ofCompany) || ofCompany <= 0) return ApiResponse.NotFound();
@@ -110,6 +117,30 @@ public sealed class MachinesApi(CrmApp w)
             return ApiResponse.Fail(503, "UNAVAILABLE", "Advance's machines could not be read: " + ex.Message);
         }
     }
+
+    /// <summary>A company's Machines tab (machines/customer?company=): MyMachines' customer page, section by section.</summary>
+    public static object CustomerOf(Company company, CustomerMachines m) => new
+    {
+        company = CompanyOf(company),
+        byName = (company.Brn ?? "").Trim().Length == 0,
+        contracts = m.Contracts.Select(c => new
+        {
+            contractNo = c.ContractNo, start = c.Start, end = c.End, customerNo = c.CustomerNo, customer = c.Customer,
+            machines = c.Machines.Select(x => new { serial = x.Serial, item = x.Item, model = x.Model, start = x.Start, end = x.End, groups = x.Groups }),
+            meters = c.Meters.Select(g => new
+            {
+                meterType = g.MeterType, group = g.Group, minBill = g.MinBill,
+                steps = g.Steps.Select(s => new { label = s.Label, copies = s.Copies, price = s.Price }),
+            }),
+            grants = c.Grants.Select(g => new { meterType = g.MeterType, granted = g.Granted, used = g.Used, remaining = g.Remaining }),
+        }),
+        warranty = m.Warranty.Select(x => new
+        {
+            serial = x.Serial, item = x.Item, model = x.Model, start = x.Start, end = x.End, extendedStart = x.ExtendedStart, extendedEnd = x.ExtendedEnd,
+        }),
+        expired = m.Expired.Select(x => new { serial = x.Serial, item = x.Item, model = x.Model, contractNo = x.ContractNo, start = x.Start, end = x.End }),
+        noContract = m.NoContract.Select(x => new { serial = x.Serial, item = x.Item, model = x.Model, installed = x.Installed, start = x.Start, end = x.End }),
+    };
 
     /// <summary>The company whose machines are shown: its name and BRN and Advance's customer number, for the page's heading.</summary>
     private static object CompanyOf(Company c) => new { id = c.Id, name = c.Name, brn = c.Brn, customerNo = c.CustomerNo };

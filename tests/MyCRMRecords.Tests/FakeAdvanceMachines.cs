@@ -27,7 +27,19 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
         ("daily_TM", AdvanceMachineColumns.DailyTm.Select(c => (c, TypeOf(c))).ToArray()),
         ("CustomerMapping", AdvanceMachineColumns.CustomerMapping.Select(c => (c, TypeOf(c))).ToArray()),
         ("Email_Master", AdvanceMachineColumns.EmailMaster.Select(c => (c, TypeOf(c))).ToArray()),
+        ("contract", AdvanceMachineColumns.Contract.Select(c => (c, TypeOf(c))).ToArray()),
+        ("contract_lin", AdvanceMachineColumns.ContractLine.Select(c => (c, TypeOf(c))).ToArray()),
+        ("contract_ip", AdvanceMachineColumns.ContractIp.Select(c => (c, TypeOf(c))).ToArray()),
+        ("item", AdvanceMachineColumns.Item.Select(c => (c, TypeOf(c))).ToArray()),
+        ("item2", AdvanceMachineColumns.Item2.Select(c => (c, TypeOf(c))).ToArray()),
+        ("Contract_MeterGroup", AdvanceMachineColumns.ContractMeterGroup.Select(c => (c, TypeOf(c))).ToArray()),
+        ("Contract_MGMember", AdvanceMachineColumns.ContractMgMember.Select(c => (c, TypeOf(c))).ToArray()),
+        ("contract_grant", AdvanceMachineColumns.ContractGrant.Select(c => (c, TypeOf(c))).ToArray()),
     ];
+
+    /// <summary>AdvanceConnector's Customer_Supp (a customer number's BRN), made by <see cref="AdvanceSql"/> when asked (FakeOldTables makes its own).</summary>
+    public static readonly (string Table, (string Column, string Type)[] Columns) CustomerSupp =
+        ("Customer_Supp", ExternalColumns.CustomerSupp.Select(c => (c, TypeOf(c))).ToArray());
 
     private static readonly string[] KeepsUnderscore = ["Meter_Type", "Meter_Reading", "Service_No", "Serial_No", "Min_Bill"];
 
@@ -37,7 +49,8 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
     {
         var c = column.ToLowerInvariant();
         if (c.EndsWith("date") || c.EndsWith("_dt") || c.EndsWith("start") || c.EndsWith("end")) return "datetime";
-        if (c is "invoice_no" or "copies" or "meter_reading" or "mincopies") return "int";
+        if (c is "invoice_no" or "copies" or "meter_reading" or "mincopies" or "line_no" or "seq_no" or "granted_copies" or "used_copies" || c.StartsWith("meter_read_", StringComparison.Ordinal)) return "int";
+        if (c.StartsWith("meter_price_", StringComparison.Ordinal)) return "decimal(18,5)";
         if (c is "company_id") return "bigint";
         if (c is "min_bill" or "minrate" or "therafter") return "decimal(18,4)";
         return "nvarchar(100)";
@@ -68,7 +81,7 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
         Add("serial", new
         {
             Item_no = item, Serial_no = serial, Serial_stat = finance, Trans_date = new DateTime(2026, 1, 1), Install_date = installed ?? new DateTime(2025, 10, 3),
-            Location = "Level 3", Primary_con = "", Primary_phon = "",
+            Location = "Level 3", Primary_con = "", Primary_phon = "", Cust_no = custNo, Sell_start = sellStart, Sell_end = sellEnd,
         });
     }
 
@@ -240,11 +253,141 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
                 ["ContractType"] = e["Contract_Type"], ["ContractNo"] = e["ContractNo"], ["Email"] = e["EmailAddress"], ["CcEmail"] = e["CCEmail"],
             }));
 
-    /// <summary>The tables in SQL Server with their real column names ([serial-no]…), holding these rows.</summary>
-    public string AdvanceSql()
+    private static string T(object? value) => OutSystemsValues.Text(value);
+    private static DateTime? D(object? value) => value is DateTime d ? d : null;
+    private static readonly Comparer<DateTime?> Dates = Comparer<DateTime?>.Default;
+    private static long N(object? value) => value is null ? long.MinValue : Convert.ToInt64(value, CultureInfo.InvariantCulture);
+    private static bool In(object? value, IEnumerable<string> list) => list.Any(x => Same(value, x));
+    private static bool Like(object? value, string start) => value is not null && T(value).StartsWith(start, StringComparison.OrdinalIgnoreCase);
+    private static IReadOnlyDictionary<string, object?> Read(params (string Name, object? Value)[] values)
+    {
+        var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in values) row[name] = value;
+        return row;
+    }
+
+    /// <summary>MyMachines' customer page, as <see cref="SqlAdvanceMachines.Customer"/> reads it (its joins, filters and order).</summary>
+    public CustomerMachines Customer(string brn, string name, DateTime today)
+    {
+        brn = (brn ?? "").Trim();
+        name = (name ?? "").Trim();
+        if (brn.Length == 0 && name.Length == 0) return CustomerMachines.None;
+        today = today.Date;
+        var byBrn = brn.Length > 0;
+        var ips = Rows("contract_ip");
+        bool OnIp(object? contractNo) => ips.Any(ip => ip.Get("contract_no") is not null && Same(ip.Get("contract_no"), T(contractNo)));
+        bool Who(Dictionary<string, object?> cs, Dictionary<string, object?> cu) => byBrn ? cs.Get("Business_reg") is not null && Same(cs.Get("Business_reg"), brn) : cu.Get("Name") is not null && Same(cu.Get("Name"), name);
+
+        var contracts = (from c in Rows("contract")
+                from cl in Rows("contract_lin") where Same(c.Get("Contract_no"), T(cl.Get("Contract_no")))
+                from cu in Rows("customer") where Same(c.Get("Cust_no"), T(cu.Get("Cust_no")))
+                from cs in Rows("Customer_Supp") where Same(c.Get("Cust_no"), T(cs.Get("Cust_no")))
+                where D(cl.Get("Cntrct_end")) is { } end && end.Date >= today && D(cl.Get("Cntrct_start")) is { } start && start.Date <= today
+                      && !OnIp(c.Get("Contract_no")) && Who(cs, cu)
+                select (c, cu, cs))
+            .GroupBy(x => (T(x.c.Get("Contract_no")).ToUpperInvariant(), D(x.c.Get("Cntrct_start")), D(x.c.Get("Cntrct_end")), T(x.cu.Get("Name")).ToUpperInvariant(),
+                T(x.cs.Get("Business_reg")).ToUpperInvariant(), T(x.cu.Get("Cust_no")).ToUpperInvariant()))
+            .Select(g => g.First())
+            .OrderBy(x => D(x.c.Get("Cntrct_end")), Dates).ThenBy(x => T(x.c.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => T(x.cu.Get("Cust_no")), StringComparer.OrdinalIgnoreCase).ThenBy(x => T(x.cs.Get("Business_reg")), StringComparer.OrdinalIgnoreCase)
+            .Select(x => Read(("ContractNo", x.c.Get("Contract_no")), ("Start", x.c.Get("Cntrct_start")), ("End", x.c.Get("Cntrct_end")),
+                ("Customer", x.cu.Get("Name")), ("CustNo", x.cu.Get("Cust_no"))))
+            .ToList();
+        var numbers = contracts.Select(r => r.Text("ContractNo")).ToList();
+        var machines = Rows("daily_mif").Where(m => In(m.Get("contract_no"), numbers))
+            .OrderBy(m => T(m.Get("serial_no")), StringComparer.OrdinalIgnoreCase).ThenBy(m => T(m.Get("item_no")), StringComparer.OrdinalIgnoreCase)
+            .Select(m => Read(("Serial", m.Get("serial_no")), ("Item", m.Get("item_no")), ("Model", m.Get("model")), ("Start", m.Get("cntrct_start")),
+                ("End", m.Get("cntrct_end")), ("CustNo", m.Get("cust_no")), ("ContractNo", m.Get("contract_no"))))
+            .ToList();
+        var groups = Rows("contract_lin").Where(cl => In(cl.Get("Contract_no"), numbers))
+            .SelectMany(cl =>
+            {
+                var members = Rows("Contract_MGMember").Where(g => g.Get("Line_No") is not null && cl.Get("Line_no") is not null && N(g.Get("Line_No")) == N(cl.Get("Line_no"))
+                                                               && Same(g.Get("Contract_No"), T(cl.Get("Contract_no")))).ToList();
+                return members.Count == 0 ? new[] { (cl, g: (Dictionary<string, object?>?)null) } : members.Select(g => (cl, g: (Dictionary<string, object?>?)g)).ToArray();
+            })
+            .OrderBy(x => T(x.cl.Get("Ar_entity")), StringComparer.OrdinalIgnoreCase).ThenBy(x => T(x.cl.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => T(x.cl.Get("Serial_no")), StringComparer.OrdinalIgnoreCase).ThenBy(x => N(x.cl.Get("Line_no")))
+            .ThenBy(x => x.g is null ? null : T(x.g.Get("MGroup_No")), StringComparer.OrdinalIgnoreCase)
+            .Select(x => Read(("ContractNo", x.cl.Get("Contract_no")), ("Serial", x.cl.Get("Serial_no")), ("Group", x.g?.Get("MGroup_No"))))
+            .ToList();
+        var meters = Rows("Contract_MeterGroup").Where(g => In(g.Get("Contract_No"), numbers) && In(g.Get("Meter_Type"), CustomerMachinesRules.MeterTypes))
+            .OrderBy(g => T(g.Get("AR_Entity")), StringComparer.OrdinalIgnoreCase).ThenBy(g => T(g.Get("Contract_No")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => T(g.Get("MGroup_No")), StringComparer.OrdinalIgnoreCase)
+            .Select(g => Read(("ContractNo", g.Get("Contract_No")), ("Group", g.Get("MGroup_No")), ("MeterType", g.Get("Meter_Type")),
+                ("Read1", g.Get("Meter_Read_1")), ("Read2", g.Get("Meter_Read_2")), ("Read3", g.Get("Meter_Read_3")),
+                ("Price1", g.Get("Meter_Price_1")), ("Price2", g.Get("Meter_Price_2")), ("Price3", g.Get("Meter_Price_3")), ("MinBill", g.Get("Min_Bill"))))
+            .ToList();
+        var grants = Rows("contract_grant").Where(g => In(g.Get("Contract_no"), numbers) && In(g.Get("MGroup_No"), CustomerMachinesRules.MeterTypes))
+            .OrderBy(g => T(g.Get("Record_type")), StringComparer.OrdinalIgnoreCase).ThenBy(g => T(g.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => N(g.Get("Line_no"))).ThenBy(g => N(g.Get("seq_no")))
+            .Select(g => Read(("ContractNo", g.Get("Contract_no")), ("MeterType", g.Get("MGroup_No")), ("Granted", g.Get("granted_copies")), ("Used", g.Get("used_copies"))))
+            .ToList();
+
+        var warranty = Rows("daily_mif")
+            .Where(m => D(m.Get("sell_end")) is { } end && end.Date >= today && Same(m.Get("mif_type"), "war")
+                        && (byBrn ? m.Get("BRN") is not null && Same(m.Get("BRN"), brn) : m.Get("name") is not null && Same(m.Get("name"), name)))
+            .GroupBy(m => (T(m.Get("serial_no")).ToUpperInvariant(), T(m.Get("item_no")).ToUpperInvariant(), T(m.Get("model")).ToUpperInvariant(),
+                D(m.Get("sell_end")), D(m.Get("sell_start")), T(m.Get("description")).ToUpperInvariant()))
+            .Select(g => g.First())
+            .OrderBy(m => D(m.Get("sell_end")), Dates).ThenBy(m => T(m.Get("serial_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(m => T(m.Get("item_no")), StringComparer.OrdinalIgnoreCase).ThenBy(m => T(m.Get("model")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(m => T(m.Get("description")), StringComparer.OrdinalIgnoreCase)
+            .Select(m => Read(("Serial", m.Get("serial_no")), ("Item", m.Get("item_no")), ("Model", m.Get("description")), ("Start", m.Get("sell_start")), ("End", m.Get("sell_end"))))
+            .ToList();
+        var extended = warranty.Select(w => w.Text("Serial")).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(serial => (from c in Rows("contract")
+                    from cl in Rows("contract_lin") where Same(c.Get("Contract_no"), T(cl.Get("Contract_no")))
+                    where CustomerMachinesRules.ExtendedWarrantyTypes.Any(x => Like(c.Get("Contract_typ"), x)) && Same(cl.Get("Serial_no"), serial)
+                    orderby T(c.Get("Record_type")), T(c.Get("Contract_no")), N(cl.Get("Line_no"))
+                    select Read(("Serial", cl.Get("Serial_no")), ("Start", cl.Get("Cntrct_start")), ("End", cl.Get("Cntrct_end"))))
+                .FirstOrDefault())
+            .Where(r => r is not null).Select(r => r!)
+            .ToList();
+
+        // The latest contract line of each serial (by end) of the contracts not on instalment payment.
+        var latest = Rows("contract_lin").Where(l => !OnIp(l.Get("Contract_no")))
+            .GroupBy(l => T(l.Get("Serial_no")).ToUpperInvariant())
+            .Select(g => g.OrderByDescending(l => D(l.Get("Cntrct_end")), Dates).ThenByDescending(l => T(l.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(l => N(l.Get("Line_no"))).First())
+            .ToList();
+        var expired = (from c in Rows("contract")
+                from cl in Rows("contract_lin") where Same(cl.Get("Contract_no"), T(c.Get("Contract_no")))
+                from cu in Rows("customer") where Same(cu.Get("Cust_no"), T(c.Get("Cust_no")))
+                from cs in Rows("Customer_Supp") where Same(cs.Get("Cust_no"), T(c.Get("Cust_no")))
+                from i2 in Rows("item2") where Same(i2.Get("Item_no"), T(cl.Get("Item_no")))
+                from i in Rows("item") where Same(i.Get("Item_no"), T(cl.Get("Item_no")))
+                from k in latest where Same(k.Get("Serial_no"), T(cl.Get("Serial_no"))) && Same(k.Get("Item_no"), T(cl.Get("Item_no"))) && Same(k.Get("Contract_no"), T(cl.Get("Contract_no")))
+                where Who(cs, cu) && cs.Get("Business_reg") is not null && T(cs.Get("Business_reg")).Length > 0
+                      && D(cl.Get("Cntrct_end")) is { } end && end <= today && !OnIp(c.Get("Contract_no"))
+                select (c, cl, i, k))
+            .OrderBy(x => T(x.cl.Get("Serial_no")), StringComparer.OrdinalIgnoreCase).ThenBy(x => T(x.cl.Get("Item_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => T(x.k.Get("Contract_no")), StringComparer.OrdinalIgnoreCase).ThenBy(x => T(x.c.Get("Cust_no")), StringComparer.OrdinalIgnoreCase)
+            .Select(x => Read(("Serial", x.cl.Get("Serial_no")), ("Model", x.i.Get("Description")), ("Item", x.cl.Get("Item_no")),
+                ("ContractNo", x.k.Get("Contract_no")), ("Start", x.k.Get("Cntrct_start")), ("End", x.k.Get("Cntrct_end"))))
+            .ToList();
+
+        var noContract = (from cu in Rows("customer")
+                from s in Rows("serial") where Same(cu.Get("Cust_no"), T(s.Get("Cust_no")))
+                from i in Rows("item") where Same(s.Get("Item_no"), T(i.Get("Item_no")))
+                where !Rows("contract_lin").Any(cl => Same(cl.Get("Serial_no"), T(s.Get("Serial_no"))))
+                from cs in Rows("Customer_Supp") where Same(s.Get("Cust_no"), T(cs.Get("Cust_no")))
+                where Who(cs, cu) && i.Get("Prod_group") is not null && !CustomerMachinesRules.NotMachines.Any(x => Like(i.Get("Prod_group"), x))
+                select (s, i))
+            .OrderByDescending(x => D(x.s.Get("Install_date")), Dates).ThenBy(x => T(x.s.Get("Serial_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => T(x.s.Get("Item_no")), StringComparer.OrdinalIgnoreCase)
+            .Select(x => Read(("Serial", x.s.Get("Serial_no")), ("Item", x.s.Get("Item_no")), ("Model", x.i.Get("Description")),
+                ("Installed", x.s.Get("Install_date")), ("Start", x.s.Get("Sell_start")), ("End", x.s.Get("Sell_end"))))
+            .ToList();
+
+        return CustomerMachinesRules.Of(contracts, machines, groups, meters, grants, warranty, extended, expired, noContract);
+    }
+
+    /// <summary>The tables in SQL Server with their real column names ([serial-no]…), holding these rows (and Customer_Supp's when <paramref name="customerSupp"/>).</summary>
+    public string AdvanceSql(bool customerSupp = true)
     {
         var sql = new StringBuilder();
-        foreach (var (table, columns) in Specs)
+        foreach (var (table, columns) in customerSupp ? Specs.Append(CustomerSupp) : Specs)
         {
             sql.AppendLine($"CREATE TABLE dbo.[{table}] ({string.Join(", ", columns.Select(c => $"[{RealName(c.Column)}] {c.Type} NULL"))});");
             foreach (var row in Rows(table))

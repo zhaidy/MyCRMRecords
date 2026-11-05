@@ -112,6 +112,30 @@ public sealed class AdvanceTables
 
     /// <summary>MyCRM's entity Email_Master: where a customer's invoices and statements (SOA) are e-mailed, per contract.</summary>
     public string EmailMaster { get; set; } = "dbo.Email_Master";
+
+    /// <summary>MyMachines' contract: Advance's contracts (customer, type, start and end), for a company's Machines tab.</summary>
+    public string Contract { get; set; } = "dbo.contract";
+
+    /// <summary>MyMachines' contract_lin: a contract's lines, a machine (serial and item) each, with their start and end.</summary>
+    public string ContractLine { get; set; } = "dbo.contract_lin";
+
+    /// <summary>MyMachines' contract_ip: the contracts on instalment payment, which MyMachines' customer page leaves out.</summary>
+    public string ContractIp { get; set; } = "dbo.contract_ip";
+
+    /// <summary>MyMachines' item: Advance's items (description, product group).</summary>
+    public string Item { get; set; } = "dbo.item";
+
+    /// <summary>MyMachines' item2: read only to keep the machines MyMachines' expired-contract query keeps (it joins it).</summary>
+    public string Item2 { get; set; } = "dbo.item2";
+
+    /// <summary>MyMachines' Contract_MeterGroup: a contract's meter groups (BW, COL) with their minimum bill, copies and rates.</summary>
+    public string ContractMeterGroup { get; set; } = "dbo.Contract_MeterGroup";
+
+    /// <summary>MyMachines' Contract_MGMember: the meter groups of a contract's lines.</summary>
+    public string ContractMgMember { get; set; } = "dbo.Contract_MGMember";
+
+    /// <summary>MyMachines' contract_grant: the free copies granted and used over a contract's life.</summary>
+    public string ContractGrant { get; set; } = "dbo.contract_grant";
 }
 
 public sealed class ExternalDatabase
