@@ -8,7 +8,7 @@
   // "Unassigned Companies"), and those who keep territories tick companies without a salesperson and put them in a
   // territory (the Territories page's own "add"). Sales Admins add companies; MyCRM Admins upload the number of
   // employees. On a phone: a card per company, the filters in a sheet.
-  const {$, $$, esc, api, toast, drawIcons, pager} = window.WH;
+  const {$, $$, esc, api, toast, drawIcons, pager, slowDownload} = window.WH;
   const {companyForm, uploadDialog, dialog, refused} = window.CRM;
   const page = $('#page');
   const saved = (() => { try { return JSON.parse(localStorage.getItem('companies-filter') || '{}'); } catch { return {}; } })();
@@ -105,10 +105,11 @@
       ${can.create ? '<button type="button" class="button primary phone-fab" id="new-company" title="New company"><span data-icon="plus"></span><span class="action-label">New company</span></button>' : ''}`;
     drawIcons($('#actions'));
     $('#print').addEventListener('click', () => window.print());
-    $('#download').addEventListener('click', () => toast(data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…'));
-    $('#download-machines').addEventListener('click', () => toast(data.total > 1000
+    // Fetched in the page: the button is greyed out until the file is saved, so it is not made twice.
+    slowDownload($('#download'), data.total > 1000 ? `Preparing the Company summary of ${companies(data.total)}: this can take a minute.` : 'Preparing the Company summary…');
+    slowDownload($('#download-machines'), data.total > 1000
       ? `Reading the machines of ${companies(data.total)} in Advance: this can take several minutes. Search or filter first for a quicker file.`
-      : 'Reading the companies\' machines in Advance…'));
+      : 'Reading the companies\' machines in Advance…');
     $('#new-company')?.addEventListener('click', async () => {
       const id = await companyForm(lists, null);
       if (id) location.href = 'company.aspx?id=' + id;

@@ -342,6 +342,12 @@ public sealed class FilesApi(CrmApp w)
     private static long Id(IReadOnlyDictionary<string, string> query, string name) =>
         long.TryParse(Q(query, name), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0;
 
+    /// <summary>What a person is told when the same big download of theirs is still being prepared.</summary>
+    public const string StillPreparing = "Your download is still being prepared: it saves when it is ready. Wait for it before downloading again.";
+
+    /// <summary>A big download of one person, which runs once at a time (<see cref="CrmApp.Downloads"/>).</summary>
+    public static string DownloadKey(string kind, ApiUser user) => kind + "|" + user.Login.Trim();
+
     public FileAnswer Download(string kind, IReadOnlyDictionary<string, string> query, ApiUser user)
     {
         switch (kind)
@@ -355,9 +361,14 @@ public sealed class FilesApi(CrmApp w)
         }
         if (kind == ActivitiesList) return ActivitiesFile(query, user);
         if (kind == DormantList) return DormantFile(user);
-        if (kind == CompanySummary) return CompanySummaryFile(query, user);
-        if (kind == CompanyMachines) return CompanyMachinesFile(query, user);
-        if (kind == ProjectsReport) return ProjectsFile(query, user);
+        if (kind is CompanySummary or CompanyMachines or ProjectsReport)
+        {
+            // A whole list of companies (and their machines) takes minutes: one at a time per person, so clicking again,
+            // another tab or a refresh does not build the same file twice.
+            using var started = w.Downloads.TryStart(DownloadKey(kind, user));
+            if (started is null) return FileAnswer.Fail(429, StillPreparing);
+            return kind == CompanySummary ? CompanySummaryFile(query, user) : kind == CompanyMachines ? CompanyMachinesFile(query, user) : ProjectsFile(query, user);
+        }
         if (kind == Usage) return UsageFile(query, user);
         if (kind.StartsWith(MyFilesPrefix, StringComparison.Ordinal)) return MyFilesFile(kind, query, user);
         return Orders(kind, query, user) ?? FileAnswer.Fail(404, "Not found.");

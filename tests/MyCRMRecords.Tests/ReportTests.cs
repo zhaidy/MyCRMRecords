@@ -155,4 +155,33 @@ public sealed class ReportTests
         Assert.Equal("Ended", Reports.StateOf(new Project { EndDate = today.AddDays(-1) }, today));
         Assert.Equal("Closed", Reports.StateOf(new Project { EndDate = today.AddDays(5), IsClosed = true }, today));
     }
+
+    [Fact]
+    public void A_big_download_runs_once_at_a_time_per_person_and_kind()
+    {
+        var (world, _, _, _) = Setup();
+        using var _w = world;
+        var files = new FilesApi(world.D);
+        var none = new Dictionary<string, string>();
+        using (world.D.Downloads.TryStart(FilesApi.DownloadKey(FilesApi.CompanySummary, TestWorld.Sam)))
+        {
+            // Sam's Company summary is still being prepared: another is refused, and says why.
+            var again = files.Download(FilesApi.CompanySummary, none, TestWorld.Sam);
+            Assert.Equal((429, FilesApi.StillPreparing), (again.Status, again.Error));
+            // Someone else's, or another kind of Sam's, goes ahead.
+            Assert.Equal(200, files.Download(FilesApi.CompanySummary, none, TestWorld.Admin).Status);
+            Assert.Equal(200, files.Download(FilesApi.ProjectsReport, none, TestWorld.Sam).Status);
+        }
+        // Done (or failed): the next one goes ahead, and a download ends its own turn.
+        Assert.Equal(200, files.Download(FilesApi.CompanySummary, none, TestWorld.Sam).Status);
+        Assert.Equal(200, files.Download(FilesApi.CompanySummary, none, TestWorld.Sam).Status);
+        Assert.False(world.D.Downloads.IsRunning(FilesApi.DownloadKey(FilesApi.CompanySummary, TestWorld.Sam)));
+        var once = new OneAtATime();
+        var first = once.TryStart("x");
+        Assert.NotNull(first);
+        Assert.Null(once.TryStart("X"));
+        first!.Dispose();
+        first.Dispose();
+        Assert.NotNull(once.TryStart("x"));
+    }
 }

@@ -65,6 +65,8 @@ public sealed class CrmApp
     public IMyMachinesAccess MachineAccess { get; init; } = null!;
     /// <summary>The Machines pages, a company's Machines tab and the Machine access page.</summary>
     public Machines Machines { get; init; } = null!;
+    /// <summary>The big downloads running, one per person and kind at a time (FilesApi).</summary>
+    public OneAtATime Downloads { get; } = new();
 
     /// <summary>MyCRM's projects and their temporary territories (in MyCRM's tables).</summary>
     public Projects Projects { get; init; } = null!;

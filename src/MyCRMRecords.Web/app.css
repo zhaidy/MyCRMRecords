@@ -682,6 +682,7 @@ table.data.files-table{table-layout:fixed}
 .action-capsule{height:44px;padding:0 4px;border-radius:22px;gap:2px}
 .capsule-button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 12px;border:0;border-radius:18px;background:transparent;color:var(--glass-fg);font-weight:600;white-space:nowrap}
 .capsule-button:hover{background:rgba(var(--glass-rgb),.6);color:var(--accent-ink)}
+.capsule-button.is-busy,.capsule-button[aria-disabled=true]{opacity:.55;cursor:progress;pointer-events:none}
 .capsule-divider{width:1px;height:22px;background:var(--rim)}
 .companies-ticked{gap:8px;padding:0 4px 0 16px;white-space:nowrap}
 .companies-ticked .text-button{color:var(--glass-fg)}
