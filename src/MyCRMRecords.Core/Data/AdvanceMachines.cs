@@ -238,6 +238,13 @@ public interface IAdvanceMachines
     /// joined to Email_Master by customer number, each once, by contract type, contract and email.
     /// </summary>
     IReadOnlyList<CustomerEmail> CustomerEmails(long companyId);
+    /// <summary>
+    /// A company's Machines tab, as MyMachines' customer page shows a customer (read only): its running contracts with
+    /// their machines, meter groups and free copies, its warranty machines, its contract expired machines and its
+    /// machines without contract. By BRN; by the customer's name when <paramref name="brn"/> is empty (MyMachines' filter
+    /// by customer name).
+    /// </summary>
+    CustomerMachines Customer(string brn, string name, DateTime today);
 }
 
 /// <summary>Where Advance e-mails a customer's invoices and statements of account for a contract (Email_Master).</summary>
@@ -251,7 +258,7 @@ public static class AdvanceMachineColumns
         "serial_no", "item_no", "description", "prod_group", "model", "cust_no", "name", "BRN", "trans_date", "mif_type", "contract_no", "contract_typ",
         "cntrct_start", "cntrct_end", "sell_start", "sell_end", "service_ref", "invoice_ref", "contract_ref", "serial_stat",
     ];
-    public static readonly string[] Serial = ["Item_no", "Serial_no", "Serial_stat", "Trans_date", "Install_date", "Location", "Primary_con", "Primary_phon"];
+    public static readonly string[] Serial = ["Item_no", "Serial_no", "Serial_stat", "Trans_date", "Install_date", "Location", "Primary_con", "Primary_phon", "Cust_no", "Sell_start", "Sell_end"];
     public static readonly string[] Customer = ["Cust_no", "Name", "Address", "City", "Zip_code", "Telephone", "Contact"];
     public static readonly string[] MeterCard = ["serial_no", "Contract_no", "Invoice_no", "Invoice_date", "Copies", "Meter_Type"];
     public static readonly string[] Service =
@@ -266,11 +273,26 @@ public static class AdvanceMachineColumns
     public static readonly string[] EmailMaster = ["Cust_No", "Contract_Type", "ContractNo", "EmailAddress", "CCEmail"];
     public static readonly string[] DailyTm = ["trans_date", "item_no", "serial_no", "Contract_no", "Cntrct_start", "Cntrct_end", "Meter_Type", "Min_Bill", "MinCopies", "MinRate", "Therafter"];
 
+    // A company's Machines tab: MyMachines' customer page (CustomerDetail), its contracts, warranty, expired-contract and no-contract machines.
+    public static readonly string[] Contract = ["Contract_no", "Cust_no", "Contract_typ", "Cntrct_start", "Cntrct_end", "Record_type"];
+    public static readonly string[] ContractLine = ["Contract_no", "Line_no", "Serial_no", "Item_no", "Cntrct_start", "Cntrct_end", "Ar_entity"];
+    public static readonly string[] ContractIp = ["contract_no"];
+    public static readonly string[] Item = ["Item_no", "Description", "Prod_group"];
+    public static readonly string[] Item2 = ["Item_no"];
+    public static readonly string[] ContractMeterGroup =
+    [
+        "AR_Entity", "Contract_No", "MGroup_No", "Meter_Type", "Meter_Read_1", "Meter_Read_2", "Meter_Read_3", "Meter_Price_1", "Meter_Price_2", "Meter_Price_3", "Min_Bill",
+    ];
+    public static readonly string[] ContractMgMember = ["Contract_No", "Line_No", "MGroup_No"];
+    public static readonly string[] ContractGrant = ["Record_type", "Contract_no", "Line_no", "seq_no", "MGroup_No", "granted_copies", "used_copies"];
+
     /// <summary>Each table (its name as set) with the columns read from it.</summary>
     public static IReadOnlyList<(string Table, string[] Columns)> Checked(AdvanceTables t) =>
     [
         (t.DailyMif, DailyMif), (t.Serial, Serial), (t.Customer, Customer), (t.MeterCard, MeterCard), (t.Service, Service),
         (t.SMeterHistory, SMeterHistory), (t.DailyTm, DailyTm), (t.CustomerMapping, CustomerMapping), (t.EmailMaster, EmailMaster),
+        (t.Contract, Contract), (t.ContractLine, ContractLine), (t.ContractIp, ContractIp), (t.Item, Item), (t.Item2, Item2),
+        (t.ContractMeterGroup, ContractMeterGroup), (t.ContractMgMember, ContractMgMember), (t.ContractGrant, ContractGrant),
     ];
 
     /// <summary>MyMachines' grouping of Service-type: EM (breakdowns), PM (preventive maintenance), else Others.</summary>
@@ -287,13 +309,16 @@ public static class AdvanceMachineColumns
 /// <see cref="IAdvanceMachines"/> over AdvanceConnector: every column named through <see cref="ExternalTable"/> (MyMachines'
 /// names are not the real ones: serial_no is [serial-no]). Only SELECTs.
 /// </summary>
-public sealed class SqlAdvanceMachines(ExternalDatabases databases, Func<ConnectionSettings> connections) : IAdvanceMachines
+public sealed partial class SqlAdvanceMachines(ExternalDatabases databases, Func<ConnectionSettings> connections) : IAdvanceMachines
 {
     private static readonly DateTime NoDate = new(1900, 1, 1);
 
     public bool Available => databases.IsConfigured(ExternalNames.AdvanceConnector);
 
     private AdvanceTables Tables => connections().AdvanceTables;
+
+    /// <summary>The databases, for the other part of the class (AdvanceCustomerMachines.cs).</summary>
+    private ExternalDatabases Databases => databases;
 
     private static string N(long value) => value.ToString(CultureInfo.InvariantCulture);
 

@@ -164,7 +164,7 @@
     relationships();
     orders(c);
     files(c);
-    machines(false);
+    machines();
     copies();
     soa();
     dealer();
@@ -405,39 +405,78 @@
   }
 
   /**
-   * The company's machines from Advance (read only, MyCRM's Machines tab): by its BRN, those whose contract or warranty
-   * ends after today (Active), or every one (All). Past dates are dimmed.
+   * The company's machines from Advance (read only), as MyMachines' customer page shows the customer, section by
+   * section and with its queries (machines/customer): Contract machines (each running contract with its machines,
+   * meter groups and free copies), Warranty machines, Contract expired machines and Machines without contract. By the
+   * company's BRN, or by its name when it has none. Machines with a link open their page.
    */
-  async function machines(all) {
+  async function machines() {
     const box = $('#machines');
-    const {coverageTag, machineUrl} = window.WH;
+    const {machineUrl} = window.WH;
     box.innerHTML = '<h2>Machines</h2><p class="muted small">Loading…</p>';
-    const answer = await api('GET', 'machines?' + new URLSearchParams(all ? {company: String(id), all: '1'} : {company: String(id)}));
-    const today = new Date().toISOString().slice(0, 10);
-    const day = v => v ? `<span class="${v.slice(0, 10) < today ? 'past' : ''}">${esc(date(v))}</span>` : '<span class="muted">–</span>';
-    const rows = answer.result.ok ? answer.rows : [];
-    const active = answer.result.ok ? answer.active : 0;
-    box.innerHTML = `<div class="card-heading machines-heading"><h2>Machines</h2>
-        ${answer.result.ok ? `<div class="tabs machine-switch" role="group" aria-label="Machines shown">
-          <button type="button" class="tab" data-machines="active" aria-pressed="${String(!all)}">Active${!all ? ' · ' + answer.total : ''}</button>
-          <button type="button" class="tab" data-machines="all" aria-pressed="${String(all)}">All${all ? ' · ' + answer.total : ''}</button></div>` : ''}</div>
-      <p class="muted small">${all ? 'Every machine of this BRN in Advance, with time and materials, ended and no contract.' : 'Contract or warranty still running (from Advance, by BRN).'}
-        <a href="usage.aspx?company=${id}">Usage &amp; history ›</a> · <a href="companymachines.aspx?company=${id}">Grouped by coverage ›</a></p>
-      ${!answer.result.ok ? `<p class="muted small">${esc(answer.result.message)}</p>` : rows.length ? `<div class="file-cards machine-cards">${rows.map(r => `<a class="file-card" href="${machineUrl(r)}">
-          <span class="file-card-body"><span class="file-card-top"><b>${esc(r.serial)} <span class="muted small">${esc(r.model)}</span></b>${coverageTag(r)}</span>
-            <span class="file-card-line">${esc([r.contractNo, r.contractEnd ? 'contract ends ' + date(r.contractEnd) : '', r.warrantyEnd ? 'warranty ends ' + date(r.warrantyEnd) : ''].filter(Boolean).join(' · '))}</span>
-            <span class="file-card-line">${esc(r.finance || 'No finance type')}</span></span>
-          <span data-icon="arrow-right" class="section-chevron"></span></a>`).join('')}</div>
-        <div class="table-wrap machines-wide"><table class="data company-machines"><thead><tr>
-        <th>Serial</th><th>Model</th><th>Status</th><th>Contract</th><th>Contract start</th><th>Contract end</th><th>Warranty start</th><th>Warranty end</th><th>Finance type</th></tr></thead><tbody>
-        ${rows.map(r => `<tr><td class="nowrap"><a href="${machineUrl(r)}"><b>${esc(r.serial)}</b></a></td><td class="nowrap">${esc(r.model)}</td><td>${coverageTag(r)}</td>
-          <td class="nowrap">${r.contractNo ? `${esc(r.contractNo)} <span class="muted small">${esc(r.contractType)}</span>` : '<span class="muted">–</span>'}</td>
-          <td class="nowrap">${day(r.contractStart)}</td><td class="nowrap">${day(r.contractEnd)}</td><td class="nowrap">${day(r.warrantyStart)}</td><td class="nowrap">${day(r.warrantyEnd)}</td>
-          <td class="nowrap">${r.finance ? `${esc(r.finance)} <span class="muted small">${esc(r.financeCode)}</span>` : '<span class="muted">–</span>'}</td></tr>`).join('')}
-        </tbody></table></div>`
-        : `<p class="muted small" style="margin:6px 0 0">${all ? 'Advance has no machines with this BRN.' : 'No machine of this BRN has a contract or warranty running.'}</p>`}`;
-    if (answer.result.ok) setCount('machines', all ? active : answer.total);
-    $$('[data-machines]', box).forEach(b => b.addEventListener('click', () => machines(b.dataset.machines === 'all')));
+    const answer = await api('GET', 'machines/customer?' + new URLSearchParams({company: String(id)}));
+    const day = v => v ? esc(date(v)) : '<span class="muted">–</span>';
+    const money = (v, places) => v === null || v === undefined ? '' : '$' + Number(v).toLocaleString('en-SG', {minimumFractionDigits: places, maximumFractionDigits: places});
+    const today = new Date(new Date().toISOString().slice(0, 10));
+    // MyMachines marks a contract or warranty ending within 180 days.
+    const ending = v => v && (new Date(v.slice(0, 10)) - today) / 86400000 <= 180 ? ' class="ending"' : '';
+    const serial = m => `<a href="${machineUrl(m)}"><b>${esc(m.serial)}</b></a>`;
+    const table = (heads, rows, empty) => rows.length
+      ? `<div class="table-wrap"><table class="data customer-machines"><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`
+      : `<p class="muted small">${esc(empty)}</p>`;
+    const links = `<a href="machines.aspx">Search machines ›</a> · <a href="usage.aspx?company=${id}">Usage &amp; history ›</a> · <a href="companymachines.aspx?company=${id}">Grouped by coverage ›</a>`;
+    if (!answer.result.ok) {
+      box.innerHTML = `<h2>Machines</h2><p class="muted small">${esc(answer.result.message)}</p>`;
+      return;
+    }
+    const meterGroups = (c, type) => {
+      const groups = c.meters.filter(g => g.meterType === type);
+      const grants = c.grants.filter(g => g.meterType === type);
+      if (!groups.length && !grants.length) return '';
+      return `<div class="meter-type"><h4>${esc(type)}</h4>
+        ${groups.map(g => `<div class="meter-group"><div class="meter-group-head"><b>${esc(g.group)}</b><span class="muted small">Min bill ${money(g.minBill, 2)}</span></div>
+          <table class="meter-steps"><tbody>${g.steps.map(x => `<tr><td>${esc(x.label)}</td><td class="num">${x.copies === null ? '' : number(x.copies)}</td><td class="num">${x.price === null ? '' : money(x.price, 5)}</td></tr>`).join('')}</tbody></table></div>`).join('')}
+        ${grants.length ? `<div class="meter-group"><div class="meter-group-head"><b>${esc(type)} Free Copies (contract life)</b></div>
+          <table class="meter-steps"><thead><tr><th>Granted</th><th>Used</th><th>Remaining</th></tr></thead><tbody>${grants.map(g => `<tr><td class="num">${number(g.granted)}</td><td class="num">${number(g.used)}</td><td class="num">${number(g.remaining)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      </div>`;
+    };
+    const contract = (c, i) => {
+      const shown = c.machines.length > 3 ? `<button type="button" class="text-button" data-expand="${i}">Expand..</button>` : '';
+      return `<article class="contract-card" data-contract="${i}">
+        <div class="contract-head"><b>${esc(c.contractNo)}</b> <span class="muted small">${day(c.start)} to ${day(c.end)}</span></div>
+        ${table(['Serial no', 'Model', 'Item no', 'Cntrct start', 'Cntrct end', 'MGroup'], c.machines.map((m, n) => `<tr${n >= 3 ? ' class="more-machine" hidden' : ''}>
+          <td class="nowrap">${serial(m)}</td><td class="nowrap">${esc(m.model)}</td><td class="nowrap">${esc(m.item)}</td>
+          <td class="nowrap">${day(m.start)}</td><td class="nowrap"><span${ending(m.end)}>${day(m.end)}</span></td><td>${esc(m.groups)}</td></tr>`), 'No items to show...')}
+        ${shown}
+        <div class="meter-types">${meterGroups(c, 'BW')}${meterGroups(c, 'COL')}</div>
+      </article>`;
+    };
+    const section = (title, count, body, extra) => `<section class="customer-section"><div class="card-heading"><h3>${esc(title)} <span class="muted small">${count}</span></h3>${extra || ''}</div>${body}</section>`;
+    box.innerHTML = `<div class="card-heading machines-heading"><h2>Machines</h2></div>
+      <p class="muted small">${answer.byName ? `The company has no BRN: its machines are found by its name, <b>${esc(answer.company ? answer.company.name : '')}</b>, as MyMachines' filter by customer name.` : 'By the company\'s BRN, as MyMachines\' customer page shows them (from Advance).'} ${links}</p>
+      ${section('Contract machines', answer.contracts.length + ' contract' + (answer.contracts.length === 1 ? '' : 's'),
+        answer.contracts.length ? answer.contracts.map(contract).join('') : '<p class="muted small">No items to show...</p>',
+        answer.contracts.length ? '<div class="action-buttons"><button type="button" class="text-button" data-all="shrink">Shrink all</button><button type="button" class="text-button" data-all="expand">Expand all</button></div>' : '')}
+      ${section('Warranty machines', answer.warranty.length, table(['Serial no', 'Model', 'Item no', 'Warranty start', 'Warranty end', 'Extended warranty start', 'Extended warranty end'],
+        answer.warranty.map(m => `<tr><td class="nowrap">${serial(m)}</td><td>${esc(m.model)}</td><td class="nowrap">${esc(m.item)}</td><td class="nowrap">${day(m.start)}</td>
+          <td class="nowrap"><span${ending(m.end)}>${day(m.end)}</span></td><td class="nowrap">${day(m.extendedStart)}</td><td class="nowrap">${day(m.extendedEnd)}</td></tr>`), 'No items to show...'))}
+      ${section('Contract expired machines', answer.expired.length, table(['Serial no', 'Model', 'Item no', 'Contract no', 'Contract start', 'Contract end'],
+        answer.expired.map(m => `<tr><td class="nowrap">${serial(m)}</td><td>${esc(m.model)}</td><td class="nowrap">${esc(m.item)}</td><td class="nowrap">${esc(m.contractNo)}</td>
+          <td class="nowrap">${day(m.start)}</td><td class="nowrap">${day(m.end)}</td></tr>`), 'No items to show...'))}
+      ${section('Machines without contract', answer.noContract.length, table(['Serial no', 'Model', 'Install date', 'Start date', 'End date'],
+        answer.noContract.map(m => `<tr><td class="nowrap"><b>${esc(m.serial)}</b></td><td>${esc(m.model)}</td><td class="nowrap">${day(m.installed)}</td>
+          <td class="nowrap">${day(m.start)}</td><td class="nowrap">${day(m.end)}</td></tr>`), 'No items to show...'))}`;
+    setCount('machines', answer.contracts.reduce((n, c) => n + c.machines.length, 0) + answer.warranty.length);
+    const expand = (card, open) => {
+      $$('.more-machine', card).forEach(r => { r.hidden = !open; });
+      const b = $('[data-expand]', card);
+      if (b) b.textContent = open ? 'Shrink..' : 'Expand..';
+    };
+    $$('[data-expand]', box).forEach(b => b.addEventListener('click', () => {
+      const card = b.closest('.contract-card');
+      expand(card, b.textContent === 'Expand..');
+    }));
+    $$('[data-all]', box).forEach(b => b.addEventListener('click', () => $$('.contract-card', box).forEach(card => expand(card, b.dataset.all === 'expand'))));
     drawIcons(box);
   }
 

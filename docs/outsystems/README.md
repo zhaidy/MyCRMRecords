@@ -268,8 +268,17 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       no IsActive, so a row removed is **marked**, not deleted: "X:" goes before its CustomerName and BRN, which then
       match no customer (MyMachines compares them with the customer's), and the row is no longer listed. A row given
       here stores the MyCRM company's name and BRN.
-    - The company Machines tab keeps MyCRM's rule (BRN, contract or warranty ending after today) as **Active**, and adds
-      **All**. A coverage is **Expired** when the contract or warranty has ended, **No contract** otherwise.
+    - The company Machines tab shows **exactly MyMachines' customer page** (decided 2026-11-05, replacing MyCRM's
+      Active / All list of `daily_mif`): Contract machines, Warranty machines, Contract expired machines and Machines
+      without contract, each with MyMachines' own query (`SqlAdvanceMachines.Customer`, also reading `contract`,
+      `contract_lin`, `contract_ip`, `item`, `item2`, `Contract_MeterGroup`, `Contract_MGMember`, `contract_grant` and
+      `Customer_Supp`). Contract expired machines come from `contract_lin` (the latest line by end of the contracts not
+      on instalment payment), not from `daily_mif`, so machines that left `daily_mif` long ago still show (MyMachines
+      had dropped its join to `daily_mif` for that). By BRN, or by the company's name when it has none (MyMachines'
+      filter by customer name). Differences: rows that tie in MyMachines' sort get a fixed order (contract, serial,
+      line); contract expired machines are sorted by serial (MyMachines did not sort them); dates are shown as the rest
+      of MyCRMRecords shows them. The Machines page and **Grouped by coverage** keep `daily_mif`'s coverage, where a
+      coverage is **Expired** when the contract or warranty has ended, **No contract** otherwise.
     - Service calls are filtered by the machine's customer, and by its contract only when it has one (MyMachines always
       filtered by both). **Not shown**: technicians' names (in the Datacenter database's `tech_team`, not connected),
       the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts

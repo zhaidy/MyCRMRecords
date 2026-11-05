@@ -147,6 +147,17 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         return (page.Total, page.Rows.Select(r => new MachineListRow(r, scope.All ? ViaAll : scope.Brns.TryGetValue(brn, out var via) ? via : ViaTemporary, companyId)).ToList(), active);
     }
 
+    /// <summary>
+    /// A company's Machines tab, as MyMachines' customer page shows the customer (<see cref="IAdvanceMachines.Customer"/>):
+    /// by the company's BRN, or by its name when it has no BRN (MyMachines' filter by customer name). Null when the person
+    /// may not see the company's machines.
+    /// </summary>
+    public (Company Company, CustomerMachines Machines)? Customer(Actor actor, long companyId)
+    {
+        if (store.Get<Company>(companyId) is not { } company || !MaySeeCompany(actor, company)) return null;
+        return (company, advance.Customer(Key(company.Brn), Key(company.Brn).Length > 0 ? "" : Key(company.Name), Today(clock())));
+    }
+
     /// <summary>The longest span of months a company's copies are read for (ten years, and the year before to compare).</summary>
     public const int MaxMonths = 132;
     /// <summary>The most years of a company's yearly history.</summary>

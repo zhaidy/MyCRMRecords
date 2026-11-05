@@ -216,12 +216,26 @@ date and size; click a file's name to open its PDF. **Download all** downloads a
 (**Download** when it has one file). **Open in Files** opens the [Files](#files) page with only this company's files.
 Files are uploaded in MyFile.
 
-**Machines**: the company's machines in Advance (found by its BRN), as MyCRM's Machines tab showed them. **Active**
-(the first) lists those whose contract or warranty ends after today; **All** adds those on time and materials, those
-whose contract or warranty has ended and those with none. Each row shows the **Serial** (click it to open the
-machine), **Model**, **Status** (Contract, Warranty, T&M, Expired or No contract), **Contract** number and type,
-**Contract start** and **end**, **Warranty start** and **end** (dates already past are grey) and **Finance type**
-(Internal lease, External lease, Outright or Dealer). On a phone each machine is a card. See [Machines](#machines).
+**Machines**: the company's machines in Advance, exactly as MyMachines' customer page shows the customer (found by
+the company's BRN; a company with no BRN by its name). Four sections, read only:
+
+- **Contract machines**: each contract running today (contracts on instalment payment are left out), its number and
+  its start and end. Under it, its machines (**Serial no**, **Model**, **Item no**, **Cntrct start**, **Cntrct end**
+  and **MGroup**, the machine's meter groups); only the first 3 show until you click **Expand..** (**Shrink..** hides
+  them again; **Expand all** and **Shrink all** do it for every contract). Then its **BW** and **COL** meter groups,
+  each with its **Min bill** and its steps (**Free print**, **Step Rate 1**, **Thereafter**…) with their copies and
+  rate, and the **Free Copies (contract life)** granted, used and remaining.
+- **Warranty machines**: the machines whose warranty is still running, with their **Warranty start** and **end** and
+  the **Extended warranty start** and **end** when the machine has an extended warranty contract.
+- **Contract expired machines**: the machines whose last contract has ended, with that **Contract no** and its
+  **Contract start** and **end**. These come from Advance's contracts, so a machine no longer in Advance's list of
+  machines in the field still shows here.
+- **Machines without contract**: the company's machines that never had a contract (toners and other supplies left
+  out), with their **Install date** and the **Start date** and **End date** of their warranty.
+
+An end date within 180 days (or already past) is red. Click a **Serial no** to open the machine. The tab's number
+counts the contract and warranty machines. **Search machines**, **Usage & history** and **Grouped by coverage** open
+those pages. See [Machines](#machines).
 **Usage & history ›** opens the company's [usage and history](#a-companys-usage-and-history) and **Grouped by
 coverage ›** its [machines by coverage](#a-companys-machines-by-coverage).
 
