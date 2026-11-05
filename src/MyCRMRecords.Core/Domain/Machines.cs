@@ -189,6 +189,9 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         return advance.Customers(brns, Today(clock()));
     }
 
+    /// <summary>The Machines tab of these BRNs, read in bulk (a part of a background download).</summary>
+    public IReadOnlyDictionary<string, CustomerMachines> ForBrns(IReadOnlyCollection<string> brns) => advance.Customers(brns, Today(clock()));
+
     /// <summary>The longest span of months a company's copies are read for (ten years, and the year before to compare).</summary>
     public const int MaxMonths = 132;
     /// <summary>The most years of a company's yearly history.</summary>

@@ -260,7 +260,7 @@ public sealed partial class SqlAdvanceMachines
         // Many BRNs (a download): more time per query, and plans made for the key tables' real sizes (OPTION (RECOMPILE)).
         var many = who == Who.Many;
         var recompile = many ? " OPTION (RECOMPILE)" : "";
-        List<Dictionary<string, object?>> Rows(string sql, params (string, object?)[] parameters) => Query(connection, sql, many ? 600 : 120, parameters);
+        List<Dictionary<string, object?>> Rows(string sql, params (string, object?)[] parameters) => Query(connection, sql, many ? 300 : 120, parameters);
         var empty = new List<Dictionary<string, object?>>();
         // Before a query: the BRNs asked for as @brns. Its customers, by BRN (Customer_Supp) or by customer name.
         var start = many ? KeyTable("@brns", "@brnlist") : "";

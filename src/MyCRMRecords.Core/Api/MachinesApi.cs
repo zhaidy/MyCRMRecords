@@ -29,6 +29,7 @@ public sealed class MachinesApi(CrmApp w)
         try
         {
             if (parts[0] == "machineaccess") return Access(method, parts, body, actor);
+            if (parts.Length == 2 && parts[1] == "download") return Download(method, body, user);
             if (method != "GET") return ApiResponse.NotFound();
             if (!w.Machines.Advance.Available)
                 return ApiResponse.Fail(503, "NOT_CONNECTED", actor.IsAdmin
@@ -140,6 +141,44 @@ public sealed class MachinesApi(CrmApp w)
         }),
         expired = m.Expired.Select(x => new { serial = x.Serial, item = x.Item, model = x.Model, contractNo = x.ContractNo, start = x.Start, end = x.End }),
         noContract = m.NoContract.Select(x => new { serial = x.Serial, item = x.Item, model = x.Model, installed = x.Installed, start = x.Start, end = x.End }),
+    };
+
+    public sealed class DownloadInput
+    {
+        public string? Q { get; set; }
+        public string? CustomerType { get; set; }
+        public string? GroupName { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Show { get; set; }
+    }
+
+    /// <summary>
+    /// machines/download: POST (the Companies page's search, filters and show) starts building those companies' machines
+    /// file in the background, or gives back the person's one still running; GET says how far the person's latest is.
+    /// The file itself: file.ashx/companymachines?job=.
+    /// </summary>
+    private ApiResponse Download(string method, string body, ApiUser user)
+    {
+        if (method == "POST")
+        {
+            var input = Input.Read<DownloadInput>(body) ?? new DownloadInput();
+            var query = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["q"] = input.Q ?? "", ["customerType"] = input.CustomerType ?? "", ["groupName"] = input.GroupName ?? "",
+                ["postalCode"] = input.PostalCode ?? "", ["show"] = input.Show ?? "",
+            };
+            var (job, error) = new FilesApi(w).StartMachinesDownload(query, user);
+            return job is null ? ApiResponse.Fail(503, "NOT_CONNECTED", error) : ApiResponse.Of(new { job = JobOf(job) });
+        }
+        if (method != "GET") return ApiResponse.NotFound();
+        var latest = w.MachineDownloads.Latest(user.Login, w.Clock());
+        return ApiResponse.Of(new { job = latest is null ? null : JobOf(latest) });
+    }
+
+    private static object JobOf(MachineDownloads.Job j) => new
+    {
+        id = j.Id, state = j.State, companies = j.Companies, brns = j.Brns, brnsDone = j.BrnsDone, message = j.Message,
+        fileName = j.FileName, saved = j.Saved, started = j.Started, finished = j.Finished,
     };
 
     /// <summary>The company whose machines are shown: its name and BRN and Advance's customer number, for the page's heading.</summary>

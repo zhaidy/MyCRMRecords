@@ -276,32 +276,72 @@ public sealed class MachinesTests
         Assert.Equal(404, Call(world, TestWorld.Admin, "machines/detail", new() { ["serial"] = "3100R0007" }).Status);
     }
 
+    private static List<Dictionary<string, string>> SheetOf(FileAnswer file, int index)
+    {
+        Assert.Equal(200, file.Status);
+        using var stream = new MemoryStream(file.Content);
+        return Xlsx.Read(stream, index);
+    }
+
     [Fact]
-    public void The_companies_machines_download_has_each_company_s_machines_as_its_Machines_tab_shows_them()
+    public void The_companies_machines_download_is_built_in_the_background_and_saved_by_who_started_it()
     {
         var s = World();
         using var world = s.World;
-        var file = new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string>(), TestWorld.Sam);
-        Assert.Equal(200, file.Status);
+        var jobs = world.D.MachineDownloads;
+        var queued = new List<Action>();
+        jobs.Run = queued.Add;
+        // Started: running until its work is done, and a second start gives the same job back.
+        var started = Call(world, TestWorld.Sam, "machines/download", method: "POST", body: new { show = "" });
+        Assert.Equal(200, started.Status);
+        var job = JObject.Parse(started.Json)["job"]!;
+        Assert.Equal(("Running", 1, 1), ((string)job["state"]!, (int)job["companies"]!, (int)job["brns"]!));
+        var id = (string)job["id"]!;
+        Assert.Equal(id, (string)JObject.Parse(Call(world, TestWorld.Sam, "machines/download", method: "POST", body: new { }).Json)["job"]!["id"]!);
+        Assert.Single(queued);
+        var files = new FilesApi(world.D);
+        var early = files.Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = id }, TestWorld.Sam);
+        Assert.Equal((409, FilesApi.StillPreparing), (early.Status, early.Error));
+        queued[0]();
+        var status = JObject.Parse(Call(world, TestWorld.Sam, "machines/download").Json)["job"]!;
+        Assert.Equal(("Ready", 1, false), ((string)status["state"]!, (int)status["brnsDone"]!, (bool)status["saved"]!));
+        // Only who started it gets the file.
+        Assert.Equal(404, files.Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = id }, TestWorld.Ken).Status);
+        Assert.Equal(JTokenType.Null, JObject.Parse(Call(world, TestWorld.Ken, "machines/download").Json)["job"]!.Type);
+        var file = files.Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = id }, TestWorld.Sam);
         Assert.StartsWith("CompanyMachines-", file.FileName);
-        List<Dictionary<string, string>> Sheet(FileAnswer f, int index)
-        {
-            using var stream = new MemoryStream(f.Content);
-            return Xlsx.Read(stream, index);
-        }
-        var tan = Sheet(file, 0).Single(r => r["Company"] == "Tan");
+        var tan = SheetOf(file, 0).Single(r => r["Company"] == "Tan");
         Assert.Equal(("1", "1", "2", "2"), (tan["Contract machines"], tan["Warranty machines"], tan["Contract expired machines"], tan["Machines without contract"]));
-        var machines = Sheet(file, 1);
+        var machines = SheetOf(file, 1);
         Assert.All(machines, r => Assert.Equal(("Tan", "T1000ABC"), (r["Company"], r["BRN"])));
         Assert.Equal(new[] { "Contract", "Warranty", "Contract expired", "Contract expired", "No contract", "No contract" }, machines.Select(r => r["Section"]));
         Assert.Equal(new[] { "3100R0001", "3100R0002", "3100R0004", "S3089200488", "3100R0003", "3100R0005" }, machines.Select(r => r["Serial no"]));
         Assert.Equal(("CT-1", "BW1,COL1"), (machines[0]["Contract no"], machines[0]["MGroup"]));
+        Assert.True((bool)JObject.Parse(Call(world, TestWorld.Sam, "machines/download").Json)["job"]!["saved"]!);
         // The Company summary stays as it was: one sheet, no machines (it stays quick for every company).
-        var summary = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
-        Assert.DoesNotContain("Contract machines", Sheet(summary, 0).Single(r => r["Company"] == "Tan").Keys);
-        // Without AdvanceConnector the download says so.
+        Assert.DoesNotContain("Contract machines", SheetOf(files.Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam), 0).Single(r => r["Company"] == "Tan").Keys);
+        // Without AdvanceConnector it does not start.
         world.Machines.Available = false;
-        Assert.Equal(503, new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string>(), TestWorld.Sam).Status);
+        Assert.Equal(503, Call(world, TestWorld.Admin, "machines/download", method: "POST", body: new { }).Status);
+    }
+
+    [Fact]
+    public void A_part_Advance_does_not_answer_in_time_is_read_again_in_halves_and_a_BRN_that_still_fails_is_named()
+    {
+        var s = World();
+        using var world = s.World;
+        world.D.MachineDownloads.Run = work => work();
+        world.D.MachineDownloads.ChunkSize = 2;
+        world.Machines.SlowBrns.Add("L2000XYZ");
+        // The admin's three companies, two BRNs at a time: Lim's part times out, is read again one by one, and Lim is left out.
+        var job = JObject.Parse(Call(world, TestWorld.Admin, "machines/download", method: "POST", body: new { }).Json)["job"]!;
+        Assert.Equal("Ready", (string)job["state"]!);
+        Assert.Contains("1 BRN", (string)job["message"]!);
+        Assert.Equal(new[] { 2, 1, 1, 1 }, world.Machines.BulkReads);
+        var file = new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = (string)job["id"]! }, TestWorld.Admin);
+        var companies = SheetOf(file, 0);
+        Assert.Equal("Advance did not answer in time", companies.Single(r => r["Company"] == "Lim")["Note"]);
+        Assert.Equal("1", companies.Single(r => r["Company"] == "Tan")["Contract machines"]);
     }
 
     [Fact]

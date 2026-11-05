@@ -67,6 +67,8 @@ public sealed class CrmApp
     public Machines Machines { get; init; } = null!;
     /// <summary>The big downloads running, one per person and kind at a time (FilesApi).</summary>
     public OneAtATime Downloads { get; } = new();
+    /// <summary>The companies' machines downloads, built in the background (FilesApi.StartMachinesDownload).</summary>
+    public MachineDownloads MachineDownloads { get; } = new();
 
     /// <summary>MyCRM's projects and their temporary territories (in MyCRM's tables).</summary>
     public Projects Projects { get; init; } = null!;
