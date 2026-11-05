@@ -311,8 +311,9 @@ public sealed class MachinesTests
         var file = files.Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = id }, TestWorld.Sam);
         Assert.StartsWith("CompanyMachines-", file.FileName);
         var tan = SheetOf(file, 0).Single(r => r["Company"] == "Tan");
-        Assert.Equal(("1", "1", "2", "2"), (tan["Contract machines"], tan["Warranty machines"], tan["Contract expired machines"], tan["Machines without contract"]));
+        Assert.Equal(("6", "1", "1", "2", "2"), (tan["Total machines"], tan["Contract machines"], tan["Warranty machines"], tan["Contract expired machines"], tan["Machines without contract"]));
         var machines = SheetOf(file, 1);
+        Assert.Equal(6, machines.Count);
         Assert.All(machines, r => Assert.Equal(("Tan", "T1000ABC"), (r["Company"], r["BRN"])));
         Assert.Equal(new[] { "Contract", "Warranty", "Contract expired", "Contract expired", "No contract", "No contract" }, machines.Select(r => r["Section"]));
         Assert.Equal(new[] { "3100R0001", "3100R0002", "3100R0004", "S3089200488", "3100R0003", "3100R0005" }, machines.Select(r => r["Serial no"]));
@@ -341,6 +342,7 @@ public sealed class MachinesTests
         var file = new FilesApi(world.D).Download(FilesApi.CompanyMachines, new Dictionary<string, string> { ["job"] = (string)job["id"]! }, TestWorld.Admin);
         var companies = SheetOf(file, 0);
         Assert.Equal("Advance did not answer in time", companies.Single(r => r["Company"] == "Lim")["Note"]);
+        Assert.False(companies.Single(r => r["Company"] == "Lim").TryGetValue("Total machines", out var none) && none.Length > 0);
         Assert.Equal("1", companies.Single(r => r["Company"] == "Tan")["Contract machines"]);
     }
 
