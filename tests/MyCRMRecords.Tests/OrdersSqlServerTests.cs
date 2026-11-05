@@ -354,7 +354,8 @@ public sealed class OrdersSqlServerTests
         var tanPage = sql.Customer("T1000ABC", "", today);
         Assert.Equal("BW1,COL1", tanPage.Contracts.Single().Machines.Single().Groups);
         Assert.Equal(new[] { "3100R0004", "S3089200488" }, tanPage.Expired.Select(x => x.Serial));
-        Assert.Equal(new[] { "3100R0003", "3100R0005" }, tanPage.NoContract.Select(x => x.Serial));
+        // The dealer machines added above have no contract line either.
+        Assert.Equal(new[] { "3100R0003", "3100R0005", "6100D0001", "6100D0002" }, tanPage.NoContract.Select(x => x.Serial));
         Assert.Equal(new DateTime(2027, 3, 15), tanPage.Warranty.Single().ExtendedStart);
         // The connection test finds every table and column by MyMachines' names; a wrong table name shows.
         settings.Connections.AdvanceTables.CustomerSupp = "dbo.daily_mif";
