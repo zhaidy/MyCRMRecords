@@ -145,7 +145,7 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
     {
         var m = Rows("daily_mif").Where(r => Same(r["serial_no"], serial) && (item.Trim().Length == 0 || Same(r["item_no"], item)))
             .OrderByDescending(r => r.Date("trans_date")).FirstOrDefault();
-        if (m is null) return null;
+        if (m is null) return FromHistory(serial, item, today);
         var r = AsRead(m);
         var customer = Rows("customer").FirstOrDefault(c => Same(c["Cust_no"], OutSystemsValues.Text(m["cust_no"])));
         r["Address"] = customer?.Get("Address");
@@ -266,6 +266,59 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
         return row;
     }
 
+    /// <summary>The latest contract line of each serial (by end) of the contracts not on instalment payment, as SqlAdvanceMachines ranks them.</summary>
+    private List<Dictionary<string, object?>> Latest()
+    {
+        var ips = Rows("contract_ip");
+        return Rows("contract_lin").Where(l => !ips.Any(ip => ip.Get("contract_no") is not null && Same(ip.Get("contract_no"), T(l.Get("Contract_no")))))
+            .GroupBy(l => T(l.Get("Serial_no")).ToUpperInvariant())
+            .Select(g => g.OrderByDescending(l => D(l.Get("Cntrct_end")), Dates).ThenByDescending(l => T(l.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(l => N(l.Get("Line_no"))).First())
+            .ToList();
+    }
+
+    /// <summary>A serial daily_mif does not have, from the contract history, as <see cref="SqlAdvanceMachines"/>' FromHistory reads it.</summary>
+    private MachineDetail? FromHistory(string serial, string item, DateTime today)
+    {
+        var ips = Rows("contract_ip");
+        // Any line of the serial (and item) not on instalment payment, the latest by end (rank 1 is its serial's latest).
+        var lines = Rows("contract_lin").Where(l => Same(l.Get("Serial_no"), serial) && (item.Trim().Length == 0 || Same(l.Get("Item_no"), item))
+                                                    && !ips.Any(ip => ip.Get("contract_no") is not null && Same(ip.Get("contract_no"), T(l.Get("Contract_no")))))
+            .Select(l => (l, c: Rows("contract").FirstOrDefault(c => Same(c.Get("Contract_no"), T(l.Get("Contract_no"))))))
+            .Where(x => x.c is not null)
+            .OrderByDescending(x => D(x.l.Get("Cntrct_end")), Dates).ThenByDescending(x => T(x.l.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(x => N(x.l.Get("Line_no")))
+            .ToList();
+        if (lines.Count == 0) return null;
+        var (line, contract) = lines[0];
+        var custNo = T(contract!.Get("Cust_no"));
+        var customer = Rows("customer").FirstOrDefault(c => Same(c.Get("Cust_no"), custNo));
+        var brn = Rows("Customer_Supp").Where(b => Same(b.Get("Cust_no"), custNo)).Select(b => T(b.Get("Business_reg"))).OrderBy(b => b, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        var it = Rows("item").FirstOrDefault(i => Same(i.Get("Item_no"), T(line.Get("Item_no"))));
+        var sx = Rows("serial").Where(x => Same(x.Get("Serial_no"), T(line.Get("Serial_no"))) && Same(x.Get("Item_no"), T(line.Get("Item_no"))))
+            .OrderByDescending(x => D(x.Get("Trans_date")), Dates).FirstOrDefault();
+        var r = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Serial"] = line.Get("Serial_no"), ["Item"] = line.Get("Item_no"), ["Model"] = it?.Get("Description"), ["Description"] = it?.Get("Description"),
+            ["ProdGroup"] = it?.Get("Prod_group"), ["CustNo"] = contract.Get("Cust_no"), ["CustName"] = customer?.Get("Name"), ["Brn"] = brn, ["MifType"] = "",
+            ["ContractNo"] = line.Get("Contract_no"), ["ContractType"] = contract.Get("Contract_typ"), ["ContractStart"] = line.Get("Cntrct_start"),
+            ["ContractEnd"] = line.Get("Cntrct_end"), ["SellStart"] = sx?.Get("Sell_start"), ["SellEnd"] = sx?.Get("Sell_end"), ["ServiceRef"] = "", ["InvoiceRef"] = "",
+            ["ContractRef"] = "", ["FinanceCode"] = sx?.Get("Serial_stat"), ["Installed"] = sx?.Get("Install_date"), ["Location"] = sx?.Get("Location"),
+            ["SerialContact"] = sx?.Get("Primary_con"), ["SerialPhone"] = sx?.Get("Primary_phon"), ["Address"] = customer?.Get("Address"), ["City"] = customer?.Get("City"),
+            ["Zip"] = customer?.Get("Zip_code"), ["Telephone"] = customer?.Get("Telephone"), ["CustomerContact"] = customer?.Get("Contact"),
+        };
+        return SqlAdvanceMachines.Detail(r, today);
+    }
+
+    /// <summary>Many customers' Machines tabs, as <see cref="SqlAdvanceMachines.Customers"/> reads them: each BRN's own page.</summary>
+    public IReadOnlyDictionary<string, CustomerMachines> Customers(IReadOnlyCollection<string> brns, DateTime today)
+    {
+        var answer = new Dictionary<string, CustomerMachines>(StringComparer.OrdinalIgnoreCase);
+        foreach (var brn in brns.Select(b => (b ?? "").Trim()).Where(b => b.Length > 0))
+            if (!answer.ContainsKey(brn)) answer[brn] = Customer(brn, "", today);
+        return answer;
+    }
+
     /// <summary>MyMachines' customer page, as <see cref="SqlAdvanceMachines.Customer"/> reads it (its joins, filters and order).</summary>
     public CustomerMachines Customer(string brn, string name, DateTime today)
     {
@@ -345,12 +398,7 @@ public sealed class FakeAdvanceMachines : IAdvanceMachines
             .Where(r => r is not null).Select(r => r!)
             .ToList();
 
-        // The latest contract line of each serial (by end) of the contracts not on instalment payment.
-        var latest = Rows("contract_lin").Where(l => !OnIp(l.Get("Contract_no")))
-            .GroupBy(l => T(l.Get("Serial_no")).ToUpperInvariant())
-            .Select(g => g.OrderByDescending(l => D(l.Get("Cntrct_end")), Dates).ThenByDescending(l => T(l.Get("Contract_no")), StringComparer.OrdinalIgnoreCase)
-                .ThenByDescending(l => N(l.Get("Line_no"))).First())
-            .ToList();
+        var latest = Latest();
         var expired = (from c in Rows("contract")
                 from cl in Rows("contract_lin") where Same(cl.Get("Contract_no"), T(c.Get("Contract_no")))
                 from cu in Rows("customer") where Same(cu.Get("Cust_no"), T(c.Get("Cust_no")))

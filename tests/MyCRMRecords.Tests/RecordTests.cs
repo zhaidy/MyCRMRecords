@@ -180,14 +180,15 @@ public sealed class RecordTests
     public void The_machines_have_no_way_to_change_Advance()
     {
         // Advance's machines are only read: IAdvanceMachines has no method that writes, and its SQL has no statement that could.
-        Assert.Equal(new[] { "Customer", "CustomerEmails", "DealerSold", "Get", "LastContract", "Meters", "MonthlyCopies", "Search", "Services", "Toner", "YearlyCopies", "get_Available" },
+        Assert.Equal(new[] { "Customer", "CustomerEmails", "Customers", "DealerSold", "Get", "LastContract", "Meters", "MonthlyCopies", "Search", "Services", "Toner", "YearlyCopies", "get_Available" },
             typeof(IAdvanceMachines).GetMethods().Select(m => m.Name).OrderBy(n => n, StringComparer.Ordinal));
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "src", "MyCRMRecords.Core"))) root = root.Parent;
         Assert.NotNull(root);
         foreach (var file in new[] { "AdvanceMachines.cs", "AdvanceCustomerMachines.cs" })
         {
-            var source = File.ReadAllText(Path.Combine(root!.FullName, "src", "MyCRMRecords.Core", "Data", file));
+            // The only INSERT allowed: into a query's own table variable (the BRNs or contracts asked for), which writes nothing in Advance.
+            var source = File.ReadAllText(Path.Combine(root!.FullName, "src", "MyCRMRecords.Core", "Data", file)).Replace("INSERT INTO {variable} ([k])", "");
             foreach (var word in new[] { "INSERT ", "UPDATE ", "DELETE ", "MERGE ", "TRUNCATE ", "BeginTransaction", "Execute(", "MyCrmStore", ".Insert(", ".Update(", "Batch(" })
                 Assert.DoesNotContain(word, source, StringComparison.OrdinalIgnoreCase);
         }

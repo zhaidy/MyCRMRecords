@@ -208,7 +208,10 @@ public interface IAdvanceMachines
     bool Available { get; }
     /// <summary>A page of machines matching the search, by customer and serial number, and how many match.</summary>
     MachinePage Search(MachineSearch search);
-    /// <summary>A machine by serial number (and item number when given; else its latest row), or null.</summary>
+    /// <summary>
+    /// A machine by serial number (and item number when given; else its latest row), or null. A serial daily_mif no longer
+    /// has is read from Advance's contract history instead (its latest contract line, as Contract expired machines shows it).
+    /// </summary>
     MachineDetail? Get(string serial, string item, DateTime today);
     /// <summary>The copies billed per invoice since <paramref name="from"/>, newest first (of the contract, when there is one).</summary>
     IReadOnlyList<MeterReading> Meters(string serial, string contractNo, DateTime from);
@@ -245,6 +248,11 @@ public interface IAdvanceMachines
     /// by customer name).
     /// </summary>
     CustomerMachines Customer(string brn, string name, DateTime today);
+    /// <summary>
+    /// The Machines tab of many customers at once, by BRN (the Company summary download): each BRN asked for (trimmed, case
+    /// ignored) with what <see cref="Customer"/> gives it, read with one query per section whatever the number of BRNs.
+    /// </summary>
+    IReadOnlyDictionary<string, CustomerMachines> Customers(IReadOnlyCollection<string> brns, DateTime today);
 }
 
 /// <summary>Where Advance e-mails a customer's invoices and statements of account for a contract (Email_Master).</summary>
@@ -432,7 +440,7 @@ public sealed partial class SqlAdvanceMachines(ExternalDatabases databases, Func
             $"OUTER APPLY (SELECT TOP 1 * FROM {c} cr WHERE cr.{c["Cust_no"]} = m.{m["cust_no"]}) cu " +
             $"WHERE m.{m["serial_no"]} = @serial{itemSql} ORDER BY m.{m["trans_date"]} DESC",
             ("@serial", serial.Trim()), ("@item", item.Trim()));
-        return rows.Count == 0 ? null : Detail(rows[0], today);
+        return rows.Count == 0 ? FromHistory(connection, serial, item, today) : Detail(rows[0], today);
     });
 
     /// <summary>A machine's page from its row (the SQL's, or the fake's with the same names).</summary>

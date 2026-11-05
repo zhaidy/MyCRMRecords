@@ -101,7 +101,26 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
         search.Take = PageSize;
         search.LastServiced = true;
         var page = advance.Search(search);
+        if (page.Total == 0 && search.Skip == 0 && search.Keyword.Length >= SearchFrom && FromHistory(scope, search) is { } old)
+            return (1, Rows(scope, [old]), false);
         return (page.Total, Rows(scope, page.Rows), false);
+    }
+
+    /// <summary>
+    /// A machine no longer in daily_mif found by its exact serial number in Advance's contract history (as the company's
+    /// Machines tab lists it under Contract expired machines), when the person sees it and it fits the coverage and finance
+    /// type chosen. Not searched by name: only the exact serial is cheap there.
+    /// </summary>
+    private MachineRow? FromHistory(MachineScope scope, MachineSearch search)
+    {
+        if (advance.Get(search.Keyword, "", search.Today) is not { } found) return null;
+        var m = found.Machine;
+        if (!Strings.SameText(m.Serial, search.Keyword) || !scope.Sees(m)) return null;
+        if (search.Coverage.Length > 0 && !(search.Coverage == Coverages.Active ? m.Active : m.Coverage == search.Coverage)) return null;
+        if (search.Finance.Length > 0 && !(search.Finance == FinanceTypes.NoneKey
+                ? FinanceTypes.NameOf(m.FinanceCode).Length == 0
+                : string.Equals(m.FinanceCode, search.Finance, StringComparison.OrdinalIgnoreCase))) return null;
+        return m;
     }
 
     private static void Limit(MachineSearch search, MachineScope scope)
@@ -156,6 +175,18 @@ public sealed class Machines(IAdvanceMachines advance, IMyMachinesAccess tempora
     {
         if (store.Get<Company>(companyId) is not { } company || !MaySeeCompany(actor, company)) return null;
         return (company, advance.Customer(Key(company.Brn), Key(company.Brn).Length > 0 ? "" : Key(company.Name), Today(clock())));
+    }
+
+    /// <summary>
+    /// The Machines tab of the companies of a download (the Company summary), by their BRNs, read in bulk: BRN → what the
+    /// tab shows. Companies without a BRN get nothing (the tab finds those by name, one at a time). Empty when
+    /// AdvanceConnector is not set up. The download lists only companies the person may open, so it checks no more.
+    /// </summary>
+    public IReadOnlyDictionary<string, CustomerMachines> ForDownload(IEnumerable<Company> companies)
+    {
+        if (!advance.Available) return new Dictionary<string, CustomerMachines>(StringComparer.OrdinalIgnoreCase);
+        var brns = companies.Select(c => Key(c.Brn)).Where(b => b.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return advance.Customers(brns, Today(clock()));
     }
 
     /// <summary>The longest span of months a company's copies are read for (ten years, and the year before to compare).</summary>

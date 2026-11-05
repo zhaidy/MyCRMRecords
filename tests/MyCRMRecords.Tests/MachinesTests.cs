@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using MyCRMRecords.Documents;
 
 namespace MyCRMRecords.Tests;
 
@@ -249,6 +250,56 @@ public sealed class MachinesTests
         var byName = world.Machines.Customer("", "TAN PTE LTD", new DateTime(2026, 10, 17));
         Assert.Equal(new[] { "CT-1" }, byName.Contracts.Select(c => c.ContractNo));
         Assert.Empty(world.Machines.Customer("", "", new DateTime(2026, 10, 17)).Expired);
+    }
+
+    [Fact]
+    public void A_machine_no_longer_in_daily_mif_opens_from_its_contract_history_and_is_found_by_its_exact_serial()
+    {
+        var s = World();
+        using var world = s.World;
+        // S3089200488 is only in Tan's contract history (contract CT-0, ended 2011).
+        var detail = Call(world, TestWorld.Sam, "machines/detail", new() { ["serial"] = "S3089200488" });
+        Assert.Equal(200, detail.Status);
+        var machine = JObject.Parse(detail.Json)["machine"]!;
+        Assert.Equal(("CT-0", "TAN PTE LTD", "T1000ABC", Coverages.Expired, "406138 AFICIO SPC222SF;"),
+            ((string)machine["contractNo"]!, (string)machine["customer"]!, (string)machine["brn"]!, (string)machine["coverage"]!, (string)machine["model"]!));
+        Assert.Equal(s.Tan.Id, (long)machine["companyId"]!);
+        // Seen by the company rule, as any machine.
+        Assert.Equal(403, Call(world, TestWorld.Ken, "machines/detail", new() { ["serial"] = "S3089200488" }).Status);
+        // The Machines page finds it by its exact serial number only, with the coverage and finance filters.
+        Assert.Equal(new[] { "S3089200488" }, Serials(world, TestWorld.Sam, ("q", "S3089200488")));
+        Assert.Equal(new[] { "S3089200488" }, Serials(world, TestWorld.Sam, ("q", "s3089200488"), ("coverage", Coverages.Expired)));
+        Assert.Empty(Serials(world, TestWorld.Sam, ("q", "S30892")));
+        Assert.Empty(Serials(world, TestWorld.Sam, ("q", "S3089200488"), ("coverage", Coverages.Contract)));
+        Assert.Empty(Serials(world, TestWorld.Ken, ("q", "S3089200488")));
+        // A line on instalment payment only: not a machine of the history.
+        Assert.Equal(404, Call(world, TestWorld.Admin, "machines/detail", new() { ["serial"] = "3100R0007" }).Status);
+    }
+
+    [Fact]
+    public void The_company_summary_download_has_each_company_s_machines_as_its_Machines_tab_shows_them()
+    {
+        var s = World();
+        using var world = s.World;
+        var file = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
+        Assert.Equal(200, file.Status);
+        List<Dictionary<string, string>> Sheet(int index)
+        {
+            using var stream = new MemoryStream(file.Content);
+            return Xlsx.Read(stream, index);
+        }
+        var tan = Sheet(0).Single(r => r["Company"] == "Tan");
+        Assert.Equal(("1", "1", "2", "2"), (tan["Contract machines"], tan["Warranty machines"], tan["Contract expired machines"], tan["Machines without contract"]));
+        var machines = Sheet(1);
+        Assert.All(machines, r => Assert.Equal(("Tan", "T1000ABC"), (r["Company"], r["BRN"])));
+        Assert.Equal(new[] { "Contract", "Warranty", "Contract expired", "Contract expired", "No contract", "No contract" }, machines.Select(r => r["Section"]));
+        Assert.Equal(new[] { "3100R0001", "3100R0002", "3100R0004", "S3089200488", "3100R0003", "3100R0005" }, machines.Select(r => r["Serial no"]));
+        Assert.Equal(("CT-1", "BW1,COL1"), (machines[0]["Contract no"], machines[0]["MGroup"]));
+        // Without AdvanceConnector the sheet says so, and the companies are still there.
+        world.Machines.Available = false;
+        file = new FilesApi(world.D).Download(FilesApi.CompanySummary, new Dictionary<string, string>(), TestWorld.Sam);
+        Assert.Equal("0", Sheet(0).Single(r => r["Company"] == "Tan")["Contract machines"]);
+        Assert.Contains("AdvanceConnector is not set up", string.Join(" ", Sheet(1).SelectMany(r => r.Values).Concat(Sheet(1).SelectMany(r => r.Keys))));
     }
 
     [Fact]

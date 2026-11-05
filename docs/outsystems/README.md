@@ -279,6 +279,12 @@ nothing, and marks what it removes in MyCRM (`ISACTIVE = 0` where the table has 
       line); contract expired machines are sorted by serial (MyMachines did not sort them); dates are shown as the rest
       of MyCRMRecords shows them. The Machines page and **Grouped by coverage** keep `daily_mif`'s coverage, where a
       coverage is **Expired** when the contract or warranty has ended, **No contract** otherwise.
+    - **Beyond MyMachines** (decided 2026-11-05): a machine no longer in `daily_mif` opens from its latest contract line
+      (of the contracts not on instalment payment, as Contract expired machines picks it; `SqlAdvanceMachines.Get` falls
+      back to it), where MyMachines' machine page found nothing; the Machines page finds such a machine by its exact
+      serial number only (MyMachines' search read `daily_mif` alone); the tab's count and the Overview tile count all
+      four sections; and the Company summary download (MyCRM's report 09) adds each company's machines by BRN, read in
+      bulk with the tab's queries (`IAdvanceMachines.Customers`, the BRNs and contracts in table variables).
     - Service calls are filtered by the machine's customer, and by its contract only when it has one (MyMachines always
       filtered by both). **Not shown**: technicians' names (in the Datacenter database's `tech_team`, not connected),
       the parts of a toner order (`SL_Parts_List2`, a function in Advance whose body is not known), MyMachines' charts
